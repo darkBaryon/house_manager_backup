@@ -1,0 +1,20 @@
+.idea
+*.exe
+.vscode
+debug
+.log
+etc
+vendor
+shell
+*.xlsx
+*.cer
+# *.pem
+*.p12
+conf
+.DS_Store
+
+# Wire 生成文件（由脚本自动生成，禁止提交）
+wire/wire_gen.go
+
+# 编译产物
+bin/
