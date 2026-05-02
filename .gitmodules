@@ -1,0 +1,4 @@
+[submodule "shared-docs"]
+	path = shared-docs
+	url = https://gitlab.zxiaowo.com/ai-house/shared-docs-repo.git
+	branch = main
