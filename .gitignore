@@ -18,3 +18,11 @@ wire/wire_gen.go
 
 # 编译产物
 bin/
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Local notes
+.local-notes/

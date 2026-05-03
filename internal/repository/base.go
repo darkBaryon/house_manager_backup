@@ -27,7 +27,7 @@ func NewRepository[T any](coll *mongo.Collection) *Repository[T] {
 // FindById 根据 ID 查询单条记录
 func (r *Repository[T]) FindById(ctx context.Context, id bson.ObjectID) (*T, error) {
 	var entity T
-	if err := r.Collection.FindOne(ctx, bson.M{"id": id}).Decode(&entity); err != nil {
+	if err := r.Collection.FindOne(ctx, bson.M{"_id": id}).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
@@ -138,7 +138,7 @@ func (r *Repository[T]) Upsert(ctx context.Context, filter bson.M, update any) (
 
 // UpdateById 根据 ID 局部更新（传入 bson.M/D 等更新表达式）
 func (r *Repository[T]) UpdateById(ctx context.Context, id bson.ObjectID, update any) error {
-	res, err := r.Collection.UpdateOne(ctx, bson.M{"id": id}, update)
+	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id}, update)
 	if err != nil {
 		return fmt.Errorf("update by id: %w", err)
 	}
@@ -150,7 +150,7 @@ func (r *Repository[T]) UpdateById(ctx context.Context, id bson.ObjectID, update
 
 // ReplaceById 根据 ID 整体替换文档
 func (r *Repository[T]) ReplaceById(ctx context.Context, id bson.ObjectID, entity *T) error {
-	res, err := r.Collection.ReplaceOne(ctx, bson.M{"id": id}, entity)
+	res, err := r.Collection.ReplaceOne(ctx, bson.M{"_id": id}, entity)
 	if err != nil {
 		return fmt.Errorf("replace by id: %w", err)
 	}
@@ -164,7 +164,7 @@ func (r *Repository[T]) ReplaceById(ctx context.Context, id bson.ObjectID, entit
 
 // DeleteById 根据 ID 删除单条文档
 func (r *Repository[T]) DeleteById(ctx context.Context, id bson.ObjectID) error {
-	res, err := r.Collection.DeleteOne(ctx, bson.M{"id": id})
+	res, err := r.Collection.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
 		return fmt.Errorf("delete by id: %w", err)
 	}

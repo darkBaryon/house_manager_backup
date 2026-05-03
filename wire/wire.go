@@ -9,13 +9,12 @@ import (
 	"github.com/google/wire"
 )
 
-func InitializeApp(cfgPath string) (*app.App, func(), error) {
+func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 	wire.Build(
-		config.Load,
 		InfraSet,
 		RoomSet,
 		HealthSet,
-		newRouteGroups,
+		RouterSet,
 		app.NewApp,
 	)
 	return nil, nil, nil

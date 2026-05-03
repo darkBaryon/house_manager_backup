@@ -1,16 +1,16 @@
 server:
   port: 8080
-  mode: debug
+  mode: release
 
 mongodb:
   addrs:
-    - "localhost:27017"
-  database: "house_manager"
+    - "127.0.0.1:27018"
+  database: "house_manager_test"
   auth_source: "admin"
   username: ""
   password: ""
-  pool_size: 100
-  min_pool_size: 10
+  pool_size: 50
+  min_pool_size: 5
   connect_timeout: 10
   socket_timeout: 30
   server_selection_timeout: 10
@@ -19,11 +19,11 @@ mongodb:
 
 redis:
   addrs:
-    - "localhost:6379"
+    - "127.0.0.1:6380"
   password: ""
-  db: 0
-  pool_size: 100
-  min_idle_conns: 10
+  db: 1
+  pool_size: 50
+  min_idle_conns: 5
   conn_timeout: 5
   read_timeout: 3
   write_timeout: 3
@@ -33,3 +33,6 @@ redis:
 log:
   level: "info"
   format: "json"
+  add_source: false
+  service: "house-manager"
+  env: "test"

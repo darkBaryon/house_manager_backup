@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-const DefaultConfig = "/etc/config.yaml"
+const DefaultConfig = "config/config.local.yaml"
 
 func Resolve(cliPath string) (string, error) {
 	path := DefaultConfig

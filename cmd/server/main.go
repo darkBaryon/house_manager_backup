@@ -9,13 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"house-manager/internal/config"
 	"house-manager/pkg/configpath"
 	"house-manager/pkg/logger"
 	"house-manager/wire"
 )
 
 func main() {
-	cfgFile := flag.String("c", "/etc/config.yaml", "config file path")
+	cfgFile := flag.String("c", "", "config file path")
 	flag.Parse()
 
 	cfgPath, err := configpath.Resolve(*cfgFile)
@@ -24,15 +25,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	appl, cleanup, err := wire.InitializeApp(cfgPath)
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+
+	if err := logger.Init(logger.Config{
+		Level:     cfg.Log.Level,
+		Format:    cfg.Log.Format,
+		AddSource: cfg.Log.AddSource,
+		Service:   cfg.Log.Service,
+		Env:       cfg.Log.Env,
+		Fields:    cfg.Log.Fields,
+	}, os.Stdout); err != nil {
+		slog.Error("failed to initialize logger", "error", err)
+		os.Exit(1)
+	}
+
+	appl, cleanup, err := wire.InitializeApp(cfg)
 	if err != nil {
 		slog.Error("failed to initialize app", "error", err)
 		os.Exit(1)
 	}
 	defer cleanup()
 
-	logger.Init(appl.Config.Log.Level, appl.Config.Log.Format, os.Stdout)
-	slog.Info("config loaded", "path", cfgPath)
 	slog.Info("infrastructure check passed")
 
 	// 启动 HTTP Server

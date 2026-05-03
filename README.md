@@ -70,11 +70,24 @@ return []app.RouteGroup{
 
 ```bash
 # 启动依赖（MongoDB + Redis）
-go run cmd/server/main.go
+./dev.sh
 
-# 指定配置
-go run cmd/server/main.go -c /path/to/config.yaml
+# 启动服务（本地配置）
+go run ./cmd/server -c ./config/config.local.yaml
+
+# 指定配置文件启动
+go run cmd/server/main.go -c ./config/config.test.yaml
 ```
+
+## 配置架构
+
+- 默认读取 `./config/config.local.yaml`（若未传 `-c`）
+- 可用 `-c` 显式覆盖配置文件路径
+- 敏感信息通过环境变量覆盖（前缀 `HM_`）
+  - `HM_MONGODB_USERNAME`
+  - `HM_MONGODB_PASSWORD`
+  - `HM_REDIS_PASSWORD`
+- 示例见 `.env.example`
 
 ## 开发命令
 

@@ -4,23 +4,29 @@ import (
 	"house-manager/internal/app"
 	"house-manager/internal/handler"
 	"house-manager/internal/middleware"
-	v1handler "house-manager/internal/handler/v1"
-	v2handler "house-manager/internal/handler/v2"
 	"house-manager/pkg/session"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/wire"
 )
 
 func newRouteGroups(
-	roomH *v1handler.RoomHandler,
-	healthH *v1handler.HealthHandler,
-	v2RoomH *v2handler.RoomHandler,
+	internalV1 internalV1Registrars,
+	publicV1 publicV1Registrars,
+	protectedV1 protectedV1Registrars,
 	store *session.Store,
 ) []app.RouteGroup {
 	auth := middleware.Auth(store)
 	return []app.RouteGroup{
-		{Prefix: "/api/v1", Registrars: []handler.RouteRegistrar{healthH}},
-		{Prefix: "/api/v1", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar{roomH}},
-		{Prefix: "/api/v2", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar{v2RoomH}},
+		{Prefix: "/api/v1", Registrars: []handler.RouteRegistrar(internalV1)},
+		{Prefix: "/api/v1", Registrars: []handler.RouteRegistrar(publicV1)},
+		{Prefix: "/api/v1", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar(protectedV1)},
 	}
 }
+
+var RouterSet = wire.NewSet(
+	newInternalV1Registrars,
+	newPublicV1Registrars,
+	newProtectedV1Registrars,
+	newRouteGroups,
+)

@@ -7,7 +7,8 @@ import (
 	"house-manager/internal/config"
 	"house-manager/internal/middleware"
 	"house-manager/pkg/cache"
-	"house-manager/pkg/database"
+	dbmongo "house-manager/pkg/database/mongo"
+	dbredis "house-manager/pkg/database/redis"
 	"house-manager/pkg/session"
 
 	"github.com/gin-gonic/gin"
@@ -15,36 +16,12 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func newMongoConfig(cfg *config.Config) database.MongoConfig {
-	return database.MongoConfig{
-		Addrs:                  cfg.MongoDB.Addrs,
-		Database:               cfg.MongoDB.Database,
-		AuthSource:             cfg.MongoDB.AuthSource,
-		Username:               cfg.MongoDB.Username,
-		Password:               cfg.MongoDB.Password,
-		PoolSize:               cfg.MongoDB.PoolSize,
-		MinPoolSize:            cfg.MongoDB.MinPoolSize,
-		ConnectTimeout:         cfg.MongoDB.ConnectTimeout,
-		SocketTimeout:          cfg.MongoDB.SocketTimeout,
-		ServerSelectionTimeout: cfg.MongoDB.ServerSelectionTimeout,
-		MaxRetries:             cfg.MongoDB.MaxRetries,
-		ReplicaSet:             cfg.MongoDB.ReplicaSet,
-	}
+func newMongoClient(ctx context.Context, cfg *config.Config) (*dbmongo.Client, error) {
+	return dbmongo.NewClient(ctx, cfg.MongoDB)
 }
 
-func newRedisConfig(cfg *config.Config) database.RedisConfig {
-	return database.RedisConfig{
-		Addrs:        cfg.Redis.Addrs,
-		Password:     cfg.Redis.Password,
-		DB:           cfg.Redis.DB,
-		PoolSize:     cfg.Redis.PoolSize,
-		MinIdleConns: cfg.Redis.MinIdleConns,
-		ConnTimeout:  cfg.Redis.ConnTimeout,
-		ReadTimeout:  cfg.Redis.ReadTimeout,
-		WriteTimeout: cfg.Redis.WriteTimeout,
-		MaxRetries:   cfg.Redis.MaxRetries,
-		ClusterMode:  cfg.Redis.ClusterMode,
-	}
+func newRedisClient(ctx context.Context, cfg *config.Config) (*dbredis.Client, error) {
+	return dbredis.NewClient(ctx, cfg.Redis)
 }
 
 func newEngine(cfg *config.Config) *gin.Engine {
@@ -56,12 +33,12 @@ func newEngine(cfg *config.Config) *gin.Engine {
 	return engine
 }
 
-func newCache(rc database.RedisClient) *cache.Cache {
-	return cache.New(cache.NewRedisAdapter(rc))
+func newCache(rc *dbredis.Client) *cache.Cache {
+	return cache.New(rc)
 }
 
-func newSessionStore(rc database.RedisClient) *session.Store {
-	return session.NewStore(cache.NewRedisAdapter(rc), 30*time.Minute)
+func newSessionStore(rc *dbredis.Client) *session.Store {
+	return session.NewStore(rc, 30*time.Minute)
 }
 
 func newContext() context.Context {
@@ -70,10 +47,9 @@ func newContext() context.Context {
 
 var InfraSet = wire.NewSet(
 	newContext,
-	newMongoConfig,
-	newRedisConfig,
-	database.NewMongoClient,
-	database.NewRedisClient,
+	newMongoClient,
+	newRedisClient,
 	newEngine,
+	newCache,
 	newSessionStore,
 )

@@ -1,0 +1,38 @@
+server:
+  port: 8080
+  mode: release
+
+mongodb:
+  addrs:
+    - "127.0.0.1:27017"
+  database: "house_manager"
+  auth_source: "admin"
+  username: ""
+  password: ""
+  pool_size: 200
+  min_pool_size: 20
+  connect_timeout: 10
+  socket_timeout: 30
+  server_selection_timeout: 10
+  max_retries: 3
+  replica_set: ""
+
+redis:
+  addrs:
+    - "127.0.0.1:6379"
+  password: ""
+  db: 0
+  pool_size: 200
+  min_idle_conns: 20
+  conn_timeout: 5
+  read_timeout: 3
+  write_timeout: 3
+  max_retries: 3
+  cluster_mode: false
+
+log:
+  level: "info"
+  format: "json"
+  add_source: false
+  service: "house-manager"
+  env: "prod"

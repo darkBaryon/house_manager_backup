@@ -1,34 +1,123 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"strings"
 )
 
-func Init(level, format string, w io.Writer) {
-	var lvl slog.Level
-	switch strings.ToLower(level) {
+type Format string
+
+const (
+	FormatText Format = "text"
+	FormatJSON Format = "json"
+)
+
+type Config struct {
+	Level     string
+	Format    string
+	AddSource bool
+	Service   string
+	Env       string
+	Fields    map[string]any
+}
+
+func ParseLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "", "info":
+		return slog.LevelInfo, nil
 	case "debug":
-		lvl = slog.LevelDebug
-	case "info":
-		lvl = slog.LevelInfo
-	case "warn":
-		lvl = slog.LevelWarn
+		return slog.LevelDebug, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
 	case "error":
-		lvl = slog.LevelError
+		return slog.LevelError, nil
 	default:
-		lvl = slog.LevelInfo
+		return slog.LevelInfo, fmt.Errorf("invalid log level: %q", level)
+	}
+}
+
+func ParseFormat(format string) (Format, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", string(FormatText):
+		return FormatText, nil
+	case string(FormatJSON):
+		return FormatJSON, nil
+	default:
+		return FormatText, fmt.Errorf("invalid log format: %q", format)
+	}
+}
+
+func New(cfg Config, w io.Writer) (*slog.Logger, error) {
+	level, err := ParseLevel(cfg.Level)
+	if err != nil {
+		return nil, err
 	}
 
-	opts := &slog.HandlerOptions{Level: lvl}
+	format, err := ParseFormat(cfg.Format)
+	if err != nil {
+		return nil, err
+	}
+
+	if w == nil {
+		w = os.Stdout
+	}
+
+	opts := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: cfg.AddSource,
+	}
 
 	var handler slog.Handler
-	if format == "json" {
+	switch format {
+	case FormatJSON:
 		handler = slog.NewJSONHandler(w, opts)
-	} else {
-		handler = slog.NewTextHandler(w, opts)
+	case FormatText:
+		handler = newPrettyTextHandler(w, opts)
+	default:
+		return nil, fmt.Errorf("unsupported log format: %q", format)
 	}
 
-	slog.SetDefault(slog.New(handler))
+	logger := slog.New(handler)
+
+	attrs := make([]any, 0, len(cfg.Fields)+2)
+	if cfg.Service != "" {
+		attrs = append(attrs, "service", cfg.Service)
+	}
+	if cfg.Env != "" {
+		attrs = append(attrs, "env", cfg.Env)
+	}
+	for k, v := range cfg.Fields {
+		attrs = append(attrs, k, v)
+	}
+	if len(attrs) > 0 {
+		logger = logger.With(attrs...)
+	}
+
+	return logger, nil
+}
+
+func MustNew(cfg Config, w io.Writer) *slog.Logger {
+	l, err := New(cfg, w)
+	if err != nil {
+		panic(err)
+	}
+	return l
+}
+
+func Init(cfg Config, w io.Writer) error {
+	l, err := New(cfg, w)
+	if err != nil {
+		return err
+	}
+	slog.SetDefault(l)
+	return nil
+}
+
+func MustInit(cfg Config, w io.Writer) {
+	if err := Init(cfg, w); err != nil {
+		panic(err)
+	}
 }

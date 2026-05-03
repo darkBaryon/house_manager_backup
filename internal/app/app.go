@@ -8,10 +8,10 @@ import (
 
 	"house-manager/internal/config"
 	"house-manager/internal/handler"
-	"house-manager/pkg/database"
+	dbmongo "house-manager/pkg/database/mongo"
+	dbredis "house-manager/pkg/database/redis"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 // RouteGroup 路由组（前缀 + 中间件 + handler 注册器）
@@ -26,16 +26,16 @@ type App struct {
 	Config      *config.Config
 	Engine      *gin.Engine
 	Server      *http.Server
-	MongoClient *mongo.Client
-	RedisClient database.RedisClient
+	MongoClient *dbmongo.Client
+	RedisClient *dbredis.Client
 }
 
 // NewApp 创建应用实例（依赖由 Wire 注入）
 func NewApp(
 	cfg *config.Config,
 	engine *gin.Engine,
-	mongoClient *mongo.Client,
-	redisClient database.RedisClient,
+	mongoClient *dbmongo.Client,
+	redisClient *dbredis.Client,
 	groups []RouteGroup,
 ) (*App, func(), error) {
 	a := &App{
@@ -71,7 +71,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 // Close 关闭基础设施连接（MongoDB、Redis）
 func (a *App) Close() {
 	if a.MongoClient != nil {
-		if err := a.MongoClient.Disconnect(context.Background()); err != nil {
+		if err := a.MongoClient.Close(context.Background()); err != nil {
 			slog.Error("mongodb disconnect error", "error", err)
 		} else {
 			slog.Info("mongodb disconnected")
