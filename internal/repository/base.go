@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
+	"time"
 
 	"house-manager/internal/model"
 
@@ -12,19 +12,17 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Repository 泛型数据仓库，提供通用 CRUD 操作
+// Repository 泛型数据仓库，提供基于公共字段约定的最小通用操作。
 type Repository[T any] struct {
 	Collection *mongo.Collection
 }
 
-// NewRepository 创建泛型仓库实例
+// NewRepository 创建泛型仓库实例。
 func NewRepository[T any](coll *mongo.Collection) *Repository[T] {
 	return &Repository[T]{Collection: coll}
 }
 
-// =================== 查询 ===================
-
-// FindById 根据 ID 查询单条记录
+// FindById 根据 ID 查询单条记录。
 func (r *Repository[T]) FindById(ctx context.Context, id bson.ObjectID) (*T, error) {
 	var entity T
 	if err := r.Collection.FindOne(ctx, bson.M{"_id": id}).Decode(&entity); err != nil {
@@ -36,7 +34,7 @@ func (r *Repository[T]) FindById(ctx context.Context, id bson.ObjectID) (*T, err
 	return &entity, nil
 }
 
-// FindOne 根据条件查询单条记录
+// FindOne 根据条件查询单条记录。
 func (r *Repository[T]) FindOne(ctx context.Context, filter bson.M) (*T, error) {
 	var entity T
 	if err := r.Collection.FindOne(ctx, filter).Decode(&entity); err != nil {
@@ -48,99 +46,84 @@ func (r *Repository[T]) FindOne(ctx context.Context, filter bson.M) (*T, error) 
 	return &entity, nil
 }
 
-// FindList 查询列表（分页 + 条件过滤 + 排序）
-func (r *Repository[T]) FindList(ctx context.Context, filter bson.M, req model.PageReq) ([]T, int64, error) {
-	opts := options.Find()
-	if len(req.Sort) > 0 {
-		sortDoc := bson.D{}
-		for _, s := range req.Sort {
-			sortDoc = append(sortDoc, parseSort(s))
-		}
-		opts.SetSort(sortDoc)
-	}
-	if req.Limit > 0 {
-		opts.SetLimit(int64(req.Limit))
-	}
-	if req.Offset > 0 {
-		opts.SetSkip(int64(req.Offset))
-	}
-
-	total, err := r.Collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count documents: %w", err)
-	}
-
-	cursor, err := r.Collection.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, 0, fmt.Errorf("find documents: %w", err)
-	}
-	defer cursor.Close(ctx)
-
-	var entities []T
-	if err := cursor.All(ctx, &entities); err != nil {
-		return nil, 0, fmt.Errorf("decode documents: %w", err)
-	}
-
-	return entities, total, nil
-}
-
-// Count 根据条件统计文档数
-func (r *Repository[T]) Count(ctx context.Context, filter bson.M) (int64, error) {
-	n, err := r.Collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return 0, fmt.Errorf("count documents: %w", err)
-	}
-	return n, nil
-}
-
-// Exists 判断是否存在匹配文档
-func (r *Repository[T]) Exists(ctx context.Context, filter bson.M) (bool, error) {
-	n, err := r.Collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return false, fmt.Errorf("exists check: %w", err)
-	}
-	return n > 0, nil
-}
-
-// =================== 写入 ===================
-
-// Insert 插入单条文档
+// Insert 插入单条文档，并初始化公共字段。
 func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
-	if _, err := r.Collection.InsertOne(ctx, entity); err != nil {
+	if entity == nil {
+		return fmt.Errorf("insert: entity is nil")
+	}
+
+	now := time.Now().Unix()
+	commonAware, ok := any(entity).(interface{ Common() *model.CommonFields })
+	if !ok {
+		return fmt.Errorf("insert: entity does not expose common fields")
+	}
+	common := commonAware.Common()
+	if common.CreatedAt == 0 {
+		common.CreatedAt = now
+	}
+	common.UpdatedAt = now
+	if common.Status == model.StatusUnspecified {
+		common.Status = model.StatusActive
+	}
+	if common.Version == 0 {
+		common.Version = 1
+	}
+
+	res, err := r.Collection.InsertOne(ctx, entity)
+	if err != nil {
 		return fmt.Errorf("insert: %w", err)
 	}
-	return nil
-}
-
-// InsertMany 批量插入文档
-func (r *Repository[T]) InsertMany(ctx context.Context, entities []T) error {
-	docs := make([]any, len(entities))
-	for i, e := range entities {
-		docs[i] = e
-	}
-	if _, err := r.Collection.InsertMany(ctx, docs); err != nil {
-		return fmt.Errorf("insert many: %w", err)
+	if common.ID.IsZero() {
+		if insertedID, ok := res.InsertedID.(bson.ObjectID); ok {
+			common.ID = insertedID
+		}
 	}
 	return nil
 }
 
-// =================== 更新 ===================
+// UpsertFields 按条件局部更新，不存在则插入，并维护公共字段。
+// matched=true 表示命中已有文档；matched=false 表示触发了 upsert 插入路径。
+func (r *Repository[T]) UpsertFields(ctx context.Context, filter bson.M, fields bson.M) (matched bool, err error) {
+	if fields == nil {
+		return false, fmt.Errorf("upsert fields: fields is nil")
+	}
 
-// Upsert 按条件更新，不存在则插入。matched=true 表示命中已有文档
-func (r *Repository[T]) Upsert(ctx context.Context, filter bson.M, update any) (matched bool, err error) {
+	now := time.Now().Unix()
+	update := bson.M{
+		"$set": fields,
+		"$inc": bson.M{"version": 1},
+		"$setOnInsert": bson.M{
+			"created_at": now,
+			"status":     model.StatusActive,
+			"version":    1,
+		},
+	}
+	update["$set"].(bson.M)["updated_at"] = now
+
 	opts := options.UpdateOne().SetUpsert(true)
 	res, err := r.Collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
-		return false, fmt.Errorf("upsert: %w", err)
+		return false, fmt.Errorf("upsert fields: %w", err)
 	}
 	return res.MatchedCount > 0, nil
 }
 
-// UpdateById 根据 ID 局部更新（传入 bson.M/D 等更新表达式）
-func (r *Repository[T]) UpdateById(ctx context.Context, id bson.ObjectID, update any) error {
-	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+// UpdateFieldsById 根据 ID 局部更新，并刷新 updated_at / version。
+func (r *Repository[T]) UpdateFieldsById(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+	if fields == nil {
+		return fmt.Errorf("update fields by id: fields is nil")
+	}
+
+	now := time.Now().Unix()
+	fields["updated_at"] = now
+	update := bson.M{
+		"$set": fields,
+		"$inc": bson.M{"version": 1},
+	}
+
+	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id, "status": bson.M{"$ne": model.StatusDeleted}}, update)
 	if err != nil {
-		return fmt.Errorf("update by id: %w", err)
+		return fmt.Errorf("update fields by id: %w", err)
 	}
 	if res.MatchedCount == 0 {
 		return mongo.ErrNoDocuments
@@ -148,48 +131,23 @@ func (r *Repository[T]) UpdateById(ctx context.Context, id bson.ObjectID, update
 	return nil
 }
 
-// ReplaceById 根据 ID 整体替换文档
-func (r *Repository[T]) ReplaceById(ctx context.Context, id bson.ObjectID, entity *T) error {
-	res, err := r.Collection.ReplaceOne(ctx, bson.M{"_id": id}, entity)
+// SoftDeleteById 按公共字段约定执行软删除。
+func (r *Repository[T]) SoftDeleteById(ctx context.Context, id bson.ObjectID) error {
+	now := time.Now().Unix()
+	update := bson.M{
+		"$set": bson.M{
+			"status":     model.StatusDeleted,
+			"updated_at": now,
+		},
+		"$inc": bson.M{"version": 1},
+	}
+
+	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id, "status": bson.M{"$ne": model.StatusDeleted}}, update)
 	if err != nil {
-		return fmt.Errorf("replace by id: %w", err)
+		return fmt.Errorf("soft delete by id: %w", err)
 	}
 	if res.MatchedCount == 0 {
 		return mongo.ErrNoDocuments
 	}
 	return nil
-}
-
-// =================== 删除 ===================
-
-// DeleteById 根据 ID 删除单条文档
-func (r *Repository[T]) DeleteById(ctx context.Context, id bson.ObjectID) error {
-	res, err := r.Collection.DeleteOne(ctx, bson.M{"_id": id})
-	if err != nil {
-		return fmt.Errorf("delete by id: %w", err)
-	}
-	if res.DeletedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-	return nil
-}
-
-// DeleteMany 根据条件批量删除
-func (r *Repository[T]) DeleteMany(ctx context.Context, filter bson.M) (int64, error) {
-	res, err := r.Collection.DeleteMany(ctx, filter)
-	if err != nil {
-		return 0, fmt.Errorf("delete many: %w", err)
-	}
-	return res.DeletedCount, nil
-}
-
-// parseSort 解析排序字符串 "field:desc" → bson.E
-func parseSort(s string) bson.E {
-	parts := strings.SplitN(s, ":", 2)
-	field := parts[0]
-	dir := 1
-	if len(parts) > 1 && parts[1] == "desc" {
-		dir = -1
-	}
-	return bson.E{Key: field, Value: dir}
 }

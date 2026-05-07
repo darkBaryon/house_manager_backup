@@ -13,10 +13,10 @@ func newInternalV1Registrars(healthH *v1handler.HealthHandler) internalV1Registr
 	return internalV1Registrars{healthH}
 }
 
-func newPublicV1Registrars() publicV1Registrars {
-	return publicV1Registrars{}
+func newPublicV1Registrars(authH *v1handler.AuthHandler) publicV1Registrars {
+	return publicV1Registrars{authH}
 }
 
-func newProtectedV1Registrars(roomH *v1handler.RoomHandler) protectedV1Registrars {
-	return protectedV1Registrars{roomH}
+func newProtectedV1Registrars(sessionH *v1handler.SessionHandler) protectedV1Registrars {
+	return protectedV1Registrars{sessionH}
 }

@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/wire v0.6.0
+	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/spf13/viper v1.19.0
 	go.mongodb.org/mongo-driver/v2 v2.1.0

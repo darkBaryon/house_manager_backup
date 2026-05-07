@@ -83,10 +83,10 @@ go run cmd/server/main.go -c ./config/config.test.yaml
 
 - 默认读取 `./config/config.local.yaml`（若未传 `-c`）
 - 可用 `-c` 显式覆盖配置文件路径
-- 敏感信息通过环境变量覆盖（前缀 `HM_`）
-  - `HM_MONGODB_USERNAME`
-  - `HM_MONGODB_PASSWORD`
-  - `HM_REDIS_PASSWORD`
+- 敏感信息通过环境变量覆盖
+  - `MONGODB_USERNAME`
+  - `MONGODB_PASSWORD`
+  - `REDIS_PASSWORD`
 - 示例见 `.env.example`
 
 ## 开发命令

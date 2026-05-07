@@ -11,10 +11,11 @@ mongodb:
   password: ""
   pool_size: 200
   min_pool_size: 20
-  connect_timeout: 10
-  socket_timeout: 30
-  server_selection_timeout: 10
-  max_retries: 3
+  connect_timeout: "10s"
+  socket_timeout: "30s"
+  server_selection_timeout: "10s"
+  retry_reads: true
+  retry_writes: true
   replica_set: ""
 
 redis:
@@ -24,11 +25,16 @@ redis:
   db: 0
   pool_size: 200
   min_idle_conns: 20
-  conn_timeout: 5
-  read_timeout: 3
-  write_timeout: 3
+  conn_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
   max_retries: 3
   cluster_mode: false
+
+wechat:
+  appid: ""
+  secret: ""
+  api_base: "https://api.weixin.qq.com"
 
 log:
   level: "info"

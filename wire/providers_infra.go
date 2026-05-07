@@ -17,11 +17,61 @@ import (
 )
 
 func newMongoClient(ctx context.Context, cfg *config.Config) (*dbmongo.Client, error) {
-	return dbmongo.NewClient(ctx, cfg.MongoDB)
+	connectTimeout, err := cfg.MongoDB.ConnectTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+	socketTimeout, err := cfg.MongoDB.SocketTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+	serverSelectionTimeout, err := cfg.MongoDB.ServerSelectionTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+
+	return dbmongo.NewClient(ctx, dbmongo.Config{
+		Addrs:                  cfg.MongoDB.Addrs,
+		Database:               cfg.MongoDB.Database,
+		AuthSource:             cfg.MongoDB.AuthSource,
+		Username:               cfg.MongoDB.Username,
+		Password:               cfg.MongoDB.Password,
+		PoolSize:               cfg.MongoDB.PoolSize,
+		MinPoolSize:            cfg.MongoDB.MinPoolSize,
+		ConnectTimeout:         connectTimeout,
+		SocketTimeout:          socketTimeout,
+		ServerSelectionTimeout: serverSelectionTimeout,
+		EnableRetryReads:       cfg.MongoDB.RetryReads,
+		EnableRetryWrites:      cfg.MongoDB.RetryWrites,
+		ReplicaSet:             cfg.MongoDB.ReplicaSet,
+	})
 }
 
 func newRedisClient(ctx context.Context, cfg *config.Config) (*dbredis.Client, error) {
-	return dbredis.NewClient(ctx, cfg.Redis)
+	connTimeout, err := cfg.Redis.ConnTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+	readTimeout, err := cfg.Redis.ReadTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+	writeTimeout, err := cfg.Redis.WriteTimeoutDuration()
+	if err != nil {
+		return nil, err
+	}
+	return dbredis.NewClient(ctx, dbredis.Config{
+		Addrs:        cfg.Redis.Addrs,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		ConnTimeout:  connTimeout,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		MaxRetries:   cfg.Redis.MaxRetries,
+		ClusterMode:  cfg.Redis.ClusterMode,
+	})
 }
 
 func newEngine(cfg *config.Config) *gin.Engine {

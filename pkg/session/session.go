@@ -10,7 +10,7 @@ import (
 	"house-manager/pkg/cache"
 )
 
-const keyPrefix = "session:"
+const keyPrefix = "hs:sess:"
 
 // Store Redis session 存储
 type Store struct {

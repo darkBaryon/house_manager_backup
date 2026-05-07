@@ -12,7 +12,7 @@ import (
 func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 	wire.Build(
 		InfraSet,
-		RoomSet,
+		AuthSet,
 		HealthSet,
 		RouterSet,
 		app.NewApp,

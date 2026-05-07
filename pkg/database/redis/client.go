@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	appconfig "house-manager/internal/config"
-
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -15,7 +13,13 @@ type Client struct {
 	raw goredis.UniversalClient
 }
 
-func NewClient(ctx context.Context, cfg appconfig.RedisConfig) (*Client, error) {
+func NewClient(ctx context.Context, cfg Config) (*Client, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate redis config: %w", err)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if cfg.ClusterMode {
 		return newClusterClient(ctx, cfg)
 	}
@@ -56,11 +60,8 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func newStandaloneClient(ctx context.Context, cfg appconfig.RedisConfig) (*Client, error) {
-	if len(cfg.Addrs) == 0 || cfg.Addrs[0] == "" {
-		return nil, fmt.Errorf("redis addr is required")
-	}
-	addr := cfg.Addrs[0]
+func newStandaloneClient(ctx context.Context, cfg Config) (*Client, error) {
+	addr := cfg.normalizedAddrs()[0]
 
 	opts := &goredis.Options{
 		Addr:         addr,
@@ -82,13 +83,9 @@ func newStandaloneClient(ctx context.Context, cfg appconfig.RedisConfig) (*Clien
 	return &Client{raw: raw}, nil
 }
 
-func newClusterClient(ctx context.Context, cfg appconfig.RedisConfig) (*Client, error) {
-	if len(cfg.Addrs) == 0 {
-		return nil, fmt.Errorf("redis cluster addrs are required")
-	}
-
+func newClusterClient(ctx context.Context, cfg Config) (*Client, error) {
 	opts := &goredis.ClusterOptions{
-		Addrs:        cfg.Addrs,
+		Addrs:        cfg.normalizedAddrs(),
 		Password:     cfg.Password,
 		PoolSize:     cfg.PoolSize,
 		MinIdleConns: cfg.MinIdleConns,
@@ -102,30 +99,30 @@ func newClusterClient(ctx context.Context, cfg appconfig.RedisConfig) (*Client, 
 		return nil, fmt.Errorf("ping redis cluster: %w", err)
 	}
 
-	slog.Info("redis cluster connected", "addrs", cfg.Addrs)
+	slog.Info("redis cluster connected", "addrs", cfg.normalizedAddrs())
 	return &Client{raw: raw}, nil
 }
 
-func applyStandaloneTimeouts(opts *goredis.Options, cfg appconfig.RedisConfig) {
+func applyStandaloneTimeouts(opts *goredis.Options, cfg Config) {
 	if cfg.ConnTimeout > 0 {
-		opts.DialTimeout = time.Duration(cfg.ConnTimeout) * time.Second
+		opts.DialTimeout = cfg.ConnTimeout
 	}
 	if cfg.ReadTimeout > 0 {
-		opts.ReadTimeout = time.Duration(cfg.ReadTimeout) * time.Second
+		opts.ReadTimeout = cfg.ReadTimeout
 	}
 	if cfg.WriteTimeout > 0 {
-		opts.WriteTimeout = time.Duration(cfg.WriteTimeout) * time.Second
+		opts.WriteTimeout = cfg.WriteTimeout
 	}
 }
 
-func applyClusterTimeouts(opts *goredis.ClusterOptions, cfg appconfig.RedisConfig) {
+func applyClusterTimeouts(opts *goredis.ClusterOptions, cfg Config) {
 	if cfg.ConnTimeout > 0 {
-		opts.DialTimeout = time.Duration(cfg.ConnTimeout) * time.Second
+		opts.DialTimeout = cfg.ConnTimeout
 	}
 	if cfg.ReadTimeout > 0 {
-		opts.ReadTimeout = time.Duration(cfg.ReadTimeout) * time.Second
+		opts.ReadTimeout = cfg.ReadTimeout
 	}
 	if cfg.WriteTimeout > 0 {
-		opts.WriteTimeout = time.Duration(cfg.WriteTimeout) * time.Second
+		opts.WriteTimeout = cfg.WriteTimeout
 	}
 }
