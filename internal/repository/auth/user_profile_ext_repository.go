@@ -39,8 +39,12 @@ func (r *UserProfileExtRepository) UpsertByUserID(ctx context.Context, userID bs
 	if fields == nil {
 		return false, fmt.Errorf("upsert user profile ext by userID: fields is nil")
 	}
-	fields["user_id"] = userID
-	return r.UpsertFields(ctx, bson.M{"user_id": userID}, fields)
+	upsertFields := make(bson.M, len(fields)+1)
+	for k, v := range fields {
+		upsertFields[k] = v
+	}
+	upsertFields["user_id"] = userID
+	return r.UpsertFields(ctx, bson.M{"user_id": userID}, upsertFields)
 }
 
 func (r *UserProfileExtRepository) FindByUserID(ctx context.Context, userID bson.ObjectID) (*model.UserProfileExt, error) {

@@ -39,7 +39,7 @@ func (r *UserRepository) TouchLastActive(ctx context.Context, userID bson.Object
 	if lastActiveAt <= 0 {
 		return fmt.Errorf("touch user last active: lastActiveAt is required")
 	}
-	return r.UpdateFieldsById(ctx, userID, bson.M{
+	return r.UpdateFieldsByID(ctx, userID, bson.M{
 		"last_active_at": lastActiveAt,
 	})
 }

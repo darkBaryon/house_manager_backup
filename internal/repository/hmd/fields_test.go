@@ -21,15 +21,14 @@ func TestActiveFilter(t *testing.T) {
 	}
 }
 
-func TestNotDeletedFilter(t *testing.T) {
-	filter := notDeletedFilter(bson.M{"project_code": "CENTRAL-001"})
+func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
+	filter := activeFilter(bson.M{"city": "深圳", "status": model.StatusDeleted})
 
-	statusFilter, ok := filter["status"].(bson.M)
-	if !ok {
-		t.Fatalf("expected nested status filter, got %T", filter["status"])
+	if got := filter["status"]; got != model.StatusActive {
+		t.Fatalf("expected active status filter to override incoming status, got %v", got)
 	}
-	if got := statusFilter["$ne"]; got != model.StatusDeleted {
-		t.Fatalf("expected status != deleted, got %v", got)
+	if got := filter["city"]; got != "深圳" {
+		t.Fatalf("expected city preserved, got %v", got)
 	}
 }
 

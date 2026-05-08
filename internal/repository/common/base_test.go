@@ -1,6 +1,8 @@
 package common
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"house-manager/internal/model"
@@ -38,6 +40,38 @@ func TestNotDeletedByIDFilter(t *testing.T) {
 	}
 	if got := statusFilter["$ne"]; got != model.StatusDeleted {
 		t.Fatalf("expected status != %d, got %v", model.StatusDeleted, got)
+	}
+}
+
+func TestFindByIDRejectsZeroID(t *testing.T) {
+	repo := &Repository[model.User]{}
+	_, err := repo.FindByID(context.Background(), bson.ObjectID{})
+	if err == nil || !strings.Contains(err.Error(), "id is required") {
+		t.Fatalf("expected zero id error, got %v", err)
+	}
+}
+
+func TestFindByIDIncludingDeletedRejectsZeroID(t *testing.T) {
+	repo := &Repository[model.User]{}
+	_, err := repo.FindByIDIncludingDeleted(context.Background(), bson.ObjectID{})
+	if err == nil || !strings.Contains(err.Error(), "id is required") {
+		t.Fatalf("expected zero id error, got %v", err)
+	}
+}
+
+func TestUpdateFieldsByIDRejectsZeroID(t *testing.T) {
+	repo := &Repository[model.User]{}
+	err := repo.UpdateFieldsByID(context.Background(), bson.ObjectID{}, bson.M{"nickname": "x"})
+	if err == nil || !strings.Contains(err.Error(), "id is required") {
+		t.Fatalf("expected zero id error, got %v", err)
+	}
+}
+
+func TestSoftDeleteByIDRejectsZeroID(t *testing.T) {
+	repo := &Repository[model.User]{}
+	err := repo.SoftDeleteByID(context.Background(), bson.ObjectID{})
+	if err == nil || !strings.Contains(err.Error(), "id is required") {
+		t.Fatalf("expected zero id error, got %v", err)
 	}
 }
 

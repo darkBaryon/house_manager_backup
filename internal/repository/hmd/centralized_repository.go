@@ -51,7 +51,7 @@ func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) 
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd centralized by id: id is required")
 	}
-	return r.FindById(ctx, id)
+	return r.FindByID(ctx, id)
 }
 
 func (r *CentralizedRepository) ListByCity(ctx context.Context, city string) ([]model.HmdCentralized, error) {
@@ -76,5 +76,5 @@ func (r *CentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.Obje
 	if err != nil {
 		return fmt.Errorf("update hmd centralized base info: %w", err)
 	}
-	return r.UpdateFieldsById(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, safeFields)
 }

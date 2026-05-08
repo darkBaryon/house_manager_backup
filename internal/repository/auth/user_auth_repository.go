@@ -45,7 +45,7 @@ func (r *UserAuthRepository) TouchLastLogin(ctx context.Context, authID bson.Obj
 	if lastLoginAt <= 0 {
 		return fmt.Errorf("touch user auth last login: lastLoginAt is required")
 	}
-	return r.UpdateFieldsById(ctx, authID, bson.M{
+	return r.UpdateFieldsByID(ctx, authID, bson.M{
 		"last_login_at": lastLoginAt,
 		"last_login_ip": lastLoginIP,
 	})

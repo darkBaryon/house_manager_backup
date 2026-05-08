@@ -44,7 +44,7 @@ func (r *BuildingRepository) FindByID(ctx context.Context, id bson.ObjectID) (*m
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd building by id: id is required")
 	}
-	return r.FindById(ctx, id)
+	return r.FindByID(ctx, id)
 }
 
 func (r *BuildingRepository) FindByBuildingCode(ctx context.Context, buildingCode string) (*model.HmdBuilding, error) {
@@ -69,5 +69,5 @@ func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectI
 	if err != nil {
 		return fmt.Errorf("update hmd building base info: %w", err)
 	}
-	return r.UpdateFieldsById(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, safeFields)
 }

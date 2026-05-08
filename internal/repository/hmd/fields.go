@@ -9,18 +9,14 @@ import (
 )
 
 func activeFilter(fields bson.M) bson.M {
-	filter := bson.M{"status": model.StatusActive}
+	filter := make(bson.M, len(fields)+1)
 	for k, v := range fields {
+		if k == "status" {
+			continue
+		}
 		filter[k] = v
 	}
-	return filter
-}
-
-func notDeletedFilter(fields bson.M) bson.M {
-	filter := bson.M{"status": bson.M{"$ne": model.StatusDeleted}}
-	for k, v := range fields {
-		filter[k] = v
-	}
+	filter["status"] = model.StatusActive
 	return filter
 }
 
