@@ -45,7 +45,7 @@ func (r *DecentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd decentralized by id: id is required")
 	}
-	return r.FindByID(ctx, id)
+	return r.Repository.FindByID(ctx, id)
 }
 
 func (r *DecentralizedRepository) FindByCommunity(ctx context.Context, city, district, communityName string) (*model.HmdDecentralized, error) {

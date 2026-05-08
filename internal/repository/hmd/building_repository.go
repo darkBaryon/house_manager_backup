@@ -44,7 +44,7 @@ func (r *BuildingRepository) FindByID(ctx context.Context, id bson.ObjectID) (*m
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd building by id: id is required")
 	}
-	return r.FindByID(ctx, id)
+	return r.Repository.FindByID(ctx, id)
 }
 
 func (r *BuildingRepository) FindByBuildingCode(ctx context.Context, buildingCode string) (*model.HmdBuilding, error) {

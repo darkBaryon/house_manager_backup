@@ -44,7 +44,10 @@ func (r *UserProfileExtRepository) UpsertByUserID(ctx context.Context, userID bs
 		upsertFields[k] = v
 	}
 	upsertFields["user_id"] = userID
-	return r.UpsertFields(ctx, bson.M{"user_id": userID}, upsertFields)
+	return r.UpsertFields(ctx, bson.M{
+		"user_id": userID,
+		"status":  bson.M{"$ne": model.StatusDeleted},
+	}, upsertFields)
 }
 
 func (r *UserProfileExtRepository) FindByUserID(ctx context.Context, userID bson.ObjectID) (*model.UserProfileExt, error) {

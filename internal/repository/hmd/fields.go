@@ -38,3 +38,12 @@ func pickAllowedFields(fields bson.M, allowed map[string]struct{}) (bson.M, erro
 func roomStatusUpdateFields(roomStatus int) bson.M {
 	return bson.M{"room_status": roomStatus}
 }
+
+func isValidRoomStatus(roomStatus int) bool {
+	switch roomStatus {
+	case -1, 0, 1, 2, 3:
+		return true
+	default:
+		return false
+	}
+}

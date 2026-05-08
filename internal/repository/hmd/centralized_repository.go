@@ -51,7 +51,7 @@ func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) 
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd centralized by id: id is required")
 	}
-	return r.FindByID(ctx, id)
+	return r.Repository.FindByID(ctx, id)
 }
 
 func (r *CentralizedRepository) ListByCity(ctx context.Context, city string) ([]model.HmdCentralized, error) {

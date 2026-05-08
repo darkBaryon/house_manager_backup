@@ -57,7 +57,7 @@ func (r *RoomTypeCentralizedRepository) FindByID(ctx context.Context, id bson.Ob
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd room type centralized by id: id is required")
 	}
-	return r.FindByID(ctx, id)
+	return r.Repository.FindByID(ctx, id)
 }
 
 func (r *RoomTypeCentralizedRepository) FindByProjectAndName(ctx context.Context, projectID bson.ObjectID, roomTypeName string) (*model.HmdRoomTypeCentralized, error) {

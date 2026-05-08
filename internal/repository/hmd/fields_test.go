@@ -72,3 +72,35 @@ func TestRoomStatusUpdateFields(t *testing.T) {
 		t.Fatalf("expected room_status=3, got %v", got)
 	}
 }
+
+func TestIsValidRoomStatus(t *testing.T) {
+	validStatuses := []int{-1, 0, 1, 2, 3}
+	for _, status := range validStatuses {
+		if !isValidRoomStatus(status) {
+			t.Fatalf("expected status %d to be valid", status)
+		}
+	}
+
+	invalidStatuses := []int{-2, 4, 99}
+	for _, status := range invalidStatuses {
+		if isValidRoomStatus(status) {
+			t.Fatalf("expected status %d to be invalid", status)
+		}
+	}
+}
+
+func TestRoomCentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
+	repo := &RoomCentralizedRepository{}
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), 99)
+	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
+		t.Fatalf("expected invalid roomStatus error, got %v", err)
+	}
+}
+
+func TestRoomDecentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
+	repo := &RoomDecentralizedRepository{}
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), 99)
+	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
+		t.Fatalf("expected invalid roomStatus error, got %v", err)
+	}
+}

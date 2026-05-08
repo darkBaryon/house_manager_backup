@@ -79,39 +79,41 @@ func (s *IdentityService) WechatRegister(ctx context.Context, code, phoneCode, l
 		return bson.NilObjectID, errcode.InternalError.WithError(err)
 	}
 
-	wechatAuth, err := s.authRepo.FindByOpenID(ctx, model.AuthProviderWechat, openID)
-	if err != nil {
-		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
-	}
-	phoneUser, err := s.userRepo.FindByPhone(ctx, phone)
-	if err != nil {
-		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
-	}
-
-	if wechatAuth != nil && wechatAuth.UserID.IsZero() {
-		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
-	}
-
-	var userID bson.ObjectID
-	switch {
-	case wechatAuth != nil:
-		userID = wechatAuth.UserID
-	case phoneUser != nil:
-		userID = phoneUser.ID
-	default:
-		userID = bson.NilObjectID
-	}
-
 	now := time.Now().Unix()
-	if userID.IsZero() {
-		user, createErr := s.userProfile.CreateUserProfile(ctx, phone)
-		if createErr != nil {
-			return bson.NilObjectID, createErr
+	var userID bson.ObjectID
+	if err := s.mongoClient.RunInTransaction(ctx, func(txCtx context.Context) error {
+		wechatAuth, err := s.authRepo.FindByOpenID(txCtx, model.AuthProviderWechat, openID)
+		if err != nil {
+			return errcode.DatabaseError.WithError(err)
 		}
-		userID = user.ID
-	}
+		phoneUser, err := s.userRepo.FindByPhone(txCtx, phone)
+		if err != nil {
+			return errcode.DatabaseError.WithError(err)
+		}
 
-	if err := s.ensureWechatBound(ctx, userID, openID, unionID, now, loginIP); err != nil {
+		if wechatAuth != nil && wechatAuth.UserID.IsZero() {
+			return errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
+		}
+
+		switch {
+		case wechatAuth != nil:
+			userID = wechatAuth.UserID
+		case phoneUser != nil:
+			userID = phoneUser.ID
+		default:
+			userID = bson.NilObjectID
+		}
+
+		if userID.IsZero() {
+			user, createErr := s.userProfile.CreateUserProfile(txCtx, phone)
+			if createErr != nil {
+				return createErr
+			}
+			userID = user.ID
+		}
+
+		return s.ensureWechatBound(txCtx, userID, openID, unionID, now, loginIP)
+	}); err != nil {
 		return bson.NilObjectID, err
 	}
 

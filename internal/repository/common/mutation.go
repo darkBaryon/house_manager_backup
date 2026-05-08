@@ -50,6 +50,9 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 // UpsertFields 按条件局部更新，不存在则插入，并维护公共字段。
 // matched=true 表示命中已有文档；matched=false 表示触发了 upsert 插入路径。
 func (r *Repository[T]) UpsertFields(ctx context.Context, filter bson.M, fields bson.M) (matched bool, err error) {
+	if len(filter) == 0 {
+		return false, fmt.Errorf("upsert fields: filter is required")
+	}
 	if fields == nil {
 		return false, fmt.Errorf("upsert fields: fields is nil")
 	}

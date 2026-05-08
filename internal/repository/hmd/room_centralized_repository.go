@@ -56,7 +56,7 @@ func (r *RoomCentralizedRepository) FindByID(ctx context.Context, id bson.Object
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd room centralized by id: id is required")
 	}
-	return r.FindByID(ctx, id)
+	return r.Repository.FindByID(ctx, id)
 }
 
 func (r *RoomCentralizedRepository) FindByBuildingAndRoomNo(ctx context.Context, buildingID bson.ObjectID, roomNo string) (*model.HmdRoomCentralized, error) {
@@ -94,6 +94,9 @@ func (r *RoomCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.
 func (r *RoomCentralizedRepository) UpdateStatus(ctx context.Context, id bson.ObjectID, roomStatus int) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room centralized status: id is required")
+	}
+	if !isValidRoomStatus(roomStatus) {
+		return fmt.Errorf("update hmd room centralized status: roomStatus is invalid")
 	}
 	return r.UpdateFieldsByID(ctx, id, roomStatusUpdateFields(roomStatus))
 }

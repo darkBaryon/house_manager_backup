@@ -108,3 +108,11 @@ func TestBuildUpsertFieldsDocDoesNotSetVersionOnInsert(t *testing.T) {
 		t.Fatalf("expected created_at=456, got %v", got)
 	}
 }
+
+func TestUpsertFieldsRejectsEmptyFilter(t *testing.T) {
+	repo := &Repository[model.User]{}
+	_, err := repo.UpsertFields(context.Background(), bson.M{}, bson.M{"nickname": "x"})
+	if err == nil || !strings.Contains(err.Error(), "filter is required") {
+		t.Fatalf("expected empty filter error, got %v", err)
+	}
+}
