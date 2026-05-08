@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"house-manager/internal/repository"
+	repoauth "house-manager/internal/repository/auth"
 	authsvc "house-manager/internal/service/auth"
 	dbmongo "house-manager/pkg/database/mongo"
 	"house-manager/pkg/errcode"
@@ -23,9 +23,9 @@ type AuthService struct {
 
 func NewAuthService(
 	mongoClient *dbmongo.Client,
-	userRepo *repository.UserRepository,
-	authRepo *repository.UserAuthRepository,
-	profileExtRepo *repository.UserProfileExtRepository,
+	userRepo *repoauth.UserRepository,
+	authRepo *repoauth.UserAuthRepository,
+	profileExtRepo *repoauth.UserProfileExtRepository,
 	wechatClient *authsvc.WechatClient,
 	sessionStore *session.Store,
 ) *AuthService {

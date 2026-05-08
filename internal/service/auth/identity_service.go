@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"house-manager/internal/model"
-	"house-manager/internal/repository"
+	repoauth "house-manager/internal/repository/auth"
 	dbmongo "house-manager/pkg/database/mongo"
 	"house-manager/pkg/errcode"
 
@@ -16,16 +16,16 @@ import (
 // IdentityService 负责微信身份注册/登录与 user_id 绑定。
 type IdentityService struct {
 	mongoClient  *dbmongo.Client
-	authRepo     *repository.UserAuthRepository
-	userRepo     *repository.UserRepository
+	authRepo     *repoauth.UserAuthRepository
+	userRepo     *repoauth.UserRepository
 	userProfile  *UserProfileService
 	wechatClient *WechatClient
 }
 
 func NewIdentityService(
 	mongoClient *dbmongo.Client,
-	authRepo *repository.UserAuthRepository,
-	userRepo *repository.UserRepository,
+	authRepo *repoauth.UserAuthRepository,
+	userRepo *repoauth.UserRepository,
 	userProfile *UserProfileService,
 	wechatClient *WechatClient,
 ) *IdentityService {

@@ -1,10 +1,11 @@
-package repository
+package auth
 
 import (
 	"context"
 	"fmt"
 
 	"house-manager/internal/model"
+	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -12,12 +13,12 @@ import (
 
 // UserProfileExtRepository 用户偏好扩展仓库。
 type UserProfileExtRepository struct {
-	*Repository[model.UserProfileExt]
+	*common.Repository[model.UserProfileExt]
 }
 
 func NewUserProfileExtRepository(client *dbmongo.Client) *UserProfileExtRepository {
 	return &UserProfileExtRepository{
-		Repository: NewRepository[model.UserProfileExt](client.Collection(model.CollectionUserProfileExt)),
+		Repository: common.NewRepository[model.UserProfileExt](client.Collection(model.CollectionUserProfileExt)),
 	}
 }
 

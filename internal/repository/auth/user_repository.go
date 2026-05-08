@@ -1,10 +1,11 @@
-package repository
+package auth
 
 import (
 	"context"
 	"fmt"
 
 	"house-manager/internal/model"
+	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -12,12 +13,12 @@ import (
 
 // UserRepository 用户主档仓库。
 type UserRepository struct {
-	*Repository[model.User]
+	*common.Repository[model.User]
 }
 
 func NewUserRepository(client *dbmongo.Client) *UserRepository {
 	return &UserRepository{
-		Repository: NewRepository[model.User](client.Collection(model.CollectionUser)),
+		Repository: common.NewRepository[model.User](client.Collection(model.CollectionUser)),
 	}
 }
 

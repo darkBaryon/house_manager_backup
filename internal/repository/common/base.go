@@ -1,4 +1,4 @@
-package repository
+package common
 
 import (
 	"context"
@@ -44,6 +44,21 @@ func (r *Repository[T]) FindOne(ctx context.Context, filter bson.M) (*T, error) 
 		return nil, fmt.Errorf("find one: %w", err)
 	}
 	return &entity, nil
+}
+
+// FindMany 根据条件查询多条记录。
+func (r *Repository[T]) FindMany(ctx context.Context, filter bson.M, opts ...options.Lister[options.FindOptions]) ([]T, error) {
+	cursor, err := r.Collection.Find(ctx, filter, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("find many: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var entities []T
+	if err := cursor.All(ctx, &entities); err != nil {
+		return nil, fmt.Errorf("decode many: %w", err)
+	}
+	return entities, nil
 }
 
 // Insert 插入单条文档，并初始化公共字段。

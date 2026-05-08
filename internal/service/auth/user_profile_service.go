@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"house-manager/internal/model"
-	"house-manager/internal/repository"
+	repoauth "house-manager/internal/repository/auth"
 	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -14,13 +14,13 @@ import (
 
 // UserProfileService 负责用户主档初始化与活跃时间维护。
 type UserProfileService struct {
-	userRepo       *repository.UserRepository
-	profileExtRepo *repository.UserProfileExtRepository
+	userRepo       *repoauth.UserRepository
+	profileExtRepo *repoauth.UserProfileExtRepository
 }
 
 func NewUserProfileService(
-	userRepo *repository.UserRepository,
-	profileExtRepo *repository.UserProfileExtRepository,
+	userRepo *repoauth.UserRepository,
+	profileExtRepo *repoauth.UserProfileExtRepository,
 ) *UserProfileService {
 	return &UserProfileService{userRepo: userRepo, profileExtRepo: profileExtRepo}
 }
