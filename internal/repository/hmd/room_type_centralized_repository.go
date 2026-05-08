@@ -11,6 +11,25 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+var roomTypeCentralizedBaseInfoFields = map[string]struct{}{
+	"room_type_name":   {},
+	"room_count":       {},
+	"hall_count":       {},
+	"bathroom_count":   {},
+	"kitchen_count":    {},
+	"area_size":        {},
+	"orientation":      {},
+	"decoration_level": {},
+	"payment_cycle":    {},
+	"rent":             {},
+	"deposit":          {},
+	"service_fee":      {},
+	"agency_fee_mode":  {},
+	"agency_fee_value": {},
+	"images":           {},
+	"room_facilities":  {},
+}
+
 type RoomTypeCentralizedRepository struct {
 	*common.Repository[model.HmdRoomTypeCentralized]
 }
@@ -28,6 +47,9 @@ func (r *RoomTypeCentralizedRepository) Create(ctx context.Context, entity *mode
 	if entity.RoomTypeName == "" {
 		return fmt.Errorf("create hmd room type centralized: roomTypeName is required")
 	}
+	if entity.ProjectID.IsZero() && entity.BuildingID.IsZero() {
+		return fmt.Errorf("create hmd room type centralized: projectID or buildingID is required")
+	}
 	return r.Insert(ctx, entity)
 }
 
@@ -42,29 +64,30 @@ func (r *RoomTypeCentralizedRepository) FindByProjectAndName(ctx context.Context
 	if projectID.IsZero() || roomTypeName == "" {
 		return nil, fmt.Errorf("find hmd room type centralized by project and name: projectID and roomTypeName are required")
 	}
-	return r.FindOne(ctx, bson.M{"project_id": projectID, "room_type_name": roomTypeName, "status": model.StatusActive})
+	return r.FindOne(ctx, activeFilter(bson.M{"project_id": projectID, "room_type_name": roomTypeName}))
 }
 
 func (r *RoomTypeCentralizedRepository) ListByProjectID(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
 	if projectID.IsZero() {
 		return nil, fmt.Errorf("list hmd room types centralized by projectID: projectID is required")
 	}
-	return r.FindMany(ctx, bson.M{"project_id": projectID, "status": model.StatusActive})
+	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
 }
 
 func (r *RoomTypeCentralizedRepository) ListByBuildingID(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
 	if buildingID.IsZero() {
 		return nil, fmt.Errorf("list hmd room types centralized by buildingID: buildingID is required")
 	}
-	return r.FindMany(ctx, bson.M{"building_id": buildingID, "status": model.StatusActive})
+	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}))
 }
 
 func (r *RoomTypeCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room type centralized base info: id is required")
 	}
-	if len(fields) == 0 {
-		return fmt.Errorf("update hmd room type centralized base info: fields are required")
+	safeFields, err := pickAllowedFields(fields, roomTypeCentralizedBaseInfoFields)
+	if err != nil {
+		return fmt.Errorf("update hmd room type centralized base info: %w", err)
 	}
-	return r.UpdateFieldsById(ctx, id, fields)
+	return r.UpdateFieldsById(ctx, id, safeFields)
 }

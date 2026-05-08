@@ -24,6 +24,11 @@ func NewRepository[T any](coll *mongo.Collection) *Repository[T] {
 
 // FindById 根据 ID 查询单条记录。
 func (r *Repository[T]) FindById(ctx context.Context, id bson.ObjectID) (*T, error) {
+	return r.FindOne(ctx, notDeletedByIDFilter(id))
+}
+
+// FindByIdIncludingDeleted 根据 ID 查询单条记录，允许返回软删除记录。
+func (r *Repository[T]) FindByIdIncludingDeleted(ctx context.Context, id bson.ObjectID) (*T, error) {
 	var entity T
 	if err := r.Collection.FindOne(ctx, bson.M{"_id": id}).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -104,16 +109,7 @@ func (r *Repository[T]) UpsertFields(ctx context.Context, filter bson.M, fields 
 	}
 
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-		"$setOnInsert": bson.M{
-			"created_at": now,
-			"status":     model.StatusActive,
-			"version":    1,
-		},
-	}
-	update["$set"].(bson.M)["updated_at"] = now
+	update := buildUpsertFieldsDoc(fields, now)
 
 	opts := options.UpdateOne().SetUpsert(true)
 	res, err := r.Collection.UpdateOne(ctx, filter, update, opts)
@@ -130,13 +126,9 @@ func (r *Repository[T]) UpdateFieldsById(ctx context.Context, id bson.ObjectID, 
 	}
 
 	now := time.Now().Unix()
-	fields["updated_at"] = now
-	update := bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-	}
+	update := buildUpdateFieldsByIDDoc(fields, now)
 
-	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id, "status": bson.M{"$ne": model.StatusDeleted}}, update)
+	res, err := r.Collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
 	if err != nil {
 		return fmt.Errorf("update fields by id: %w", err)
 	}
@@ -157,7 +149,7 @@ func (r *Repository[T]) SoftDeleteById(ctx context.Context, id bson.ObjectID) er
 		"$inc": bson.M{"version": 1},
 	}
 
-	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id, "status": bson.M{"$ne": model.StatusDeleted}}, update)
+	res, err := r.Collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
 	if err != nil {
 		return fmt.Errorf("soft delete by id: %w", err)
 	}
@@ -165,4 +157,42 @@ func (r *Repository[T]) SoftDeleteById(ctx context.Context, id bson.ObjectID) er
 		return mongo.ErrNoDocuments
 	}
 	return nil
+}
+
+func notDeletedByIDFilter(id bson.ObjectID) bson.M {
+	return bson.M{"_id": id, "status": bson.M{"$ne": model.StatusDeleted}}
+}
+
+func cloneBsonM(src bson.M) bson.M {
+	if src == nil {
+		return nil
+	}
+
+	cloned := make(bson.M, len(src))
+	for k, v := range src {
+		cloned[k] = v
+	}
+	return cloned
+}
+
+func buildUpdateFieldsByIDDoc(fields bson.M, now int64) bson.M {
+	setFields := cloneBsonM(fields)
+	setFields["updated_at"] = now
+	return bson.M{
+		"$set": setFields,
+		"$inc": bson.M{"version": 1},
+	}
+}
+
+func buildUpsertFieldsDoc(fields bson.M, now int64) bson.M {
+	setFields := cloneBsonM(fields)
+	setFields["updated_at"] = now
+	return bson.M{
+		"$set": setFields,
+		"$inc": bson.M{"version": 1},
+		"$setOnInsert": bson.M{
+			"created_at": now,
+			"status":     model.StatusActive,
+		},
+	}
 }

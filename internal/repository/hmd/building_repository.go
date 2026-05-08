@@ -11,6 +11,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+var buildingBaseInfoFields = map[string]struct{}{
+	"building_name":      {},
+	"floor_total":        {},
+	"manager_name":       {},
+	"manager_phone":      {},
+	"photos":             {},
+	"listing_facilities": {},
+}
+
 type BuildingRepository struct {
 	*common.Repository[model.HmdBuilding]
 }
@@ -25,8 +34,8 @@ func (r *BuildingRepository) Create(ctx context.Context, entity *model.HmdBuildi
 	if entity == nil {
 		return fmt.Errorf("create hmd building: entity is nil")
 	}
-	if entity.ProjectID.IsZero() || entity.BuildingName == "" {
-		return fmt.Errorf("create hmd building: projectID and buildingName are required")
+	if entity.ProjectID.IsZero() || entity.BuildingName == "" || entity.BuildingCode == "" {
+		return fmt.Errorf("create hmd building: projectID, buildingName and buildingCode are required")
 	}
 	return r.Insert(ctx, entity)
 }
@@ -42,22 +51,23 @@ func (r *BuildingRepository) FindByBuildingCode(ctx context.Context, buildingCod
 	if buildingCode == "" {
 		return nil, fmt.Errorf("find hmd building by buildingCode: buildingCode is required")
 	}
-	return r.FindOne(ctx, bson.M{"building_code": buildingCode, "status": model.StatusActive})
+	return r.FindOne(ctx, activeFilter(bson.M{"building_code": buildingCode}))
 }
 
 func (r *BuildingRepository) ListByProjectID(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error) {
 	if projectID.IsZero() {
 		return nil, fmt.Errorf("list hmd buildings by projectID: projectID is required")
 	}
-	return r.FindMany(ctx, bson.M{"project_id": projectID, "status": model.StatusActive})
+	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
 }
 
 func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd building base info: id is required")
 	}
-	if len(fields) == 0 {
-		return fmt.Errorf("update hmd building base info: fields are required")
+	safeFields, err := pickAllowedFields(fields, buildingBaseInfoFields)
+	if err != nil {
+		return fmt.Errorf("update hmd building base info: %w", err)
 	}
-	return r.UpdateFieldsById(ctx, id, fields)
+	return r.UpdateFieldsById(ctx, id, safeFields)
 }

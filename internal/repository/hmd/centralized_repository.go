@@ -11,6 +11,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+var centralizedBaseInfoFields = map[string]struct{}{
+	"project_name": {},
+	"city":         {},
+	"district":     {},
+	"address_text": {},
+	"geo":          {},
+	"brand_name":   {},
+}
+
 type CentralizedRepository struct {
 	*common.Repository[model.HmdCentralized]
 }
@@ -35,7 +44,7 @@ func (r *CentralizedRepository) FindByProjectCode(ctx context.Context, projectCo
 	if projectCode == "" {
 		return nil, fmt.Errorf("find hmd centralized by projectCode: projectCode is required")
 	}
-	return r.FindOne(ctx, bson.M{"project_code": projectCode, "status": model.StatusActive})
+	return r.FindOne(ctx, activeFilter(bson.M{"project_code": projectCode}))
 }
 
 func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) (*model.HmdCentralized, error) {
@@ -49,22 +58,23 @@ func (r *CentralizedRepository) ListByCity(ctx context.Context, city string) ([]
 	if city == "" {
 		return nil, fmt.Errorf("list hmd centralized by city: city is required")
 	}
-	return r.FindMany(ctx, bson.M{"city": city, "status": model.StatusActive})
+	return r.FindMany(ctx, activeFilter(bson.M{"city": city}))
 }
 
 func (r *CentralizedRepository) ListByCityAndDistrict(ctx context.Context, city, district string) ([]model.HmdCentralized, error) {
 	if city == "" || district == "" {
 		return nil, fmt.Errorf("list hmd centralized by city and district: city and district are required")
 	}
-	return r.FindMany(ctx, bson.M{"city": city, "district": district, "status": model.StatusActive})
+	return r.FindMany(ctx, activeFilter(bson.M{"city": city, "district": district}))
 }
 
 func (r *CentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd centralized base info: id is required")
 	}
-	if len(fields) == 0 {
-		return fmt.Errorf("update hmd centralized base info: fields are required")
+	safeFields, err := pickAllowedFields(fields, centralizedBaseInfoFields)
+	if err != nil {
+		return fmt.Errorf("update hmd centralized base info: %w", err)
 	}
-	return r.UpdateFieldsById(ctx, id, fields)
+	return r.UpdateFieldsById(ctx, id, safeFields)
 }

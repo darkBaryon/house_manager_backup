@@ -9,31 +9,65 @@ const roomDecentralizedColl = db.getCollection("hs_hmd_room_decentralized");
 
 print(`[seed-hmd] target db: ${db.getName()}`);
 
-centralizedColl.createIndex({ project_code: 1 }, { unique: true, name: "project_code_1" });
+centralizedColl.createIndex(
+  { project_code: 1 },
+  { unique: true, partialFilterExpression: { status: 1 }, name: "project_code_1_active_unique" }
+);
 centralizedColl.createIndex({ city: 1, status: 1 }, { name: "city_1_status_1" });
+centralizedColl.createIndex({ city: 1, district: 1, status: 1 }, { name: "city_1_district_1_status_1" });
 
+buildingColl.createIndex(
+  { building_code: 1 },
+  { unique: true, partialFilterExpression: { status: 1 }, name: "building_code_1_active_unique" }
+);
+buildingColl.createIndex(
+  { project_id: 1, building_name: 1 },
+  { unique: true, partialFilterExpression: { status: 1 }, name: "project_id_1_building_name_1_active_unique" }
+);
 buildingColl.createIndex({ project_id: 1, status: 1 }, { name: "project_id_1_status_1" });
-buildingColl.createIndex({ building_code: 1 }, { name: "building_code_1" });
 
 decentralizedColl.createIndex(
   { city: 1, district: 1, community_name: 1 },
-  { name: "city_1_district_1_community_name_1" }
+  { unique: true, partialFilterExpression: { status: 1 }, name: "city_1_district_1_community_name_1_active_unique" }
 );
+decentralizedColl.createIndex({ city: 1, status: 1 }, { name: "city_1_status_1" });
+decentralizedColl.createIndex({ city: 1, district: 1, status: 1 }, { name: "city_1_district_1_status_1" });
 decentralizedColl.createIndex({ status: 1, updated_at: -1 }, { name: "status_1_updated_at_-1" });
 
+roomTypeColl.createIndex(
+  { project_id: 1, room_type_name: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { project_id: { $exists: true }, status: 1 },
+    name: "project_id_1_room_type_name_1_active_unique",
+  }
+);
+roomTypeColl.createIndex(
+  { building_id: 1, room_type_name: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { building_id: { $exists: true }, status: 1 },
+    name: "building_id_1_room_type_name_1_active_unique",
+  }
+);
+roomTypeColl.createIndex({ project_id: 1, status: 1 }, { name: "project_id_1_status_1" });
 roomTypeColl.createIndex({ building_id: 1, status: 1 }, { name: "building_id_1_status_1" });
-roomTypeColl.createIndex({ project_id: 1, room_type_name: 1 }, { name: "project_id_1_room_type_name_1" });
 
 roomCentralizedColl.createIndex(
   { building_id: 1, room_no: 1 },
-  { unique: true, name: "building_id_1_room_no_1" }
+  { unique: true, partialFilterExpression: { status: 1 }, name: "building_id_1_room_no_1_active_unique" }
 );
+roomCentralizedColl.createIndex({ project_id: 1, status: 1 }, { name: "project_id_1_status_1" });
+roomCentralizedColl.createIndex({ building_id: 1, status: 1 }, { name: "building_id_1_status_1" });
+roomCentralizedColl.createIndex({ room_status: 1, status: 1 }, { name: "room_status_1_status_1" });
 roomCentralizedColl.createIndex({ status: 1, updated_at: -1 }, { name: "status_1_updated_at_-1" });
 
 roomDecentralizedColl.createIndex(
   { decentralized_id: 1, room_no: 1 },
-  { unique: true, name: "decentralized_id_1_room_no_1" }
+  { unique: true, partialFilterExpression: { status: 1 }, name: "decentralized_id_1_room_no_1_active_unique" }
 );
+roomDecentralizedColl.createIndex({ decentralized_id: 1, status: 1 }, { name: "decentralized_id_1_status_1" });
+roomDecentralizedColl.createIndex({ room_status: 1, status: 1 }, { name: "room_status_1_status_1" });
 roomDecentralizedColl.createIndex({ status: 1, updated_at: -1 }, { name: "status_1_updated_at_-1" });
 
 function seedImage(text, tag) {
