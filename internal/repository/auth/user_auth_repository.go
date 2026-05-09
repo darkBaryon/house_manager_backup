@@ -23,17 +23,8 @@ func NewUserAuthRepository(client *dbmongo.Client) *UserAuthRepository {
 }
 
 func (r *UserAuthRepository) Create(ctx context.Context, auth *model.UserAuth) error {
-	if auth == nil {
-		return fmt.Errorf("create user auth: auth is nil")
-	}
-	if auth.UserID.IsZero() {
-		return fmt.Errorf("create user auth: userID is required")
-	}
-	if auth.AuthProvider == "" {
-		return fmt.Errorf("create user auth: authProvider is required")
-	}
-	if auth.OpenID == "" {
-		return fmt.Errorf("create user auth: openID is required")
+	if err := auth.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create user auth: %w", err)
 	}
 	return r.Insert(ctx, auth)
 }
@@ -51,8 +42,8 @@ func (r *UserAuthRepository) TouchLastLogin(ctx context.Context, authID bson.Obj
 	})
 }
 
-func (r *UserAuthRepository) FindByOpenID(ctx context.Context, authProvider, openID string) (*model.UserAuth, error) {
-	if authProvider == "" || openID == "" {
+func (r *UserAuthRepository) FindByOpenID(ctx context.Context, authProvider model.AuthProvider, openID string) (*model.UserAuth, error) {
+	if !authProvider.Valid() || openID == "" {
 		return nil, fmt.Errorf("find user auth by openid: authProvider and openID are required")
 	}
 	return r.FindOne(ctx, bson.M{
@@ -62,8 +53,8 @@ func (r *UserAuthRepository) FindByOpenID(ctx context.Context, authProvider, ope
 	})
 }
 
-func (r *UserAuthRepository) FindByUnionID(ctx context.Context, authProvider, unionID string) (*model.UserAuth, error) {
-	if authProvider == "" || unionID == "" {
+func (r *UserAuthRepository) FindByUnionID(ctx context.Context, authProvider model.AuthProvider, unionID string) (*model.UserAuth, error) {
+	if !authProvider.Valid() || unionID == "" {
 		return nil, fmt.Errorf("find user auth by unionid: authProvider and unionID are required")
 	}
 	return r.FindOne(ctx, bson.M{

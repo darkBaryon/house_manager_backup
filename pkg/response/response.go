@@ -49,6 +49,10 @@ func toHTTPStatus(code int) int {
 		return http.StatusForbidden
 	case 10004:
 		return http.StatusTooManyRequests
+	case 10005:
+		return http.StatusNotFound
+	case 10006:
+		return http.StatusConflict
 	default:
 		if code >= 50000 {
 			return http.StatusInternalServerError

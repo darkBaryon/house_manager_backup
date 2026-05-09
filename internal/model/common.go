@@ -1,6 +1,10 @@
 package model
 
-import "go.mongodb.org/mongo-driver/v2/bson"
+import (
+	"strings"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 const (
 	StatusUnspecified = 0
@@ -20,4 +24,8 @@ type CommonFields struct {
 // Common 返回公共字段指针，供通用仓库维护公共字段。
 func (f *CommonFields) Common() *CommonFields {
 	return f
+}
+
+func isBlank(value string) bool {
+	return strings.TrimSpace(value) == ""
 }

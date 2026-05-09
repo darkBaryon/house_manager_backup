@@ -11,25 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var roomTypeCentralizedBaseInfoFields = map[string]struct{}{
-	"room_type_name":   {},
-	"room_count":       {},
-	"hall_count":       {},
-	"bathroom_count":   {},
-	"kitchen_count":    {},
-	"area_size":        {},
-	"orientation":      {},
-	"decoration_level": {},
-	"payment_cycle":    {},
-	"rent":             {},
-	"deposit":          {},
-	"service_fee":      {},
-	"agency_fee_mode":  {},
-	"agency_fee_value": {},
-	"images":           {},
-	"room_facilities":  {},
-}
-
 type RoomTypeCentralizedRepository struct {
 	*common.Repository[model.HmdRoomTypeCentralized]
 }
@@ -41,14 +22,8 @@ func NewRoomTypeCentralizedRepository(client *dbmongo.Client) *RoomTypeCentraliz
 }
 
 func (r *RoomTypeCentralizedRepository) Create(ctx context.Context, entity *model.HmdRoomTypeCentralized) error {
-	if entity == nil {
-		return fmt.Errorf("create hmd room type centralized: entity is nil")
-	}
-	if entity.RoomTypeName == "" {
-		return fmt.Errorf("create hmd room type centralized: roomTypeName is required")
-	}
-	if entity.ProjectID.IsZero() && entity.BuildingID.IsZero() {
-		return fmt.Errorf("create hmd room type centralized: projectID or buildingID is required")
+	if err := entity.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create hmd room type centralized: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
@@ -87,6 +62,9 @@ func (r *RoomTypeCentralizedRepository) UpdateBaseInfo(ctx context.Context, id b
 	}
 	safeFields, err := pickAllowedFields(fields, roomTypeCentralizedBaseInfoFields)
 	if err != nil {
+		return fmt.Errorf("update hmd room type centralized base info: %w", err)
+	}
+	if err := model.ValidateHmdUpdateFields(safeFields); err != nil {
 		return fmt.Errorf("update hmd room type centralized base info: %w", err)
 	}
 	return r.UpdateFieldsByID(ctx, id, safeFields)

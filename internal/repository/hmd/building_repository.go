@@ -11,15 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var buildingBaseInfoFields = map[string]struct{}{
-	"building_name":      {},
-	"floor_total":        {},
-	"manager_name":       {},
-	"manager_phone":      {},
-	"photos":             {},
-	"listing_facilities": {},
-}
-
 type BuildingRepository struct {
 	*common.Repository[model.HmdBuilding]
 }
@@ -31,11 +22,8 @@ func NewBuildingRepository(client *dbmongo.Client) *BuildingRepository {
 }
 
 func (r *BuildingRepository) Create(ctx context.Context, entity *model.HmdBuilding) error {
-	if entity == nil {
-		return fmt.Errorf("create hmd building: entity is nil")
-	}
-	if entity.ProjectID.IsZero() || entity.BuildingName == "" || entity.BuildingCode == "" {
-		return fmt.Errorf("create hmd building: projectID, buildingName and buildingCode are required")
+	if err := entity.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create hmd building: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
@@ -67,6 +55,9 @@ func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectI
 	}
 	safeFields, err := pickAllowedFields(fields, buildingBaseInfoFields)
 	if err != nil {
+		return fmt.Errorf("update hmd building base info: %w", err)
+	}
+	if err := model.ValidateHmdUpdateFields(safeFields); err != nil {
 		return fmt.Errorf("update hmd building base info: %w", err)
 	}
 	return r.UpdateFieldsByID(ctx, id, safeFields)

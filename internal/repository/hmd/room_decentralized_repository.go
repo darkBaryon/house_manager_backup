@@ -11,27 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var roomDecentralizedBaseInfoFields = map[string]struct{}{
-	"room_no":            {},
-	"floor_no":           {},
-	"rent_mode":          {},
-	"layout_text":        {},
-	"area_size":          {},
-	"orientation":        {},
-	"decoration_level":   {},
-	"payment_cycle":      {},
-	"rent":               {},
-	"deposit":            {},
-	"service_fee":        {},
-	"agency_fee_mode":    {},
-	"agency_fee_value":   {},
-	"viewing_time_rule":  {},
-	"start_rent_rule":    {},
-	"images":             {},
-	"room_facilities":    {},
-	"listing_facilities": {},
-}
-
 type RoomDecentralizedRepository struct {
 	*common.Repository[model.HmdRoomDecentralized]
 }
@@ -43,11 +22,11 @@ func NewRoomDecentralizedRepository(client *dbmongo.Client) *RoomDecentralizedRe
 }
 
 func (r *RoomDecentralizedRepository) Create(ctx context.Context, entity *model.HmdRoomDecentralized) error {
-	if entity == nil {
-		return fmt.Errorf("create hmd room decentralized: entity is nil")
+	if entity != nil && entity.RoomStatus == model.RoomStatusUnspecified {
+		entity.RoomStatus = model.RoomStatusAvailable
 	}
-	if entity.DecentralizedID.IsZero() || entity.RoomNo == "" || entity.RentMode == "" {
-		return fmt.Errorf("create hmd room decentralized: decentralizedID, roomNo and rentMode are required")
+	if err := entity.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create hmd room decentralized: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
@@ -81,6 +60,9 @@ func (r *RoomDecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bso
 	if err != nil {
 		return fmt.Errorf("update hmd room decentralized base info: %w", err)
 	}
+	if err := model.ValidateHmdUpdateFields(safeFields); err != nil {
+		return fmt.Errorf("update hmd room decentralized base info: %w", err)
+	}
 	return r.UpdateFieldsByID(ctx, id, safeFields)
 }
 
@@ -88,7 +70,7 @@ func (r *RoomDecentralizedRepository) UpdateStatus(ctx context.Context, id bson.
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room decentralized status: id is required")
 	}
-	if !isValidRoomStatus(roomStatus) {
+	if !model.IsValidRoomStatus(roomStatus) {
 		return fmt.Errorf("update hmd room decentralized status: roomStatus is invalid")
 	}
 	return r.UpdateFieldsByID(ctx, id, roomStatusUpdateFields(roomStatus))

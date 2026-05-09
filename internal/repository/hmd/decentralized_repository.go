@@ -11,16 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var decentralizedBaseInfoFields = map[string]struct{}{
-	"community_name": {},
-	"city":           {},
-	"district":       {},
-	"biz_area":       {},
-	"address_text":   {},
-	"geo":            {},
-	"subway_station": {},
-}
-
 type DecentralizedRepository struct {
 	*common.Repository[model.HmdDecentralized]
 }
@@ -32,11 +22,8 @@ func NewDecentralizedRepository(client *dbmongo.Client) *DecentralizedRepository
 }
 
 func (r *DecentralizedRepository) Create(ctx context.Context, entity *model.HmdDecentralized) error {
-	if entity == nil {
-		return fmt.Errorf("create hmd decentralized: entity is nil")
-	}
-	if entity.CommunityName == "" || entity.City == "" || entity.District == "" {
-		return fmt.Errorf("create hmd decentralized: communityName, city and district are required")
+	if err := entity.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create hmd decentralized: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
@@ -49,8 +36,8 @@ func (r *DecentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID
 }
 
 func (r *DecentralizedRepository) FindByCommunity(ctx context.Context, city, district, communityName string) (*model.HmdDecentralized, error) {
-	if city == "" || district == "" || communityName == "" {
-		return nil, fmt.Errorf("find hmd decentralized by community: city, district and communityName are required")
+	if city == "" || communityName == "" {
+		return nil, fmt.Errorf("find hmd decentralized by community: city and communityName are required")
 	}
 	return r.FindOne(ctx, activeFilter(bson.M{
 		"city":           city,
@@ -79,6 +66,9 @@ func (r *DecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.Ob
 	}
 	safeFields, err := pickAllowedFields(fields, decentralizedBaseInfoFields)
 	if err != nil {
+		return fmt.Errorf("update hmd decentralized base info: %w", err)
+	}
+	if err := model.ValidateHmdUpdateFields(safeFields); err != nil {
 		return fmt.Errorf("update hmd decentralized base info: %w", err)
 	}
 	return r.UpdateFieldsByID(ctx, id, safeFields)

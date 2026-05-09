@@ -76,14 +76,14 @@ func TestRoomStatusUpdateFields(t *testing.T) {
 func TestIsValidRoomStatus(t *testing.T) {
 	validStatuses := []int{-1, 0, 1, 2, 3}
 	for _, status := range validStatuses {
-		if !isValidRoomStatus(status) {
+		if !model.IsValidRoomStatus(status) {
 			t.Fatalf("expected status %d to be valid", status)
 		}
 	}
 
 	invalidStatuses := []int{-2, 4, 99}
 	for _, status := range invalidStatuses {
-		if isValidRoomStatus(status) {
+		if model.IsValidRoomStatus(status) {
 			t.Fatalf("expected status %d to be invalid", status)
 		}
 	}

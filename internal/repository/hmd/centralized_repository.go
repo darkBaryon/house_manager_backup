@@ -11,15 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var centralizedBaseInfoFields = map[string]struct{}{
-	"project_name": {},
-	"city":         {},
-	"district":     {},
-	"address_text": {},
-	"geo":          {},
-	"brand_name":   {},
-}
-
 type CentralizedRepository struct {
 	*common.Repository[model.HmdCentralized]
 }
@@ -31,11 +22,8 @@ func NewCentralizedRepository(client *dbmongo.Client) *CentralizedRepository {
 }
 
 func (r *CentralizedRepository) Create(ctx context.Context, entity *model.HmdCentralized) error {
-	if entity == nil {
-		return fmt.Errorf("create hmd centralized: entity is nil")
-	}
-	if entity.ProjectName == "" || entity.ProjectCode == "" || entity.City == "" {
-		return fmt.Errorf("create hmd centralized: projectName, projectCode and city are required")
+	if err := entity.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create hmd centralized: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
@@ -74,6 +62,9 @@ func (r *CentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.Obje
 	}
 	safeFields, err := pickAllowedFields(fields, centralizedBaseInfoFields)
 	if err != nil {
+		return fmt.Errorf("update hmd centralized base info: %w", err)
+	}
+	if err := model.ValidateHmdUpdateFields(safeFields); err != nil {
 		return fmt.Errorf("update hmd centralized base info: %w", err)
 	}
 	return r.UpdateFieldsByID(ctx, id, safeFields)

@@ -23,11 +23,8 @@ func NewUserProfileExtRepository(client *dbmongo.Client) *UserProfileExtReposito
 }
 
 func (r *UserProfileExtRepository) Create(ctx context.Context, profile *model.UserProfileExt) error {
-	if profile == nil {
-		return fmt.Errorf("create user profile ext: profile is nil")
-	}
-	if profile.UserID.IsZero() {
-		return fmt.Errorf("create user profile ext: userID is required")
+	if err := profile.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create user profile ext: %w", err)
 	}
 	return r.Insert(ctx, profile)
 }

@@ -3,6 +3,7 @@ package wire
 import (
 	"house-manager/internal/handler"
 	v1handler "house-manager/internal/handler/v1"
+	publishhandler "house-manager/internal/handler/v1/publish"
 )
 
 type internalV1Registrars []handler.RouteRegistrar
@@ -17,6 +18,6 @@ func newPublicV1Registrars(authH *v1handler.AuthHandler) publicV1Registrars {
 	return publicV1Registrars{authH}
 }
 
-func newProtectedV1Registrars(sessionH *v1handler.SessionHandler) protectedV1Registrars {
-	return protectedV1Registrars{sessionH}
+func newProtectedV1Registrars(sessionH *v1handler.SessionHandler, publishH *publishhandler.PublishHandler) protectedV1Registrars {
+	return protectedV1Registrars{sessionH, publishH}
 }

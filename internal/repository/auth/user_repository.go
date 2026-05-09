@@ -23,11 +23,8 @@ func NewUserRepository(client *dbmongo.Client) *UserRepository {
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
-	if user == nil {
-		return fmt.Errorf("create user: user is nil")
-	}
-	if user.Phone == "" {
-		return fmt.Errorf("create user: phone is required")
+	if err := user.ValidateForCreate(); err != nil {
+		return fmt.Errorf("create user: %w", err)
 	}
 	return r.Insert(ctx, user)
 }

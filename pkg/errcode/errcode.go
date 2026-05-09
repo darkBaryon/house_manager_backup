@@ -38,11 +38,13 @@ func FromError(err error) *Error {
 // =================== 通用 (10xxx) ===================
 
 var (
-	Success      = New(0, "success")
-	InvalidParam = New(10001, "参数无效")
-	Unauthorized = New(10002, "未认证")
-	Forbidden    = New(10003, "无权限")
-	TooFrequent  = New(10004, "请求过频")
+	Success       = New(0, "success")
+	InvalidParam  = New(10001, "参数无效")
+	Unauthorized  = New(10002, "未认证")
+	Forbidden     = New(10003, "无权限")
+	TooFrequent   = New(10004, "请求过频")
+	NotFound      = New(10005, "资源不存在")
+	AlreadyExists = New(10006, "资源已存在")
 )
 
 // =================== 系统 (50xxx) ===================
