@@ -3,6 +3,7 @@ package wire
 import (
 	publishhandler "house-manager/internal/handler/v1/publish"
 	repohmd "house-manager/internal/repository/hmd"
+	repohpd "house-manager/internal/repository/hpd"
 	publishsvc "house-manager/internal/service/publish"
 	hmdsvc "house-manager/internal/service/publish/hmd"
 	hpdsvc "house-manager/internal/service/publish/hpd"
@@ -35,6 +36,14 @@ func newHmdRoomDecentralizedRepository(client *dbmongo.Client) *repohmd.RoomDece
 	return repohmd.NewRoomDecentralizedRepository(client)
 }
 
+func newHpdListingRepository(client *dbmongo.Client) *repohpd.ListingRepository {
+	return repohpd.NewListingRepository(client)
+}
+
+func newHpdMiniappListingRepository(client *dbmongo.Client) *repohpd.MiniappListingRepository {
+	return repohpd.NewMiniappListingRepository(client)
+}
+
 var PublishSet = wire.NewSet(
 	newHmdCentralizedRepository,
 	newHmdBuildingRepository,
@@ -42,6 +51,8 @@ var PublishSet = wire.NewSet(
 	newHmdRoomTypeCentralizedRepository,
 	newHmdRoomCentralizedRepository,
 	newHmdRoomDecentralizedRepository,
+	newHpdListingRepository,
+	newHpdMiniappListingRepository,
 	hmdsvc.NewService,
 	hpdsvc.NewService,
 	publishsvc.NewPublishService,

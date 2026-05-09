@@ -1,138 +1,194 @@
 # house-manager
 
-AI租房运管端 — Go 后端服务
+AI 找房与发房项目的 Go 后端服务。
+
+当前项目处于从 Python `ai_house` 迁移到 Go 的阶段。迁移原则是：保留已确认业务行为，但不兼容旧数据库结构、旧前端临时接口或 Python 技术边界。
+
+## 当前状态
+
+已完成并验证：
+
+- 配置加载：YAML / `.env` / 环境变量覆盖
+- MongoDB / Redis 基础设施接入
+- Auth 主链路：微信登录/注册服务、Redis Session、Bearer token 中间件
+- HMD repository：房源主数据 6 个 collection 的基础 CRUD 与字段约束
+- Publish 第一阶段：发房端 HMD 录入、详情、列表、更新、房态更新
+- Publish 分层测试：HMD Mongo 集成测试、Publish facade 单测、Handler HTTP binding 测试
+- Publish 真实服务联调：route / wire / middleware / Redis session / handler / service / Mongo 落库已跑通
+
+仍未完成：
+
+- HPD 发布与展示层数据
+- 小程序展示层依赖的 HPD projector / outbox
+- 后台管理系统 API 与 handler / service
 
 ## 技术栈
 
-| 组件 | 技术 | 版本 |
-|------|------|------|
-| 语言 | Go | 1.25 |
-| HTTP | Gin | v1.10 |
-| 数据库 | MongoDB | driver v2 |
-| 缓存 | Redis | go-redis v9 |
-| 认证 | Redis Session | crypto/rand token |
-| DI | Wire | v0.6 |
-| 配置 | Viper | v1.19 |
-| 日志 | Slog | stdlib |
-| 限流 | token bucket | golang.org/x/time |
+| 组件 | 技术 |
+| --- | --- |
+| 语言 | Go |
+| HTTP | Gin |
+| 数据库 | MongoDB driver v2 |
+| 缓存 | Redis go-redis v9 |
+| 认证 | Redis Session |
+| 配置 | Viper |
+| 日志 | slog |
+| DI | Wire |
 
 ## 项目结构
 
-```
-cmd/server/main.go       程序入口（信号管理、优雅关闭）
+```text
+cmd/server/                 服务入口
+config/                     YAML 配置
 internal/
-  app/                    应用引导（RouteGroup 路由注册、优雅关闭）
-  config/                 Viper YAML 配置加载
-  handler/                RouteRegistrar 接口定义
-    v1/                   v1 handlers（POST 风格）
-    v2/                   v2 handlers（RESTful GET）
-  middleware/             Gin 中间件（Recovery/Logger/Auth/RateLimit）
-  model/                  领域模型（BaseModel、LiteBaseModel、PageReq）
-  repository/             数据访问层（泛型 Repository[T] + TxManager）
-  service/                业务逻辑层（Cache-Aside、errcode 映射）
+  app/                      Gin 应用与 RouteGroup 注册
+  config/                   配置读取与转换
+  handler/                  HTTP handler
+    v1/auth.go              auth 接口
+    v1/publish/             发房系统第一期接口
+  middleware/               Auth / Logger / Recovery / RateLimit
+  model/                    领域模型、枚举、字段校验
+  repository/               Mongo repository
+    auth/                   用户与认证数据
+    common/                 泛型 repository 基础能力
+    hmd/                    房源主数据 repository
+  service/                  业务 service
+    auth/                   auth 子服务
+    publish/                发房域 facade
+      hmd/                  HMD 子 service
+      hpd/                  HPD 预留入口，当前 no-op
 pkg/
-  cache/                  缓存封装（泛型 GetSet[T]、singleflight、TTL jitter）
-  database/               MongoDB / Redis 客户端封装
-  errcode/                统一错误码（code/message/cause 三元组）
-  logger/                 Slog 初始化
-  response/               统一 JSON 响应（Success/Error/SuccessPage）
-  session/                Redis Session 存储（Create/Get/Delete）
-  configpath/             配置文件路径解析
-wire/                     Wire DI 汇编（providers 按模块拆分）
+  database/mongo            Mongo 基础设施
+  database/redis            Redis 基础设施
+  errcode                   统一业务错误码
+  response                  统一响应
+  session                   Redis session store
+wire/                       Wire provider
+shared-docs/                共享文档 submodule
 ```
 
-## 架构
+## 分层约定
 
-```
-Request → Gin Middleware Chain → Handler → Service → Repository → MongoDB
-                                      ↕                  ↕
-                                   errcode            Cache (Redis)
-                                   response          singleflight
-```
-
-**分层职责：**
-- **Handler**：参数绑定、响应输出，定义 `RouteRegistrar` 接口，v1/v2 通过目录隔离
-- **Service**：业务编排、缓存策略，定义 `RoomServicer` 等消费端接口
-- **Repository**：泛型 `Repository[T]` 提供通用 CRUD，`TxManager` 管理事务
-- **App**：通用 `RouteGroup` 注册，不感知版本概念
-- **Wire**：编译时依赖注入，路由配置集中到 `providers_router.go`
-
-**路由配置**（声明式，集中在 `wire/providers_router.go`）：
-```go
-return []app.RouteGroup{
-    {Prefix: "/api/v1", Registrars: []handler.RouteRegistrar{healthH}},
-    {Prefix: "/api/v1", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar{roomH}},
-    {Prefix: "/api/v2", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar{v2RoomH}},
-}
+```text
+Router
+  -> Middleware
+    -> Handler
+      -> Service
+        -> Repository
+          -> MongoDB / Redis
 ```
 
-## 快速开始
+- Handler：只处理 HTTP 输入输出、ObjectID 解析、调用 service。
+- Service：承载业务动作、跨 repository 编排、错误语义。
+- Repository：只负责数据库读写、字段白名单、软删除过滤。
+- Model：定义结构、枚举和字段取值校验。
+- `pkg/database/*`：基础设施包，不依赖 `internal/config`。
+
+## 快速启动
 
 ```bash
-# 启动依赖（MongoDB + Redis）
+# 打通服务器 Mongo / Redis 隧道
 ./dev.sh
 
-# 启动服务（本地配置）
-go run ./cmd/server -c ./config/config.local.yaml
-
-# 指定配置文件启动
-go run cmd/server/main.go -c ./config/config.test.yaml
+# 启动服务
+./run.sh
 ```
 
-## 配置架构
+默认读取：
 
-- 默认读取 `./config/config.local.yaml`（若未传 `-c`）
-- 可用 `-c` 显式覆盖配置文件路径
-- 敏感信息通过环境变量覆盖
-  - `MONGODB_USERNAME`
-  - `MONGODB_PASSWORD`
-  - `REDIS_PASSWORD`
-- 示例见 `.env.example`
+```text
+config/config.local.yaml
+```
 
-## 开发命令
+敏感信息通过 `.env` 或环境变量覆盖：
 
-```bash
-go build ./...
-go test ./...
-go test ./internal/handler/v1/  # 单包测试
-go vet ./...
-go mod tidy
+```text
+MONGODB_USERNAME
+MONGODB_PASSWORD
+REDIS_PASSWORD
 ```
 
 ## API 约定
 
-**认证**：`Authorization: Bearer <session-token>`（Redis Session）
+接口命名遵守：
 
-**v1 请求风格**（POST + JSON body）：
+```text
+POST /api/v{version}/{模块}/{动作}
 ```
-POST /api/v1/room/detail   {"id": "..."}
-POST /api/v1/room/list     {"offset": 0, "limit": 20, "sort": ["createdAt:desc"]}
+
+不使用 RESTful 风格，也不使用 `/模块/对象/动作` 这类多级业务路径。
+
+认证：
+
+```text
+Authorization: Bearer <session-token>
+```
+
+当前主要接口：
+
+```text
 POST /api/v1/health/check
+POST /api/v1/auth/wechat_login
+POST /api/v1/auth/wechat/register
+POST /api/v1/auth/session
+POST /api/v1/publish/{action}
 ```
 
-**v2 请求风格**（RESTful GET + query params）：
-```
-GET /api/v2/rooms/:id
-GET /api/v2/rooms?offset=0&limit=20
-```
+publish 第一阶段已验证的业务对象：
 
-**响应 — 成功：**
+- 集中式项目
+- 楼栋
+- 集中式房型
+- 集中式房间
+- 分散式小区
+- 分散式房间
+
+响应格式：
+
 ```json
-{"code": 0, "error": "", "data": {...}}
+{
+  "code": 0,
+  "error": "",
+  "data": {}
+}
 ```
 
-**响应 — 分页：**
-```json
-{"code": 0, "error": "", "maxSize": 100, "size": 20, "data": [...]}
+## 常用验证命令
+
+```bash
+gofmt -w <changed-go-files>
+go test ./...
+go vet ./...
+go build ./...
 ```
 
-**响应 — 失败：**
-```json
-{"code": 20001, "error": "房间不存在", "data": null}
+HMD Mongo 集成测试默认跳过，显式开启：
+
+```bash
+PUBLISH_HMD_INTEGRATION=1 \
+PUBLISH_HMD_TEST_DB=rent-house \
+PUBLISH_HMD_TEST_AUTH_SOURCE=rent-house \
+PUBLISH_HMD_TEST_ALLOW_RENT_HOUSE=1 \
+go test ./internal/service/publish/hmd -run Integration -count=1 -v
 ```
 
-## 命名规范
+说明：
 
-- ID 命名：`Id` 不用 `ID`（`roomId` 非 `roomID`）
-- BSON 标签：全小写无分隔符（`bson:"createdat"`）
-- JSON 标签：camelCase（`json:"createdAt"`）
+- 普通 `go test ./...` 不访问 Mongo。
+- 集成测试只清理 `itest_` 前缀测试数据。
+- 有独立测试库时优先使用独立测试库。
+
+## 文档入口
+
+共享文档在 [shared-docs](./shared-docs/README.md)。
+
+常用入口：
+
+- [项目通用代码规范](./shared-docs/overview/project-spec.md)
+- [项目背景](./shared-docs/overview/project-background.md)
+- [Go 后端架构](./shared-docs/backend/index.md)
+- [发房系统 API](./shared-docs/api/publish.md)
+- [发房域后端设计](./shared-docs/backend/publish.md)
+- [小程序 HPD 规划](./shared-docs/backend/miniapp-hpd.md)
+- [当前迁移进度](./shared-docs/changes/migration/current-status.md)
+- [下一步计划](./shared-docs/changes/migration/next-steps.md)

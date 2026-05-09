@@ -59,6 +59,13 @@ func (r *RoomCentralizedRepository) ListByProjectID(ctx context.Context, project
 	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
 }
 
+func (r *RoomCentralizedRepository) ListByRoomTypeID(ctx context.Context, roomTypeID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
+	if roomTypeID.IsZero() {
+		return nil, fmt.Errorf("list hmd rooms centralized by roomTypeID: roomTypeID is required")
+	}
+	return r.FindMany(ctx, activeFilter(bson.M{"room_type_id": roomTypeID}))
+}
+
 func (r *RoomCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room centralized base info: id is required")

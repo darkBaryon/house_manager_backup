@@ -3,19 +3,122 @@ package hpd
 import (
 	"context"
 
+	"house-manager/internal/model"
+	repohmd "house-manager/internal/repository/hmd"
+	repohpd "house-manager/internal/repository/hpd"
 	"house-manager/internal/service/publish/hmd"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// Service 是展示层数据同步的预留入口。
-//
-// 当前阶段只实现 HMD 写入链路，HPD 集合和投影规则还没定稿，所以 Apply 保持 no-op。
-// 等 HPD 模型落地后，这里会把 HMD changes 交给 projector 或 outbox worker 复用的投影逻辑。
-type Service struct{}
+type Service struct {
+	listingRepo      hpdListingRepository
+	miniappProjector miniappProjector
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(
+	hpdListingRepo *repohpd.ListingRepository,
+	hpdMiniappListingRepo *repohpd.MiniappListingRepository,
+	hmdCentralizedRepo *repohmd.CentralizedRepository,
+	hmdBuildingRepo *repohmd.BuildingRepository,
+	hmdDecentralizedRepo *repohmd.DecentralizedRepository,
+	hmdRoomTypeCentralizedRepo *repohmd.RoomTypeCentralizedRepository,
+	hmdRoomCentralizedRepo *repohmd.RoomCentralizedRepository,
+	hmdRoomDecentralizedRepo *repohmd.RoomDecentralizedRepository,
+) *Service {
+	return &Service{
+		listingRepo: hpdListingRepo,
+		miniappProjector: NewMiniappProjector(
+			hpdListingRepo,
+			hpdMiniappListingRepo,
+			hmdCentralizedRepo,
+			hmdBuildingRepo,
+			hmdDecentralizedRepo,
+			hmdRoomTypeCentralizedRepo,
+			hmdRoomCentralizedRepo,
+			hmdRoomDecentralizedRepo,
+		),
+	}
+}
+
+type miniappProjector interface {
+	RefreshByListing(ctx context.Context, listing *model.HpdListing) error
+	RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
+	RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
+	RefreshCentralizedProject(ctx context.Context, projectID bson.ObjectID) error
+	RefreshBuilding(ctx context.Context, buildingID bson.ObjectID) error
+	RefreshRoomTypeCentralized(ctx context.Context, roomTypeID bson.ObjectID) error
+	RefreshDecentralizedCommunity(ctx context.Context, decentralizedID bson.ObjectID) error
 }
 
 func (s *Service) Apply(ctx context.Context, changes []hmd.HmdChange) error {
+	if s == nil || s.miniappProjector == nil {
+		return nil
+	}
+	for _, change := range changes {
+		switch change.Scope {
+		case hmd.HmdScopeCentralizedProject:
+			if err := s.miniappProjector.RefreshCentralizedProject(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd centralized project projection: %w", err)
+			}
+		case hmd.HmdScopeBuilding:
+			if err := s.miniappProjector.RefreshBuilding(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd building projection: %w", err)
+			}
+		case hmd.HmdScopeRoomTypeCentralized:
+			if err := s.miniappProjector.RefreshRoomTypeCentralized(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd room type centralized projection: %w", err)
+			}
+		case hmd.HmdScopeCentralizedRoom:
+			if err := s.miniappProjector.RefreshCentralizedRoom(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd centralized room projection: %w", err)
+			}
+		case hmd.HmdScopeDecentralizedCommunity:
+			if err := s.miniappProjector.RefreshDecentralizedCommunity(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd decentralized community projection: %w", err)
+			}
+		case hmd.HmdScopeDecentralizedRoom:
+			if err := s.miniappProjector.RefreshDecentralizedRoom(ctx, change.EntityID); err != nil {
+				return databasef("apply hpd decentralized room projection: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) UpdateListingStatus(ctx context.Context, listingID bson.ObjectID, listingStatus model.HpdListingStatus) error {
+	if s == nil || s.listingRepo == nil {
+		return nil
+	}
+	if err := s.listingRepo.UpdateStatus(ctx, listingID, listingStatus); err != nil {
+		return databasef("update hpd listing status: %w", err)
+	}
+	return s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+}
+
+func (s *Service) UpdateListingLifecycleFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
+	if s == nil || s.listingRepo == nil {
+		return nil
+	}
+	if err := s.listingRepo.UpdateLifecycleFields(ctx, listingID, fields); err != nil {
+		return databasef("update hpd listing lifecycle fields: %w", err)
+	}
+	return s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+}
+
+func (s *Service) refreshListingAfterLifecycleUpdate(ctx context.Context, listingID bson.ObjectID) error {
+	if s.miniappProjector == nil {
+		return nil
+	}
+	listing, err := s.listingRepo.FindByID(ctx, listingID)
+	if err != nil {
+		return databasef("refresh hpd listing after lifecycle update: %w", err)
+	}
+	if listing == nil {
+		return databasef("refresh hpd listing after lifecycle update: listing not found")
+	}
+	if err := s.miniappProjector.RefreshByListing(ctx, listing); err != nil {
+		return databasef("refresh hpd listing after lifecycle update: %w", err)
+	}
 	return nil
 }
