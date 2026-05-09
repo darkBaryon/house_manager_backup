@@ -1,6 +1,6 @@
 package publish
 
-import "house-manager/internal/service/publish/hmd"
+import "house-manager/internal/service/hmd"
 
 type GeoPointInput = hmd.GeoPointInput
 type TaggedImageInput = hmd.TaggedImageInput

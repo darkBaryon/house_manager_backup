@@ -4,9 +4,9 @@ import (
 	publishhandler "house-manager/internal/handler/v1/publish"
 	repohmd "house-manager/internal/repository/hmd"
 	repohpd "house-manager/internal/repository/hpd"
+	hmdsvc "house-manager/internal/service/hmd"
+	hpdsvc "house-manager/internal/service/hpd"
 	publishsvc "house-manager/internal/service/publish"
-	hmdsvc "house-manager/internal/service/publish/hmd"
-	hpdsvc "house-manager/internal/service/publish/hpd"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"github.com/google/wire"
@@ -44,17 +44,25 @@ func newHpdMiniappListingRepository(client *dbmongo.Client) *repohpd.MiniappList
 	return repohpd.NewMiniappListingRepository(client)
 }
 
-var PublishSet = wire.NewSet(
+var HmdSet = wire.NewSet(
 	newHmdCentralizedRepository,
 	newHmdBuildingRepository,
 	newHmdDecentralizedRepository,
 	newHmdRoomTypeCentralizedRepository,
 	newHmdRoomCentralizedRepository,
 	newHmdRoomDecentralizedRepository,
+	hmdsvc.NewService,
+)
+
+var HpdSet = wire.NewSet(
 	newHpdListingRepository,
 	newHpdMiniappListingRepository,
-	hmdsvc.NewService,
 	hpdsvc.NewService,
+)
+
+var PublishSet = wire.NewSet(
+	HmdSet,
+	HpdSet,
 	publishsvc.NewPublishService,
 	publishhandler.NewPublishHandler,
 )

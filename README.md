@@ -13,13 +13,14 @@ AI 找房与发房项目的 Go 后端服务。
 - Auth 主链路：微信登录/注册服务、Redis Session、Bearer token 中间件
 - HMD repository：房源主数据 6 个 collection 的基础 CRUD 与字段约束
 - Publish 第一阶段：发房端 HMD 录入、详情、列表、更新、房态更新
-- Publish 分层测试：HMD Mongo 集成测试、Publish facade 单测、Handler HTTP binding 测试
+- Publish 分层测试：HMD Mongo 集成测试、Publish service 单测、Handler HTTP binding 测试
 - Publish 真实服务联调：route / wire / middleware / Redis session / handler / service / Mongo 落库已跑通
+- HPD 第一阶段：小程序展示层 model / repository / projector 已接入 HMD changes
 
 仍未完成：
 
-- HPD 发布与展示层数据
-- 小程序展示层依赖的 HPD projector / outbox
+- HPD seed 数据与索引初始化
+- 小程序展示层读接口 service / handler
 - 后台管理系统 API 与 handler / service
 
 ## 技术栈
@@ -52,11 +53,12 @@ internal/
     auth/                   用户与认证数据
     common/                 泛型 repository 基础能力
     hmd/                    房源主数据 repository
+    hpd/                    发布与展示层 repository
   service/                  业务 service
     auth/                   auth 子服务
-    publish/                发房域 facade
-      hmd/                  HMD 子 service
-      hpd/                  HPD 预留入口，当前 no-op
+    hmd/                    房源主数据 service
+    hpd/                    发布与展示层投影 service
+    publish/                发房域应用服务
 pkg/
   database/mongo            Mongo 基础设施
   database/redis            Redis 基础设施
@@ -169,7 +171,7 @@ PUBLISH_HMD_INTEGRATION=1 \
 PUBLISH_HMD_TEST_DB=rent-house \
 PUBLISH_HMD_TEST_AUTH_SOURCE=rent-house \
 PUBLISH_HMD_TEST_ALLOW_RENT_HOUSE=1 \
-go test ./internal/service/publish/hmd -run Integration -count=1 -v
+go test ./internal/service/hmd -run Integration -count=1 -v
 ```
 
 说明：

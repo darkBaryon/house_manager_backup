@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"house-manager/internal/model"
-	"house-manager/internal/service/publish/hmd"
+	"house-manager/internal/service/hmd"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )

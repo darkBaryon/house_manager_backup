@@ -6,7 +6,7 @@ import (
 	"house-manager/internal/model"
 	repohmd "house-manager/internal/repository/hmd"
 	repohpd "house-manager/internal/repository/hpd"
-	"house-manager/internal/service/publish/hmd"
+	"house-manager/internal/service/hmd"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
