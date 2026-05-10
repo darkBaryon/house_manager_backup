@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	hmddomain "house-manager/internal/domain/hmd"
 	"house-manager/internal/model"
-	hmdsvc "house-manager/internal/service/hmd"
 	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -14,17 +14,17 @@ import (
 
 func TestPublishServiceAppliesHmdChangesAfterWrite(t *testing.T) {
 	entity := &model.HmdCentralized{CommonFields: model.CommonFields{ID: bson.NewObjectID()}}
-	change := hmdsvc.HmdChange{
-		Action:     hmdsvc.HmdChangeCreated,
-		EntityType: hmdsvc.HmdEntityCentralizedProject,
+	change := hmddomain.HmdChange{
+		Action:     hmddomain.HmdChangeCreated,
+		EntityType: hmddomain.HmdEntityCentralizedProject,
 		EntityID:   entity.ID,
-		Scope:      hmdsvc.HmdScopeCentralizedProject,
+		Scope:      hmddomain.HmdScopeCentralizedProject,
 		ProjectID:  entity.ID,
 	}
 	hmd := &fakeHmdService{
-		createCentralizedProjectResult: &hmdsvc.HmdMutationResult[model.HmdCentralized]{
+		createCentralizedProjectResult: &hmddomain.HmdMutationResult[model.HmdCentralized]{
 			Entity:  entity,
-			Changes: []hmdsvc.HmdChange{change},
+			Changes: []hmddomain.HmdChange{change},
 		},
 	}
 	hpd := &fakeHpdApplier{}
@@ -83,9 +83,9 @@ func TestPublishServiceReturnsApplyError(t *testing.T) {
 	entity := &model.HmdCentralized{CommonFields: model.CommonFields{ID: bson.NewObjectID()}}
 	applyErr := errcode.InternalError.WithError(fmt.Errorf("apply failed"))
 	hmd := &fakeHmdService{
-		createCentralizedProjectResult: &hmdsvc.HmdMutationResult[model.HmdCentralized]{
+		createCentralizedProjectResult: &hmddomain.HmdMutationResult[model.HmdCentralized]{
 			Entity:  entity,
-			Changes: []hmdsvc.HmdChange{{EntityID: entity.ID}},
+			Changes: []hmddomain.HmdChange{{EntityID: entity.ID}},
 		},
 	}
 	hpd := &fakeHpdApplier{err: applyErr}
@@ -99,24 +99,24 @@ func TestPublishServiceReturnsApplyError(t *testing.T) {
 
 type fakeHpdApplier struct {
 	calls   int
-	changes []hmdsvc.HmdChange
+	changes []hmddomain.HmdChange
 	err     error
 }
 
-func (f *fakeHpdApplier) Apply(ctx context.Context, changes []hmdsvc.HmdChange) error {
+func (f *fakeHpdApplier) Apply(ctx context.Context, changes []hmddomain.HmdChange) error {
 	f.calls++
-	f.changes = append([]hmdsvc.HmdChange(nil), changes...)
+	f.changes = append([]hmddomain.HmdChange(nil), changes...)
 	return f.err
 }
 
 type fakeHmdService struct {
-	createCentralizedProjectResult *hmdsvc.HmdMutationResult[model.HmdCentralized]
+	createCentralizedProjectResult *hmddomain.HmdMutationResult[model.HmdCentralized]
 	createCentralizedProjectErr    error
 	getCentralizedProjectResult    *model.HmdCentralized
 	getCentralizedProjectErr       error
 }
 
-func (f *fakeHmdService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmdsvc.HmdMutationResult[model.HmdCentralized], error) {
+func (f *fakeHmdService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmddomain.HmdMutationResult[model.HmdCentralized], error) {
 	return f.createCentralizedProjectResult, f.createCentralizedProjectErr
 }
 
@@ -128,6 +128,6 @@ func (f *fakeHmdService) ListCentralizedProjects(ctx context.Context, input List
 	return nil, nil
 }
 
-func (f *fakeHmdService) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmdsvc.HmdMutationResult[model.HmdCentralized], error) {
+func (f *fakeHmdService) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmddomain.HmdMutationResult[model.HmdCentralized], error) {
 	return nil, nil
 }

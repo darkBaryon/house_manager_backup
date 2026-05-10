@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"house-manager/internal/domain/hmd"
 	"house-manager/internal/model"
-	"house-manager/internal/service/hmd"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )

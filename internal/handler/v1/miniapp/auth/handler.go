@@ -1,10 +1,11 @@
-package v1
+package auth
 
 import (
+	"context"
 	"log/slog"
 
 	"house-manager/internal/handler"
-	"house-manager/internal/service"
+	authsvc "house-manager/internal/service/miniapp/auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/response"
 
@@ -12,10 +13,15 @@ import (
 )
 
 type AuthHandler struct {
-	service *service.AuthService
+	service authService
 }
 
 type SessionHandler struct{}
+
+type authService interface {
+	WechatLogin(ctx context.Context, code, loginIP string) (string, error)
+	WechatRegister(ctx context.Context, code, phoneCode, loginIP string) (string, error)
+}
 
 type wechatLoginRequest struct {
 	Code string `json:"code" binding:"required"`
@@ -26,7 +32,11 @@ type wechatRegisterRequest struct {
 	PhoneCode string `json:"phone_code" binding:"required"`
 }
 
-func NewAuthHandler(service *service.AuthService) *AuthHandler {
+func NewAuthHandler(service *authsvc.Service) *AuthHandler {
+	return newAuthHandler(service)
+}
+
+func newAuthHandler(service authService) *AuthHandler {
 	return &AuthHandler{service: service}
 }
 
@@ -36,7 +46,7 @@ func NewSessionHandler() *SessionHandler {
 
 func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/auth/wechat_login", h.WechatLogin)
-	rg.POST("/auth/wechat/register", h.WechatRegister)
+	rg.POST("/auth/wechat_register", h.WechatRegister)
 }
 
 func (h *SessionHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -86,3 +96,4 @@ func (h *SessionHandler) Session(c *gin.Context) {
 
 var _ handler.RouteRegistrar = (*AuthHandler)(nil)
 var _ handler.RouteRegistrar = (*SessionHandler)(nil)
+var _ authService = (*authsvc.Service)(nil)

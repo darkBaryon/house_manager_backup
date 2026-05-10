@@ -3,8 +3,8 @@ package publish
 import (
 	"context"
 
-	hmdsvc "house-manager/internal/service/hmd"
-	hpdsvc "house-manager/internal/service/hpd"
+	hmddomain "house-manager/internal/domain/hmd"
+	hpddomain "house-manager/internal/domain/hpd"
 )
 
 // PublishService 是发房域的业务入口，handler 只依赖这一层。
@@ -18,7 +18,7 @@ type PublishService struct {
 	hpd                      hpdApplier
 }
 
-func NewPublishService(hmd *hmdsvc.Service, hpd *hpdsvc.Service) *PublishService {
+func NewPublishService(hmd *hmddomain.Service, hpd *hpddomain.Service) *PublishService {
 	return &PublishService{
 		centralizedProjects:      hmd,
 		buildings:                hmd,
@@ -30,7 +30,7 @@ func NewPublishService(hmd *hmdsvc.Service, hpd *hpdsvc.Service) *PublishService
 	}
 }
 
-func resolveHmdMutation[T any](ctx context.Context, hpd hpdApplier, result *hmdsvc.HmdMutationResult[T], err error) (*T, error) {
+func resolveHmdMutation[T any](ctx context.Context, hpd hpdApplier, result *hmddomain.HmdMutationResult[T], err error) (*T, error) {
 	if err != nil {
 		return nil, err
 	}

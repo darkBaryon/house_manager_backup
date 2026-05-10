@@ -2,10 +2,10 @@ package wire
 
 import (
 	"house-manager/internal/config"
-	v1handler "house-manager/internal/handler/v1"
+	authdomain "house-manager/internal/domain/auth"
+	miniauthhandler "house-manager/internal/handler/v1/miniapp/auth"
 	repoauth "house-manager/internal/repository/auth"
-	"house-manager/internal/service"
-	authsvc "house-manager/internal/service/auth"
+	miniauthsvc "house-manager/internal/service/miniapp/auth"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"github.com/google/wire"
@@ -23,20 +23,26 @@ func newUserProfileExtRepository(client *dbmongo.Client) *repoauth.UserProfileEx
 	return repoauth.NewUserProfileExtRepository(client)
 }
 
-func newWechatClient(cfg *config.Config) (*authsvc.WechatClient, error) {
-	return authsvc.NewWechatClient(authsvc.WechatConfig{
+func newWechatClient(cfg *config.Config) (*authdomain.WechatClient, error) {
+	return authdomain.NewWechatClient(authdomain.WechatConfig{
 		AppID:   cfg.Wechat.AppID,
 		Secret:  cfg.Wechat.Secret,
 		APIBase: cfg.Wechat.APIBase,
 	})
 }
 
-var AuthSet = wire.NewSet(
+var DomainAuthSet = wire.NewSet(
 	newUserRepository,
 	newUserAuthRepository,
 	newUserProfileExtRepository,
 	newWechatClient,
-	service.NewAuthService,
-	v1handler.NewAuthHandler,
-	v1handler.NewSessionHandler,
+	authdomain.NewUserProfileService,
+	authdomain.NewIdentityService,
+)
+
+var MiniappAuthSet = wire.NewSet(
+	DomainAuthSet,
+	miniauthsvc.NewService,
+	miniauthhandler.NewAuthHandler,
+	miniauthhandler.NewSessionHandler,
 )

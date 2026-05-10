@@ -12,9 +12,9 @@ import (
 func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 	wire.Build(
 		InfraSet,
-		AuthSet,
-		HmdSet,
-		HpdSet,
+		MiniappAuthSet,
+		DomainHmdSet,
+		DomainHpdSet,
 		PublishSet,
 		MiniappHouseSet,
 		HealthSet,

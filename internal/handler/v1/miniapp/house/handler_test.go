@@ -65,7 +65,7 @@ func TestHouseSearchReturnsSnakeCasePagedData(t *testing.T) {
 	if svc.searchCalls != 1 {
 		t.Fatalf("expected Search to be called once, got %d", svc.searchCalls)
 	}
-	if svc.searchInput.AssetMode != "centralized" || len(svc.searchInput.FeatureFlags) != 1 {
+	if svc.searchInput.City != "深圳" || svc.searchInput.AssetMode != "centralized" || len(svc.searchInput.FeatureFlags) != 1 {
 		t.Fatalf("unexpected service input: %#v", svc.searchInput)
 	}
 
@@ -91,6 +91,43 @@ func TestHouseSearchReturnsSnakeCasePagedData(t *testing.T) {
 		if _, ok := item[key]; ok {
 			t.Fatalf("unexpected camelCase key %s in item: %#v", key, item)
 		}
+	}
+}
+
+func TestHouseSearchBindsFullRequest(t *testing.T) {
+	svc := &fakeHouseService{searchResult: &housesvc.SearchResult{Page: 3, PageSize: 15}}
+	body := mustHouseJSON(t, map[string]any{
+		"city":          "深圳",
+		"district":      "南山",
+		"biz_area":      "科技园",
+		"rent_mode":     "whole",
+		"asset_mode":    "centralized",
+		"min_price":     3000,
+		"max_price":     6000,
+		"keyword":       "高新园",
+		"feature_flags": []string{"subway", "elevator"},
+		"page":          3,
+		"page_size":     15,
+	})
+
+	resp := performHouseRequest(t, svc, "/api/v1/house/search", body)
+
+	assertHouseResponse(t, resp, http.StatusOK, 0)
+	input := svc.searchInput
+	if input.City != "深圳" ||
+		input.District != "南山" ||
+		input.BizArea != "科技园" ||
+		input.RentMode != "whole" ||
+		input.AssetMode != "centralized" ||
+		input.MinPrice != 3000 ||
+		input.MaxPrice != 6000 ||
+		input.Keyword != "高新园" ||
+		input.Page != 3 ||
+		input.PageSize != 15 {
+		t.Fatalf("unexpected search input: %#v", input)
+	}
+	if len(input.FeatureFlags) != 2 || input.FeatureFlags[0] != "subway" || input.FeatureFlags[1] != "elevator" {
+		t.Fatalf("unexpected feature flags: %#v", input.FeatureFlags)
 	}
 }
 
@@ -145,6 +182,16 @@ func TestHousePublicDetailParsesListingIDAndReturnsSnakeCase(t *testing.T) {
 	}
 }
 
+func TestHousePublicDetailMissingListingIDReturnsInvalidParam(t *testing.T) {
+	svc := &fakeHouseService{}
+	resp := performHouseRequest(t, svc, "/api/v1/house/public_detail", `{}`)
+
+	assertHouseResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
+	if svc.detailCalls != 0 {
+		t.Fatalf("expected service not to be called, got %d", svc.detailCalls)
+	}
+}
+
 func TestHousePublicDetailInvalidListingIDReturnsInvalidParam(t *testing.T) {
 	svc := &fakeHouseService{}
 	resp := performHouseRequest(t, svc, "/api/v1/house/public_detail", `{"listing_id":"bad-id"}`)
@@ -155,11 +202,46 @@ func TestHousePublicDetailInvalidListingIDReturnsInvalidParam(t *testing.T) {
 	}
 }
 
-func TestHouseHandlerServiceErrcode(t *testing.T) {
+func TestHouseSearchServiceErrcode(t *testing.T) {
 	svc := &fakeHouseService{searchErr: errcode.DatabaseError.WithError(fmt.Errorf("mongo failed"))}
 	resp := performHouseRequest(t, svc, "/api/v1/house/search", `{}`)
 
 	assertHouseResponse(t, resp, http.StatusInternalServerError, errcode.DatabaseError.Code)
+}
+
+func TestHousePublicDetailServiceErrcodes(t *testing.T) {
+	listingID := bson.NewObjectID()
+	cases := []struct {
+		name       string
+		err        error
+		httpStatus int
+		code       int
+	}{
+		{
+			name:       "not found",
+			err:        errcode.NotFound.WithError(fmt.Errorf("not found")),
+			httpStatus: http.StatusNotFound,
+			code:       errcode.NotFound.Code,
+		},
+		{
+			name:       "database",
+			err:        errcode.DatabaseError.WithError(fmt.Errorf("mongo failed")),
+			httpStatus: http.StatusInternalServerError,
+			code:       errcode.DatabaseError.Code,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakeHouseService{detailErr: tc.err}
+			resp := performHouseRequest(t, svc, "/api/v1/house/public_detail", mustHouseJSON(t, map[string]any{"listing_id": listingID.Hex()}))
+
+			assertHouseResponse(t, resp, tc.httpStatus, tc.code)
+			if svc.detailCalls != 1 {
+				t.Fatalf("expected detail service to be called once, got %d", svc.detailCalls)
+			}
+		})
+	}
 }
 
 func performHouseRequest(t *testing.T, svc *fakeHouseService, path string, body string) *httptest.ResponseRecorder {
