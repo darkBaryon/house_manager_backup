@@ -60,6 +60,31 @@ func TestHistoryListFiltersOfflineBeforePaging(t *testing.T) {
 	}
 }
 
+func TestHistoryCountMatchesOnlineFilteredListTotal(t *testing.T) {
+	userID := bson.NewObjectID()
+	id1 := bson.NewObjectID()
+	id2 := bson.NewObjectID()
+	repo := &fakeHistoryRepository{
+		list: []model.History{
+			{UserID: userID, ListingID: id1, ViewedAt: 20},
+			{UserID: userID, ListingID: id2, ViewedAt: 10},
+		},
+		count: 99,
+	}
+	listings := &fakeMiniappListingRepository{
+		online: []model.HpdMiniappListing{{ListingID: id1, City: "深圳", Title: "一号"}},
+	}
+	svc := NewService(repo, listings)
+
+	total, err := svc.Count(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("Count returned error: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected online filtered count 1, got %d", total)
+	}
+}
+
 func assertHistoryErrCode(t *testing.T, err error, code int) {
 	t.Helper()
 	e := errcode.FromError(err)

@@ -2,7 +2,7 @@ package favorite
 
 import (
 	favoritesvc "house-manager/internal/service/miniapp/favorite"
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 )
 
 type mutationResponse struct {
@@ -61,7 +61,7 @@ func toListResponse(result *favoritesvc.ListResult) listResponse {
 	}
 }
 
-func toListingItemResponses(items []housesvc.ListItem) []listingItemResponse {
+func toListingItemResponses(items []listingview.Item) []listingItemResponse {
 	if len(items) == 0 {
 		return []listingItemResponse{}
 	}
@@ -96,7 +96,7 @@ func toListingItemResponses(items []housesvc.ListItem) []listingItemResponse {
 	return out
 }
 
-func toTaggedImageResponses(images []housesvc.TaggedImage) []taggedImageResponse {
+func toTaggedImageResponses(images []listingview.TaggedImage) []taggedImageResponse {
 	if len(images) == 0 {
 		return []taggedImageResponse{}
 	}

@@ -5,7 +5,7 @@ import (
 
 	"house-manager/internal/model"
 	minicommon "house-manager/internal/service/miniapp/common"
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -75,6 +75,8 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 		return nil, invalidParamf("user_id is required")
 	}
 	page, pageSize := minicommon.NormalizePage(input.Page, input.PageSize)
+	// TODO: replace full-load plus in-memory online filtering/paging with repository methods
+	// that can return online-visible count and page data in one bounded query path.
 	favorites, err := s.favorites.List(ctx, input.UserID, 0, 0)
 	if err != nil {
 		return nil, databasef("list favorites: %w", err)
@@ -93,13 +95,13 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 	}, nil
 }
 
-func pageListingItems(items []housesvc.ListItem, page, pageSize int) []housesvc.ListItem {
+func pageListingItems(items []listingview.Item, page, pageSize int) []listingview.Item {
 	if len(items) == 0 {
-		return []housesvc.ListItem{}
+		return []listingview.Item{}
 	}
 	start := int(minicommon.Skip(page, pageSize))
 	if start >= len(items) {
-		return []housesvc.ListItem{}
+		return []listingview.Item{}
 	}
 	end := start + pageSize
 	if end > len(items) {
@@ -112,11 +114,12 @@ func (s *Service) Count(ctx context.Context, userID bson.ObjectID) (int64, error
 	if userID.IsZero() {
 		return 0, invalidParamf("user_id is required")
 	}
-	total, err := s.favorites.Count(ctx, userID)
+	// Keep dashboard and list total semantics aligned: only online-visible listings count.
+	result, err := s.List(ctx, ListInput{UserID: userID, Page: 1, PageSize: 1})
 	if err != nil {
 		return 0, databasef("count favorites: %w", err)
 	}
-	return total, nil
+	return result.Total, nil
 }
 
 func (s *Service) requireOnlineListing(ctx context.Context, listingID bson.ObjectID) error {
@@ -156,18 +159,18 @@ func favoriteListingIDs(favorites []model.Favorite) []bson.ObjectID {
 	return ids
 }
 
-func orderListingItems(ids []bson.ObjectID, listings []model.HpdMiniappListing) []housesvc.ListItem {
+func orderListingItems(ids []bson.ObjectID, listings []model.HpdMiniappListing) []listingview.Item {
 	if len(ids) == 0 || len(listings) == 0 {
-		return []housesvc.ListItem{}
+		return []listingview.Item{}
 	}
 	byID := make(map[bson.ObjectID]model.HpdMiniappListing, len(listings))
 	for _, listing := range listings {
 		byID[listing.ListingID] = listing
 	}
-	items := make([]housesvc.ListItem, 0, len(listings))
+	items := make([]listingview.Item, 0, len(listings))
 	for _, id := range ids {
 		if listing, ok := byID[id]; ok {
-			items = append(items, housesvc.ListingItem(listing))
+			items = append(items, listingview.FromListing(listing))
 		}
 	}
 	return items

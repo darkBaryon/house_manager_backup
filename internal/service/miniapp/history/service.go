@@ -7,7 +7,7 @@ import (
 
 	"house-manager/internal/model"
 	minicommon "house-manager/internal/service/miniapp/common"
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -63,6 +63,8 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 		return nil, invalidParamf("user_id is required")
 	}
 	page, pageSize := minicommon.NormalizePage(input.Page, input.PageSize)
+	// TODO: replace full-load plus in-memory online filtering/paging with repository methods
+	// that can return online-visible count and page data in one bounded query path.
 	historyItems, err := s.history.List(ctx, input.UserID, 0, 0)
 	if err != nil {
 		return nil, databasef("list history: %w", err)
@@ -100,11 +102,12 @@ func (s *Service) Count(ctx context.Context, userID bson.ObjectID) (int64, error
 	if userID.IsZero() {
 		return 0, invalidParamf("user_id is required")
 	}
-	total, err := s.history.Count(ctx, userID)
+	// Keep dashboard and list total semantics aligned: only online-visible listings count.
+	result, err := s.List(ctx, ListInput{UserID: userID, Page: 1, PageSize: 1})
 	if err != nil {
 		return 0, databasef("count history: %w", err)
 	}
-	return total, nil
+	return result.Total, nil
 }
 
 func (s *Service) requireOnlineListing(ctx context.Context, listingID bson.ObjectID) error {
@@ -146,7 +149,7 @@ func orderHistoryItems(historyItems []model.History, listings []model.HpdMiniapp
 	for _, historyItem := range historyItems {
 		if listing, ok := byID[historyItem.ListingID]; ok {
 			items = append(items, ListItem{
-				ListItem: housesvc.ListingItem(listing),
+				Item:     listingview.FromListing(listing),
 				ViewedAt: historyItem.ViewedAt,
 			})
 		}

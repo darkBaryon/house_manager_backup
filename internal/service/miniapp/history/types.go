@@ -1,7 +1,7 @@
 package history
 
 import (
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -24,7 +24,7 @@ type AddResult struct {
 }
 
 type ListItem struct {
-	housesvc.ListItem
+	listingview.Item
 	ViewedAt int64
 }
 

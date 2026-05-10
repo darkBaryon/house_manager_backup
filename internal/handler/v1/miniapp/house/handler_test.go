@@ -9,9 +9,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/pkg/cache"
 	"house-manager/pkg/errcode"
+	"house-manager/pkg/session"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -202,6 +205,22 @@ func TestHousePublicDetailInvalidListingIDReturnsInvalidParam(t *testing.T) {
 	}
 }
 
+func TestHousePublicDetailInvalidTokenFallsBackToAnonymous(t *testing.T) {
+	listingID := bson.NewObjectID()
+	svc := &fakeHouseService{detailResult: &housesvc.DetailResult{}}
+	store := session.NewStore(&fakeSessionCache{}, time.Minute)
+
+	resp := performHouseRequestWithStore(t, svc, store, "/api/v1/house/public_detail", mustHouseJSON(t, map[string]any{"listing_id": listingID.Hex()}), "Bearer invalid-token")
+
+	assertHouseResponse(t, resp, http.StatusOK, 0)
+	if svc.detailCalls != 1 {
+		t.Fatalf("expected detail service to be called once, got %d", svc.detailCalls)
+	}
+	if !svc.detailInput.UserID.IsZero() {
+		t.Fatalf("invalid token must be treated as anonymous, got userID=%s", svc.detailInput.UserID.Hex())
+	}
+}
+
 func TestHouseSearchServiceErrcode(t *testing.T) {
 	svc := &fakeHouseService{searchErr: errcode.DatabaseError.WithError(fmt.Errorf("mongo failed"))}
 	resp := performHouseRequest(t, svc, "/api/v1/house/search", `{}`)
@@ -245,13 +264,22 @@ func TestHousePublicDetailServiceErrcodes(t *testing.T) {
 }
 
 func performHouseRequest(t *testing.T, svc *fakeHouseService, path string, body string) *httptest.ResponseRecorder {
+	return performHouseRequestWithStore(t, svc, nil, path, body, "")
+}
+
+func performHouseRequestWithStore(t *testing.T, svc *fakeHouseService, store *session.Store, path string, body string, authorization string) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	newHouseHandler(svc).RegisterRoutes(router.Group("/api/v1"))
+	h := newHouseHandler(svc)
+	h.sessionStore = store
+	h.RegisterRoutes(router.Group("/api/v1"))
 
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
+	}
 	resp := httptest.NewRecorder()
 	router.ServeHTTP(resp, req)
 	return resp
@@ -323,4 +351,18 @@ func TestHouseSearchEmptyResultKeepsListArray(t *testing.T) {
 	if !strings.Contains(string(envelope.Data), `"list":[]`) {
 		t.Fatalf("expected empty list array in data, got %s", string(envelope.Data))
 	}
+}
+
+type fakeSessionCache struct{}
+
+func (f *fakeSessionCache) Get(ctx context.Context, key string) (string, error) {
+	return "", cache.ErrNil
+}
+
+func (f *fakeSessionCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return nil
+}
+
+func (f *fakeSessionCache) Del(ctx context.Context, keys ...string) error {
+	return nil
 }

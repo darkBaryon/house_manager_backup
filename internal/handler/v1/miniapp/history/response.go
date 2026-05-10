@@ -2,7 +2,7 @@ package history
 
 import (
 	historysvc "house-manager/internal/service/miniapp/history"
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 )
 
 type addResponse struct {
@@ -59,12 +59,12 @@ func toListResponse(result *historysvc.ListResult) listResponse {
 	}
 	items := make([]listingItemResponse, 0, len(result.List))
 	for _, item := range result.List {
-		items = append(items, toListingItemResponse(item.ListItem, item.ViewedAt))
+		items = append(items, toListingItemResponse(item.Item, item.ViewedAt))
 	}
 	return listResponse{List: items, Page: result.Page, PageSize: result.PageSize, Total: result.Total}
 }
 
-func toListingItemResponse(item housesvc.ListItem, viewedAt int64) listingItemResponse {
+func toListingItemResponse(item listingview.Item, viewedAt int64) listingItemResponse {
 	return listingItemResponse{
 		ListingID:               item.ListingID,
 		AssetMode:               item.AssetMode,
@@ -93,7 +93,7 @@ func toListingItemResponse(item housesvc.ListItem, viewedAt int64) listingItemRe
 	}
 }
 
-func toTaggedImageResponses(images []housesvc.TaggedImage) []taggedImageResponse {
+func toTaggedImageResponses(images []listingview.TaggedImage) []taggedImageResponse {
 	if len(images) == 0 {
 		return []taggedImageResponse{}
 	}

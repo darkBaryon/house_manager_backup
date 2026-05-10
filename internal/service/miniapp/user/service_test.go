@@ -28,12 +28,61 @@ func TestUserProfileCombinesUserAndProfileExt(t *testing.T) {
 	}
 }
 
+func TestUserProfileAllowsMissingExt(t *testing.T) {
+	userID := bson.NewObjectID()
+	svc := NewService(
+		&fakeUserRepository{user: &model.User{CommonFields: model.CommonFields{ID: userID}, Nickname: "小明"}},
+		&fakeProfileRepository{},
+		&fakeCounter{},
+		&fakeCounter{},
+	)
+
+	profile, err := svc.Profile(context.Background(), ProfileInput{UserID: userID})
+	if err != nil {
+		t.Fatalf("Profile returned error: %v", err)
+	}
+	if profile.UserID != userID.Hex() || len(profile.PreferredAreas) != 0 || profile.BudgetMin != 0 || profile.BudgetMax != 0 {
+		t.Fatalf("unexpected empty ext profile: %#v", profile)
+	}
+}
+
 func TestUserUpdateProfileValidatesBudget(t *testing.T) {
 	userID := bson.NewObjectID()
 	svc := NewService(&fakeUserRepository{}, &fakeProfileRepository{}, &fakeCounter{}, &fakeCounter{})
 
-	_, err := svc.UpdateProfile(context.Background(), UpdateProfileInput{UserID: userID, BudgetMin: 7000, BudgetMax: 6000})
+	_, err := svc.UpdateProfile(context.Background(), UpdateProfileInput{UserID: userID, BudgetMin: intPtr(7000), BudgetMax: intPtr(6000)})
 	assertUserErrCode(t, err, errcode.InvalidParam.Code)
+}
+
+func TestUserUpdateProfileOnlyWritesProvidedFields(t *testing.T) {
+	userID := bson.NewObjectID()
+	users := &fakeUserRepository{user: &model.User{CommonFields: model.CommonFields{ID: userID}, Nickname: "旧昵称", City: "深圳"}}
+	profiles := &fakeProfileRepository{profile: &model.UserProfileExt{UserID: userID, BudgetMin: 1000, BudgetMax: 5000, Remark: "旧备注"}}
+	svc := NewService(users, profiles, &fakeCounter{}, &fakeCounter{})
+
+	profile, err := svc.UpdateProfile(context.Background(), UpdateProfileInput{
+		UserID:    userID,
+		Nickname:  stringPtr(" 新昵称 "),
+		BudgetMin: intPtr(2000),
+	})
+	if err != nil {
+		t.Fatalf("UpdateProfile returned error: %v", err)
+	}
+	if users.fields["nickname"] != "新昵称" {
+		t.Fatalf("unexpected user fields: %#v", users.fields)
+	}
+	if _, ok := users.fields["avatar"]; ok {
+		t.Fatalf("unprovided avatar must not be written: %#v", users.fields)
+	}
+	if profiles.fields["budget_min"] != 2000 {
+		t.Fatalf("unexpected profile fields: %#v", profiles.fields)
+	}
+	if _, ok := profiles.fields["remark"]; ok {
+		t.Fatalf("unprovided remark must not be written: %#v", profiles.fields)
+	}
+	if profile == nil {
+		t.Fatalf("expected profile response")
+	}
 }
 
 func TestUserDashboardCountsFavoriteAndHistory(t *testing.T) {
@@ -91,4 +140,12 @@ type fakeCounter struct {
 
 func (f *fakeCounter) Count(ctx context.Context, userID bson.ObjectID) (int64, error) {
 	return f.count, nil
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
+
+func intPtr(value int) *int {
+	return &value
 }

@@ -1,7 +1,7 @@
 package favorite
 
 import (
-	housesvc "house-manager/internal/service/miniapp/house"
+	"house-manager/internal/service/miniapp/listingview"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -33,7 +33,7 @@ type MutationResult struct {
 }
 
 type ListResult struct {
-	List     []housesvc.ListItem
+	List     []listingview.Item
 	Page     int
 	PageSize int
 	Total    int64

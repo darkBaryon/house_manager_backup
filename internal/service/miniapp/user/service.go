@@ -56,33 +56,49 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	if input.UserID.IsZero() {
 		return nil, invalidParamf("user_id is required")
 	}
-	if input.BudgetMin < 0 || input.BudgetMax < 0 {
+	if (input.BudgetMin != nil && *input.BudgetMin < 0) || (input.BudgetMax != nil && *input.BudgetMax < 0) {
 		return nil, invalidParamf("budget must be non-negative")
 	}
-	if input.BudgetMax > 0 && input.BudgetMin > input.BudgetMax {
-		return nil, invalidParamf("budget_min must be less than or equal to budget_max")
-	}
-	if rentMode := strings.TrimSpace(input.PreferredRentMode); rentMode != "" && !model.RentMode(rentMode).Valid() {
+	if rentMode := trimStringPtr(input.PreferredRentMode); rentMode != "" && !model.RentMode(rentMode).Valid() {
 		return nil, invalidParamf("preferred_rent_mode is invalid")
 	}
-	userFields := bson.M{
-		"nickname": strings.TrimSpace(input.Nickname),
-		"avatar":   strings.TrimSpace(input.Avatar),
-		"city":     strings.TrimSpace(input.City),
+
+	profile, err := s.profiles.FindByUserID(ctx, input.UserID)
+	if err != nil {
+		return nil, databasef("find user profile ext: %w", err)
 	}
-	if err := s.users.UpdateProfileFields(ctx, input.UserID, userFields); err != nil {
-		return nil, databasef("update user profile: %w", err)
+	effectiveBudgetMin, effectiveBudgetMax := effectiveBudgetRange(profile, input)
+	if effectiveBudgetMax > 0 && effectiveBudgetMin > effectiveBudgetMax {
+		return nil, invalidParamf("budget_min must be less than or equal to budget_max")
 	}
-	profileFields := bson.M{
-		"budget_min":          input.BudgetMin,
-		"budget_max":          input.BudgetMax,
-		"preferred_areas":     compactStrings(input.PreferredAreas),
-		"preferred_rent_mode": strings.TrimSpace(input.PreferredRentMode),
-		"move_in_plan":        strings.TrimSpace(input.MoveInPlan),
-		"remark":              strings.TrimSpace(input.Remark),
+
+	userFields := bson.M{}
+	setTrimmedString(userFields, "nickname", input.Nickname)
+	setTrimmedString(userFields, "avatar", input.Avatar)
+	setTrimmedString(userFields, "city", input.City)
+	if len(userFields) > 0 {
+		if err := s.users.UpdateProfileFields(ctx, input.UserID, userFields); err != nil {
+			return nil, databasef("update user profile: %w", err)
+		}
 	}
-	if _, err := s.profiles.UpsertByUserID(ctx, input.UserID, profileFields); err != nil {
-		return nil, databasef("update user profile ext: %w", err)
+
+	profileFields := bson.M{}
+	if input.BudgetMin != nil {
+		profileFields["budget_min"] = *input.BudgetMin
+	}
+	if input.BudgetMax != nil {
+		profileFields["budget_max"] = *input.BudgetMax
+	}
+	if input.PreferredAreas != nil {
+		profileFields["preferred_areas"] = compactStrings(*input.PreferredAreas)
+	}
+	setTrimmedString(profileFields, "preferred_rent_mode", input.PreferredRentMode)
+	setTrimmedString(profileFields, "move_in_plan", input.MoveInPlan)
+	setTrimmedString(profileFields, "remark", input.Remark)
+	if len(profileFields) > 0 {
+		if _, err := s.profiles.UpsertByUserID(ctx, input.UserID, profileFields); err != nil {
+			return nil, databasef("update user profile ext: %w", err)
+		}
 	}
 	return s.Profile(ctx, ProfileInput{UserID: input.UserID})
 }
@@ -139,6 +155,34 @@ func compactStrings(values []string) []string {
 		}
 	}
 	return out
+}
+
+func trimStringPtr(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func setTrimmedString(fields bson.M, key string, value *string) {
+	if value != nil {
+		fields[key] = strings.TrimSpace(*value)
+	}
+}
+
+func effectiveBudgetRange(profile *model.UserProfileExt, input UpdateProfileInput) (int, int) {
+	minValue, maxValue := 0, 0
+	if profile != nil {
+		minValue = profile.BudgetMin
+		maxValue = profile.BudgetMax
+	}
+	if input.BudgetMin != nil {
+		minValue = *input.BudgetMin
+	}
+	if input.BudgetMax != nil {
+		maxValue = *input.BudgetMax
+	}
+	return minValue, maxValue
 }
 
 func cloneStrings(values []string) []string {

@@ -1,6 +1,8 @@
 package wire
 
 import (
+	"context"
+
 	favoritehandler "house-manager/internal/handler/v1/miniapp/favorite"
 	historyhandler "house-manager/internal/handler/v1/miniapp/history"
 	userhandler "house-manager/internal/handler/v1/miniapp/user"
@@ -16,12 +18,20 @@ import (
 	"github.com/google/wire"
 )
 
-func newFavoriteRepository(client *dbmongo.Client) *repofavorite.Repository {
-	return repofavorite.NewRepository(client)
+func newFavoriteRepository(ctx context.Context, client *dbmongo.Client) (*repofavorite.Repository, error) {
+	repo := repofavorite.NewRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
 }
 
-func newHistoryRepository(client *dbmongo.Client) *repohistory.Repository {
-	return repohistory.NewRepository(client)
+func newHistoryRepository(ctx context.Context, client *dbmongo.Client) (*repohistory.Repository, error) {
+	repo := repohistory.NewRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
 }
 
 func newMiniappFavoriteService(favorites *repofavorite.Repository, miniappListings *repohpd.MiniappListingRepository) *favoritesvc.Service {

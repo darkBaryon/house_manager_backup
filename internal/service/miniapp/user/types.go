@@ -8,15 +8,15 @@ type ProfileInput struct {
 
 type UpdateProfileInput struct {
 	UserID            bson.ObjectID
-	Nickname          string
-	Avatar            string
-	City              string
-	BudgetMin         int
-	BudgetMax         int
-	PreferredAreas    []string
-	PreferredRentMode string
-	MoveInPlan        string
-	Remark            string
+	Nickname          *string
+	Avatar            *string
+	City              *string
+	BudgetMin         *int
+	BudgetMax         *int
+	PreferredAreas    *[]string
+	PreferredRentMode *string
+	MoveInPlan        *string
+	Remark            *string
 }
 
 type DashboardInput struct {

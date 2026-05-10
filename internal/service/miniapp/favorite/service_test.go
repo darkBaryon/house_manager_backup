@@ -67,6 +67,31 @@ func TestFavoriteListFiltersOfflineBeforePaging(t *testing.T) {
 	}
 }
 
+func TestFavoriteCountMatchesOnlineFilteredListTotal(t *testing.T) {
+	userID := bson.NewObjectID()
+	id1 := bson.NewObjectID()
+	id2 := bson.NewObjectID()
+	favorites := &fakeFavoriteRepository{
+		list: []model.Favorite{
+			{UserID: userID, ListingID: id1},
+			{UserID: userID, ListingID: id2},
+		},
+		count: 99,
+	}
+	listings := &fakeMiniappListingRepository{
+		online: []model.HpdMiniappListing{{ListingID: id2, City: "深圳", Title: "二号"}},
+	}
+	svc := NewService(favorites, listings)
+
+	total, err := svc.Count(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("Count returned error: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected online filtered count 1, got %d", total)
+	}
+}
+
 func assertFavoriteErrCode(t *testing.T, err error, code int) {
 	t.Helper()
 	e := errcode.FromError(err)
