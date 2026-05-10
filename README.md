@@ -13,7 +13,7 @@ AI 找房与发房项目的 Go 后端服务。
 想了解项目，不要从目录开始翻，按这个顺序读：
 
 1. [shared-docs/README.md](./shared-docs/README.md)：项目当前状态和文档入口。
-2. [shared-docs/changes/migration/current-plan.md](./shared-docs/changes/migration/current-plan.md)：迁移进度、已完成事项、下一步计划。
+2. [shared-docs/changes/go_backend/current-plan.md](./shared-docs/changes/go_backend/current-plan.md)：迁移进度、已完成事项、下一步计划。
 3. [shared-docs/backend/architecture.md](./shared-docs/backend/architecture.md)：Go 后端分层和代码边界。
 4. [shared-docs/api/miniapp-api.md](./shared-docs/api/miniapp-api.md)：小程序 API 契约。
 5. [shared-docs/api/publish.md](./shared-docs/api/publish.md)：发房端 API 契约。

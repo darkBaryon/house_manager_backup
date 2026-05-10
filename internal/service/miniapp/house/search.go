@@ -22,7 +22,7 @@ func (s *HouseService) Search(ctx context.Context, input SearchInput) (*SearchRe
 	}
 
 	return &SearchResult{
-		List:     listingItems(listings),
+		List:     ListingItems(listings),
 		Page:     page,
 		PageSize: pageSize,
 		Total:    total,

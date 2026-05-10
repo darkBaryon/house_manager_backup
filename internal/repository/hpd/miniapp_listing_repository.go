@@ -78,6 +78,25 @@ func (r *MiniappListingRepository) FindOnlineDetail(ctx context.Context, listing
 	}))
 }
 
+func (r *MiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error) {
+	if len(listingIDs) == 0 {
+		return []model.HpdMiniappListing{}, nil
+	}
+	ids := make([]bson.ObjectID, 0, len(listingIDs))
+	for _, id := range listingIDs {
+		if !id.IsZero() {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return []model.HpdMiniappListing{}, nil
+	}
+	return r.FindMany(ctx, activeFilter(bson.M{
+		"listing_id": bson.M{"$in": ids},
+		"is_online":  model.HpdOnlineStatusYes,
+	}))
+}
+
 func (r *MiniappListingRepository) UpsertByListingID(ctx context.Context, entity *model.HpdMiniappListing) (*model.HpdMiniappListing, error) {
 	if err := entity.ValidateForCreate(); err != nil {
 		return nil, fmt.Errorf("upsert hpd miniapp listing by listingID: %w", err)

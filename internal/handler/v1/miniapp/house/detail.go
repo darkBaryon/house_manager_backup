@@ -1,6 +1,7 @@
 package house
 
 import (
+	minihandler "house-manager/internal/handler/v1/miniapp/common"
 	housesvc "house-manager/internal/service/miniapp/house"
 	"house-manager/pkg/response"
 
@@ -13,7 +14,8 @@ func (h *HouseHandler) PublicDetail(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.GetPublicDetail(c.Request.Context(), housesvc.DetailInput{ListingID: listingID})
+	userID, _ := minihandler.OptionalUserID(c)
+	result, err := h.service.GetPublicDetail(c.Request.Context(), housesvc.DetailInput{ListingID: listingID, UserID: userID})
 	if err != nil {
 		response.Err(c, err)
 		return

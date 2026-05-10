@@ -2,18 +2,18 @@ package house
 
 import "house-manager/internal/model"
 
-func listingItems(listings []model.HpdMiniappListing) []ListItem {
+func ListingItems(listings []model.HpdMiniappListing) []ListItem {
 	if len(listings) == 0 {
 		return []ListItem{}
 	}
 	items := make([]ListItem, 0, len(listings))
 	for _, listing := range listings {
-		items = append(items, listingItem(listing))
+		items = append(items, ListingItem(listing))
 	}
 	return items
 }
 
-func listingItem(listing model.HpdMiniappListing) ListItem {
+func ListingItem(listing model.HpdMiniappListing) ListItem {
 	return ListItem{
 		ListingID:               listing.ListingID.Hex(),
 		AssetMode:               string(listing.AssetMode),
@@ -43,7 +43,7 @@ func listingItem(listing model.HpdMiniappListing) ListItem {
 
 func listingDetail(listing model.HpdMiniappListing) Detail {
 	detail := Detail{
-		ListItem:      listingItem(listing),
+		ListItem:      ListingItem(listing),
 		AddressText:   listing.AddressText,
 		StartRentRule: string(listing.StartRentRule),
 		CostItems:     costItems(listing.CostItems),

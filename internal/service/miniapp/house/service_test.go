@@ -148,6 +148,32 @@ func TestHousePublicDetailMapsResult(t *testing.T) {
 	}
 }
 
+func TestHousePublicDetailReturnsFavoriteStatusForUser(t *testing.T) {
+	listingID := bson.NewObjectID()
+	userID := bson.NewObjectID()
+	repo := &fakeMiniappListingRepository{detailResult: &model.HpdMiniappListing{
+		ListingID: listingID,
+		AssetMode: model.HpdAssetModeDecentralized,
+		RentMode:  model.RentModeShared,
+		City:      "深圳",
+		Title:     "合租单间",
+		Price:     2600,
+	}}
+	favorites := &fakeFavoriteChecker{favorited: true}
+	svc := &HouseService{miniappListings: repo, favorites: favorites}
+
+	result, err := svc.GetPublicDetail(context.Background(), DetailInput{ListingID: listingID, UserID: userID})
+	if err != nil {
+		t.Fatalf("GetPublicDetail returned error: %v", err)
+	}
+	if !result.IsFavorited {
+		t.Fatalf("expected detail to return favorite status")
+	}
+	if favorites.userID != userID || favorites.listingID != listingID {
+		t.Fatalf("unexpected favorite lookup: %#v", favorites)
+	}
+}
+
 func TestHousePublicDetailReturnsNotFound(t *testing.T) {
 	repo := &fakeMiniappListingRepository{}
 	svc := &HouseService{miniappListings: repo}
@@ -200,4 +226,17 @@ func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, lis
 	f.detailCalls++
 	f.detailID = listingID
 	return f.detailResult, f.detailErr
+}
+
+type fakeFavoriteChecker struct {
+	userID    bson.ObjectID
+	listingID bson.ObjectID
+	favorited bool
+	err       error
+}
+
+func (f *fakeFavoriteChecker) IsFavorited(ctx context.Context, userID, listingID bson.ObjectID) (bool, error) {
+	f.userID = userID
+	f.listingID = listingID
+	return f.favorited, f.err
 }

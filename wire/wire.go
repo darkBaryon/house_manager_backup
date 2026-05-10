@@ -15,6 +15,7 @@ func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 		MiniappAuthSet,
 		DomainHmdSet,
 		DomainHpdSet,
+		MiniappUserActivitySet,
 		PublishSet,
 		MiniappHouseSet,
 		HealthSet,

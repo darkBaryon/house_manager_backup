@@ -4,7 +4,10 @@ import (
 	"house-manager/internal/handler"
 	v1handler "house-manager/internal/handler/v1"
 	authhandler "house-manager/internal/handler/v1/miniapp/auth"
+	favoritehandler "house-manager/internal/handler/v1/miniapp/favorite"
+	historyhandler "house-manager/internal/handler/v1/miniapp/history"
 	househandler "house-manager/internal/handler/v1/miniapp/house"
+	userhandler "house-manager/internal/handler/v1/miniapp/user"
 	publishhandler "house-manager/internal/handler/v1/publish"
 )
 
@@ -20,6 +23,12 @@ func newPublicV1Registrars(authH *authhandler.AuthHandler, houseH *househandler.
 	return publicV1Registrars{authH, houseH}
 }
 
-func newProtectedV1Registrars(sessionH *authhandler.SessionHandler, publishH *publishhandler.PublishHandler) protectedV1Registrars {
-	return protectedV1Registrars{sessionH, publishH}
+func newProtectedV1Registrars(
+	sessionH *authhandler.SessionHandler,
+	publishH *publishhandler.PublishHandler,
+	favoriteH *favoritehandler.Handler,
+	historyH *historyhandler.Handler,
+	userH *userhandler.Handler,
+) protectedV1Registrars {
+	return protectedV1Registrars{sessionH, publishH, favoriteH, historyH, userH}
 }

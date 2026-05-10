@@ -11,6 +11,7 @@ import (
 
 type HouseService struct {
 	miniappListings miniappListingRepository
+	favorites       favoriteChecker
 }
 
 type miniappListingRepository interface {
@@ -19,6 +20,14 @@ type miniappListingRepository interface {
 	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error)
 }
 
+type favoriteChecker interface {
+	IsFavorited(ctx context.Context, userID, listingID bson.ObjectID) (bool, error)
+}
+
 func NewHouseService(miniappListings *repohpd.MiniappListingRepository) *HouseService {
 	return &HouseService{miniappListings: miniappListings}
+}
+
+func NewHouseServiceWithFavorite(miniappListings *repohpd.MiniappListingRepository, favorites favoriteChecker) *HouseService {
+	return &HouseService{miniappListings: miniappListings, favorites: favorites}
 }

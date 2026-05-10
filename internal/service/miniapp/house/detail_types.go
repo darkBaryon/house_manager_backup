@@ -4,6 +4,7 @@ import "go.mongodb.org/mongo-driver/v2/bson"
 
 type DetailInput struct {
 	ListingID bson.ObjectID
+	UserID    bson.ObjectID
 }
 
 type DetailResult struct {

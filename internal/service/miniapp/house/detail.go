@@ -18,8 +18,17 @@ func (s *HouseService) GetPublicDetail(ctx context.Context, input DetailInput) (
 		return nil, notFoundf("house public detail not found")
 	}
 
+	isFavorited := false
+	if !input.UserID.IsZero() && s.favorites != nil {
+		ok, err := s.favorites.IsFavorited(ctx, input.UserID, input.ListingID)
+		if err != nil {
+			return nil, databasef("find house favorite status: %w", err)
+		}
+		isFavorited = ok
+	}
+
 	return &DetailResult{
 		House:       listingDetail(*listing),
-		IsFavorited: false,
+		IsFavorited: isFavorited,
 	}, nil
 }

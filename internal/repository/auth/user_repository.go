@@ -41,6 +41,16 @@ func (r *UserRepository) TouchLastActive(ctx context.Context, userID bson.Object
 	})
 }
 
+func (r *UserRepository) UpdateProfileFields(ctx context.Context, userID bson.ObjectID, fields bson.M) error {
+	if userID.IsZero() {
+		return fmt.Errorf("update user profile fields: userID is required")
+	}
+	if fields == nil {
+		return fmt.Errorf("update user profile fields: fields is nil")
+	}
+	return r.UpdateFieldsByID(ctx, userID, fields)
+}
+
 func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*model.User, error) {
 	if phone == "" {
 		return nil, fmt.Errorf("find user by phone: phone is required")
