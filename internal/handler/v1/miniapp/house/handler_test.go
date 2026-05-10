@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	housesvc "house-manager/internal/service/house"
+	housesvc "house-manager/internal/service/miniapp/house"
 	"house-manager/pkg/errcode"
 
 	"github.com/gin-gonic/gin"

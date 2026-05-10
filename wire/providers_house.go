@@ -1,13 +1,13 @@
 package wire
 
 import (
-	househandler "house-manager/internal/handler/v1/house"
-	housesvc "house-manager/internal/service/house"
+	househandler "house-manager/internal/handler/v1/miniapp/house"
+	housesvc "house-manager/internal/service/miniapp/house"
 
 	"github.com/google/wire"
 )
 
-var HouseSet = wire.NewSet(
+var MiniappHouseSet = wire.NewSet(
 	housesvc.NewHouseService,
 	househandler.NewHouseHandler,
 )

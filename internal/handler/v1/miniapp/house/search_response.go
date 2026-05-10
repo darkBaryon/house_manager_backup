@@ -1,6 +1,6 @@
 package house
 
-import housesvc "house-manager/internal/service/house"
+import housesvc "house-manager/internal/service/miniapp/house"
 
 type searchResponse struct {
 	List     []listingItemResponse `json:"list"`

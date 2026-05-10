@@ -1,7 +1,7 @@
 package house
 
 import (
-	housesvc "house-manager/internal/service/house"
+	housesvc "house-manager/internal/service/miniapp/house"
 	"house-manager/pkg/response"
 
 	"github.com/gin-gonic/gin"

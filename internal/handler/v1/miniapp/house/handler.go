@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"house-manager/internal/handler"
-	housesvc "house-manager/internal/service/house"
+	housesvc "house-manager/internal/service/miniapp/house"
 )
 
 type HouseHandler struct {

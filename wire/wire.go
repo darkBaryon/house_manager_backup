@@ -16,7 +16,7 @@ func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 		HmdSet,
 		HpdSet,
 		PublishSet,
-		HouseSet,
+		MiniappHouseSet,
 		HealthSet,
 		RouterSet,
 		app.NewApp,

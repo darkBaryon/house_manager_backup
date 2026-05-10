@@ -3,7 +3,7 @@ package wire
 import (
 	"house-manager/internal/handler"
 	v1handler "house-manager/internal/handler/v1"
-	househandler "house-manager/internal/handler/v1/house"
+	househandler "house-manager/internal/handler/v1/miniapp/house"
 	publishhandler "house-manager/internal/handler/v1/publish"
 )
 
