@@ -13,7 +13,7 @@ type UserAuth struct {
 	UserID       bson.ObjectID `bson:"user_id" json:"userId"`
 	AuthProvider AuthProvider  `bson:"auth_provider" json:"authProvider"`
 	OpenID       string        `bson:"openid" json:"openid"`
-	UnionID      string        `bson:"unionid" json:"unionid"`
+	UnionID      string        `bson:"unionid,omitempty" json:"unionid"`
 	LastLoginAt  int64         `bson:"last_login_at" json:"lastLoginAt"`
 	LastLoginIP  string        `bson:"last_login_ip" json:"lastLoginIp"`
 }

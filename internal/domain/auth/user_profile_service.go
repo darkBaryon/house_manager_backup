@@ -47,6 +47,16 @@ func (s *UserProfileService) CreateUserProfile(ctx context.Context, phone string
 	return user, nil
 }
 
+func (s *UserProfileService) EnsureUserProfileExt(ctx context.Context, userID bson.ObjectID) error {
+	if userID.IsZero() {
+		return errcode.InvalidParam.WithError(fmt.Errorf("userID is required"))
+	}
+	if _, err := s.profileExtRepo.UpsertByUserID(ctx, userID, bson.M{}); err != nil {
+		return errcode.DatabaseError.WithError(err)
+	}
+	return nil
+}
+
 func (s *UserProfileService) TouchUserLastActive(ctx context.Context, userID bson.ObjectID) error {
 	if userID.IsZero() {
 		return errcode.InvalidParam.WithError(fmt.Errorf("userID is required"))

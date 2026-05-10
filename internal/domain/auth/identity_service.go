@@ -7,7 +7,6 @@ import (
 
 	"house-manager/internal/model"
 	repoauth "house-manager/internal/repository/auth"
-	dbmongo "house-manager/pkg/database/mongo"
 	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -15,7 +14,6 @@ import (
 
 // IdentityService 负责微信身份注册/登录与 user_id 绑定。
 type IdentityService struct {
-	mongoClient  *dbmongo.Client
 	authRepo     *repoauth.UserAuthRepository
 	userRepo     *repoauth.UserRepository
 	userProfile  *UserProfileService
@@ -23,14 +21,12 @@ type IdentityService struct {
 }
 
 func NewIdentityService(
-	mongoClient *dbmongo.Client,
 	authRepo *repoauth.UserAuthRepository,
 	userRepo *repoauth.UserRepository,
 	userProfile *UserProfileService,
 	wechatClient *WechatClient,
 ) *IdentityService {
 	return &IdentityService{
-		mongoClient:  mongoClient,
 		authRepo:     authRepo,
 		userRepo:     userRepo,
 		userProfile:  userProfile,
@@ -80,60 +76,109 @@ func (s *IdentityService) WechatRegister(ctx context.Context, code, phoneCode, l
 	}
 
 	now := time.Now().Unix()
-	var userID bson.ObjectID
-	if err := s.mongoClient.RunInTransaction(ctx, func(txCtx context.Context) error {
-		wechatAuth, err := s.authRepo.FindByOpenID(txCtx, model.AuthProviderWechat, openID)
-		if err != nil {
-			return errcode.DatabaseError.WithError(err)
-		}
-		phoneUser, err := s.userRepo.FindByPhone(txCtx, phone)
-		if err != nil {
-			return errcode.DatabaseError.WithError(err)
-		}
 
-		if wechatAuth != nil && wechatAuth.UserID.IsZero() {
-			return errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
+	wechatAuth, err := s.authRepo.FindByOpenID(ctx, model.AuthProviderWechat, openID)
+	if err != nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	if wechatAuth != nil {
+		if err := s.ensureAuthPhoneMatches(ctx, wechatAuth, phone); err != nil {
+			return bson.NilObjectID, err
 		}
+		return s.touchWechatAuth(ctx, wechatAuth, now, loginIP)
+	}
 
-		switch {
-		case wechatAuth != nil:
-			userID = wechatAuth.UserID
-		case phoneUser != nil:
-			userID = phoneUser.ID
-		default:
-			userID = bson.NilObjectID
+	unionAuth, err := s.findWechatAuthByUnionID(ctx, unionID)
+	if err != nil {
+		return bson.NilObjectID, err
+	}
+	if unionAuth != nil {
+		if err := s.ensureAuthPhoneMatches(ctx, unionAuth, phone); err != nil {
+			return bson.NilObjectID, err
 		}
+		return s.updateWechatAuthOpenID(ctx, unionAuth, phone, openID, unionID, now, loginIP)
+	}
 
-		if userID.IsZero() {
-			user, createErr := s.userProfile.CreateUserProfile(txCtx, phone)
-			if createErr != nil {
-				return createErr
-			}
-			userID = user.ID
-		}
-
-		return s.ensureWechatBound(txCtx, userID, openID, unionID, now, loginIP)
-	}); err != nil {
+	userID, err := s.findOrCreateUserByPhone(ctx, phone)
+	if err != nil {
 		return bson.NilObjectID, err
 	}
 
-	return userID, nil
+	return s.ensureWechatBound(ctx, userID, phone, openID, unionID, now, loginIP)
 }
 
-func (s *IdentityService) ensureWechatBound(ctx context.Context, userID bson.ObjectID, openID, unionID string, now int64, loginIP string) error {
+func (s *IdentityService) findWechatAuthByUnionID(ctx context.Context, unionID string) (*model.UserAuth, error) {
+	if unionID == "" {
+		return nil, nil
+	}
+	authRecord, err := s.authRepo.FindByUnionID(ctx, model.AuthProviderWechat, unionID)
+	if err != nil {
+		return nil, errcode.DatabaseError.WithError(err)
+	}
+	return authRecord, nil
+}
+
+func (s *IdentityService) findOrCreateUserByPhone(ctx context.Context, phone string) (bson.ObjectID, error) {
+	phoneUser, err := s.userRepo.FindByPhone(ctx, phone)
+	if err != nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	if phoneUser != nil {
+		if phoneUser.ID.IsZero() {
+			return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("phone user id is required"))
+		}
+		if err := s.userProfile.EnsureUserProfileExt(ctx, phoneUser.ID); err != nil {
+			return bson.NilObjectID, err
+		}
+		return phoneUser.ID, nil
+	}
+
+	user, createErr := s.userProfile.CreateUserProfile(ctx, phone)
+	if createErr == nil {
+		return user.ID, nil
+	}
+
+	phoneUser, err = s.userRepo.FindByPhone(ctx, phone)
+	if err != nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	if phoneUser == nil {
+		return bson.NilObjectID, createErr
+	}
+	if phoneUser.ID.IsZero() {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("phone user id is required"))
+	}
+	if err := s.userProfile.EnsureUserProfileExt(ctx, phoneUser.ID); err != nil {
+		return bson.NilObjectID, err
+	}
+	return phoneUser.ID, nil
+}
+
+func (s *IdentityService) ensureWechatBound(ctx context.Context, userID bson.ObjectID, phone, openID, unionID string, now int64, loginIP string) (bson.ObjectID, error) {
 	if userID.IsZero() {
-		return errcode.DatabaseError.WithError(fmt.Errorf("userID is required"))
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("userID is required"))
 	}
 
 	existing, err := s.authRepo.FindByOpenID(ctx, model.AuthProviderWechat, openID)
 	if err != nil {
-		return errcode.DatabaseError.WithError(err)
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
 	}
 	if existing != nil {
-		if existing.UserID != userID {
-			return errcode.Forbidden.WithError(fmt.Errorf("wechat account already bound to another user"))
+		if err := s.ensureAuthPhoneMatches(ctx, existing, phone); err != nil {
+			return bson.NilObjectID, err
 		}
-		return s.authRepo.TouchLastLogin(ctx, existing.ID, now, loginIP)
+		return s.touchWechatAuth(ctx, existing, now, loginIP)
+	}
+
+	unionAuth, err := s.findWechatAuthByUnionID(ctx, unionID)
+	if err != nil {
+		return bson.NilObjectID, err
+	}
+	if unionAuth != nil {
+		if err := s.ensureAuthPhoneMatches(ctx, unionAuth, phone); err != nil {
+			return bson.NilObjectID, err
+		}
+		return s.updateWechatAuthOpenID(ctx, unionAuth, phone, openID, unionID, now, loginIP)
 	}
 
 	auth := &model.UserAuth{
@@ -145,7 +190,84 @@ func (s *IdentityService) ensureWechatBound(ctx context.Context, userID bson.Obj
 		LastLoginIP:  loginIP,
 	}
 	if err := s.authRepo.Create(ctx, auth); err != nil {
+		existing, findErr := s.authRepo.FindByOpenID(ctx, model.AuthProviderWechat, openID)
+		if findErr != nil {
+			return bson.NilObjectID, errcode.DatabaseError.WithError(findErr)
+		}
+		if existing != nil {
+			if err := s.ensureAuthPhoneMatches(ctx, existing, phone); err != nil {
+				return bson.NilObjectID, err
+			}
+			return s.touchWechatAuth(ctx, existing, now, loginIP)
+		}
+		unionAuth, unionErr := s.findWechatAuthByUnionID(ctx, unionID)
+		if unionErr != nil {
+			return bson.NilObjectID, unionErr
+		}
+		if unionAuth != nil {
+			if err := s.ensureAuthPhoneMatches(ctx, unionAuth, phone); err != nil {
+				return bson.NilObjectID, err
+			}
+			return s.updateWechatAuthOpenID(ctx, unionAuth, phone, openID, unionID, now, loginIP)
+		}
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	return userID, nil
+}
+
+func (s *IdentityService) ensureAuthPhoneMatches(ctx context.Context, authRecord *model.UserAuth, phone string) error {
+	if authRecord == nil {
+		return errcode.DatabaseError.WithError(fmt.Errorf("wechat auth is nil"))
+	}
+	if authRecord.UserID.IsZero() {
+		return errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
+	}
+
+	user, err := s.userRepo.FindByID(ctx, authRecord.UserID)
+	if err != nil {
 		return errcode.DatabaseError.WithError(err)
 	}
+	if user == nil {
+		return errcode.DatabaseError.WithError(fmt.Errorf("wechat auth user not found"))
+	}
+	if user.Phone != phone {
+		return errcode.Forbidden.WithError(fmt.Errorf("wechat auth phone mismatch"))
+	}
 	return nil
+}
+
+func (s *IdentityService) updateWechatAuthOpenID(ctx context.Context, authRecord *model.UserAuth, phone, openID, unionID string, now int64, loginIP string) (bson.ObjectID, error) {
+	if authRecord == nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("wechat auth is nil"))
+	}
+	if authRecord.UserID.IsZero() {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
+	}
+	if err := s.authRepo.UpdateWechatIdentity(ctx, authRecord.ID, openID, unionID, now, loginIP); err != nil {
+		existing, findErr := s.authRepo.FindByOpenID(ctx, model.AuthProviderWechat, openID)
+		if findErr != nil {
+			return bson.NilObjectID, errcode.DatabaseError.WithError(findErr)
+		}
+		if existing != nil {
+			if err := s.ensureAuthPhoneMatches(ctx, existing, phone); err != nil {
+				return bson.NilObjectID, err
+			}
+			return s.touchWechatAuth(ctx, existing, now, loginIP)
+		}
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	return authRecord.UserID, nil
+}
+
+func (s *IdentityService) touchWechatAuth(ctx context.Context, authRecord *model.UserAuth, now int64, loginIP string) (bson.ObjectID, error) {
+	if authRecord == nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("wechat auth is nil"))
+	}
+	if authRecord.UserID.IsZero() {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(fmt.Errorf("wechat auth binding broken"))
+	}
+	if err := s.authRepo.TouchLastLogin(ctx, authRecord.ID, now, loginIP); err != nil {
+		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
+	}
+	return authRecord.UserID, nil
 }
