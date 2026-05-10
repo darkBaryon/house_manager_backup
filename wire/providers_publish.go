@@ -61,8 +61,6 @@ var HpdSet = wire.NewSet(
 )
 
 var PublishSet = wire.NewSet(
-	HmdSet,
-	HpdSet,
 	publishsvc.NewPublishService,
 	publishhandler.NewPublishHandler,
 )

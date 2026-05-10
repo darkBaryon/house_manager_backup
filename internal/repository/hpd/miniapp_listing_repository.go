@@ -3,6 +3,8 @@ package hpd
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"house-manager/internal/model"
@@ -15,14 +17,17 @@ import (
 )
 
 type MiniappListingSearchFilter struct {
-	City     string
-	District string
-	BizArea  string
-	RentMode model.RentMode
-	PriceMin int
-	PriceMax int
-	Skip     int64
-	Limit    int64
+	City         string
+	District     string
+	BizArea      string
+	RentMode     model.RentMode
+	AssetMode    model.HpdAssetMode
+	Keyword      string
+	FeatureFlags []string
+	PriceMin     int
+	PriceMax     int
+	Skip         int64
+	Limit        int64
 }
 
 type MiniappListingRepository struct {
@@ -154,6 +159,9 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	if search.RentMode != "" && !search.RentMode.Valid() {
 		return nil, fmt.Errorf("rentMode is invalid")
 	}
+	if search.AssetMode != "" && !search.AssetMode.Valid() {
+		return nil, fmt.Errorf("assetMode is invalid")
+	}
 
 	fields := bson.M{"is_online": model.HpdOnlineStatusYes}
 	if search.City != "" {
@@ -167,6 +175,31 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	}
 	if search.RentMode != "" {
 		fields["rent_mode"] = search.RentMode
+	}
+	if search.AssetMode != "" {
+		fields["asset_mode"] = search.AssetMode
+	}
+	if len(search.FeatureFlags) > 0 {
+		flags := make([]string, 0, len(search.FeatureFlags))
+		for _, flag := range search.FeatureFlags {
+			flag = strings.TrimSpace(flag)
+			if flag != "" {
+				flags = append(flags, flag)
+			}
+		}
+		if len(flags) > 0 {
+			fields["feature_flags"] = bson.M{"$all": flags}
+		}
+	}
+	if keyword := strings.TrimSpace(search.Keyword); keyword != "" {
+		pattern := regexp.QuoteMeta(keyword)
+		fields["$or"] = bson.A{
+			bson.M{"title": bson.Regex{Pattern: pattern, Options: "i"}},
+			bson.M{"community_name": bson.Regex{Pattern: pattern, Options: "i"}},
+			bson.M{"building_or_community_name": bson.Regex{Pattern: pattern, Options: "i"}},
+			bson.M{"address_text": bson.Regex{Pattern: pattern, Options: "i"}},
+			bson.M{"subway_station": bson.Regex{Pattern: pattern, Options: "i"}},
+		}
 	}
 	if search.PriceMin > 0 || search.PriceMax > 0 {
 		priceFilter := bson.M{}

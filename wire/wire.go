@@ -13,7 +13,10 @@ func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 	wire.Build(
 		InfraSet,
 		AuthSet,
+		HmdSet,
+		HpdSet,
 		PublishSet,
+		HouseSet,
 		HealthSet,
 		RouterSet,
 		app.NewApp,

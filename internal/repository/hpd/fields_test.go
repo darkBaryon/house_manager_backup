@@ -104,6 +104,55 @@ func TestMiniappSearchFilterRejectsInvalidRentMode(t *testing.T) {
 	}
 }
 
+func TestMiniappSearchFilterBuildsApiContractFields(t *testing.T) {
+	filter, err := miniappSearchFilter(MiniappListingSearchFilter{
+		AssetMode:    model.HpdAssetModeCentralized,
+		Keyword:      "南山.*",
+		FeatureFlags: []string{"near_subway", "balcony"},
+	})
+	if err != nil {
+		t.Fatalf("expected search filter to build, got %v", err)
+	}
+	if got := filter["asset_mode"]; got != model.HpdAssetModeCentralized {
+		t.Fatalf("expected asset mode filter, got %v", got)
+	}
+
+	flags, ok := filter["feature_flags"].(bson.M)
+	if !ok {
+		t.Fatalf("expected feature flags filter, got %T", filter["feature_flags"])
+	}
+	all, ok := flags["$all"].([]string)
+	if !ok {
+		t.Fatalf("expected $all string slice, got %T", flags["$all"])
+	}
+	if len(all) != 2 || all[0] != "near_subway" || all[1] != "balcony" {
+		t.Fatalf("unexpected feature flags: %#v", all)
+	}
+
+	keyword, ok := filter["$or"].(bson.A)
+	if !ok || len(keyword) != 5 {
+		t.Fatalf("expected keyword OR filter over 5 fields, got %#v", filter["$or"])
+	}
+	titleFilter, ok := keyword[0].(bson.M)
+	if !ok {
+		t.Fatalf("expected first keyword clause to be bson.M, got %#v", keyword[0])
+	}
+	title, ok := titleFilter["title"].(bson.Regex)
+	if !ok {
+		t.Fatalf("expected title regex, got %#v", titleFilter["title"])
+	}
+	if title.Pattern != "南山\\.\\*" || title.Options != "i" {
+		t.Fatalf("expected escaped case-insensitive regex, got %#v", title)
+	}
+}
+
+func TestMiniappSearchFilterRejectsInvalidAssetMode(t *testing.T) {
+	_, err := miniappSearchFilter(MiniappListingSearchFilter{AssetMode: model.HpdAssetMode("villa")})
+	if err == nil || !strings.Contains(err.Error(), "assetMode is invalid") {
+		t.Fatalf("expected invalid assetMode error, got %v", err)
+	}
+}
+
 func TestMiniappSearchFilterRejectsInvalidPriceRange(t *testing.T) {
 	_, err := miniappSearchFilter(MiniappListingSearchFilter{PriceMin: 6000, PriceMax: 3000})
 	if err == nil || !strings.Contains(err.Error(), "priceMin") {
