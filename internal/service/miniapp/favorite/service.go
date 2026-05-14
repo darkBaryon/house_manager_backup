@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"house-manager/internal/model"
-	minicommon "house-manager/internal/service/miniapp/common"
 	"house-manager/internal/service/miniapp/listingview"
+	"house-manager/internal/service/miniapp/paging"
+	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -40,7 +41,7 @@ func (s *Service) Add(ctx context.Context, input AddInput) (*MutationResult, err
 		return nil, err
 	}
 	if err := s.favorites.Upsert(ctx, input.UserID, input.ListingID); err != nil {
-		return nil, databasef("add favorite: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("add favorite: %w", err)
 	}
 	return &MutationResult{ListingID: input.ListingID.Hex(), IsFavorited: true}, nil
 }
@@ -50,7 +51,7 @@ func (s *Service) Remove(ctx context.Context, input RemoveInput) (*MutationResul
 		return nil, err
 	}
 	if err := s.favorites.SoftRemove(ctx, input.UserID, input.ListingID); err != nil {
-		return nil, databasef("remove favorite: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("remove favorite: %w", err)
 	}
 	return &MutationResult{ListingID: input.ListingID.Hex(), IsFavorited: false}, nil
 }
@@ -61,7 +62,7 @@ func (s *Service) Exists(ctx context.Context, input ExistsInput) (bool, error) {
 	}
 	exists, err := s.favorites.Exists(ctx, input.UserID, input.ListingID)
 	if err != nil {
-		return false, databasef("favorite exists: %w", err)
+		return false, errcode.DatabaseError.WithErrorf("favorite exists: %w", err)
 	}
 	return exists, nil
 }
@@ -72,18 +73,18 @@ func (s *Service) IsFavorited(ctx context.Context, userID, listingID bson.Object
 
 func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
-	page, pageSize := minicommon.NormalizePage(input.Page, input.PageSize)
+	page, pageSize := paging.NormalizePage(input.Page, input.PageSize)
 	// TODO: replace full-load plus in-memory online filtering/paging with repository methods
 	// that can return online-visible count and page data in one bounded query path.
 	favorites, err := s.favorites.List(ctx, input.UserID, 0, 0)
 	if err != nil {
-		return nil, databasef("list favorites: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("list favorites: %w", err)
 	}
 	listings, err := s.miniappListings.FindOnlineByListingIDs(ctx, favoriteListingIDs(favorites))
 	if err != nil {
-		return nil, databasef("list favorite listings: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("list favorite listings: %w", err)
 	}
 	items := orderListingItems(favoriteListingIDs(favorites), listings)
 	total := int64(len(items))
@@ -99,7 +100,7 @@ func pageListingItems(items []listingview.Item, page, pageSize int) []listingvie
 	if len(items) == 0 {
 		return []listingview.Item{}
 	}
-	start := int(minicommon.Skip(page, pageSize))
+	start := int(paging.Skip(page, pageSize))
 	if start >= len(items) {
 		return []listingview.Item{}
 	}
@@ -112,36 +113,36 @@ func pageListingItems(items []listingview.Item, page, pageSize int) []listingvie
 
 func (s *Service) Count(ctx context.Context, userID bson.ObjectID) (int64, error) {
 	if userID.IsZero() {
-		return 0, invalidParamf("user_id is required")
+		return 0, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	// Keep dashboard and list total semantics aligned: only online-visible listings count.
 	result, err := s.List(ctx, ListInput{UserID: userID, Page: 1, PageSize: 1})
 	if err != nil {
-		return 0, databasef("count favorites: %w", err)
+		return 0, errcode.DatabaseError.WithErrorf("count favorites: %w", err)
 	}
 	return result.Total, nil
 }
 
 func (s *Service) requireOnlineListing(ctx context.Context, listingID bson.ObjectID) error {
 	if s == nil || s.favorites == nil || s.miniappListings == nil {
-		return databasef("favorite service dependency is nil")
+		return errcode.DatabaseError.WithErrorf("favorite service dependency is nil")
 	}
 	listing, err := s.miniappListings.FindOnlineDetail(ctx, listingID)
 	if err != nil {
-		return databasef("find favorite listing: %w", err)
+		return errcode.DatabaseError.WithErrorf("find favorite listing: %w", err)
 	}
 	if listing == nil {
-		return notFoundf("listing not found")
+		return errcode.NotFound.WithErrorf("listing not found")
 	}
 	return nil
 }
 
 func validateUserListing(userID, listingID bson.ObjectID) error {
 	if userID.IsZero() {
-		return invalidParamf("user_id is required")
+		return errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	if listingID.IsZero() {
-		return invalidParamf("listing_id is required")
+		return errcode.InvalidParam.WithErrorf("listing_id is required")
 	}
 	return nil
 }

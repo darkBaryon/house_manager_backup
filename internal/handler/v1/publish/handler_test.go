@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"house-manager/internal/model"
@@ -25,7 +26,7 @@ type publishResponse struct {
 
 func TestPublishHandlerInvalidJSONReturnsInvalidParam(t *testing.T) {
 	svc := &fakePublishService{}
-	resp := performPublishRequest(t, svc, "/api/v1/publish/create_centralized_project", "{")
+	resp := performPublishRequest(t, svc, "/api/v1/centralized_project/create", "{")
 
 	assertPublishResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
 	if svc.createCentralizedProjectCalls != 0 {
@@ -36,7 +37,7 @@ func TestPublishHandlerInvalidJSONReturnsInvalidParam(t *testing.T) {
 func TestPublishHandlerMissingRequiredFieldReturnsInvalidParam(t *testing.T) {
 	svc := &fakePublishService{}
 	body := `{"project_code":"p001","city":"深圳"}`
-	resp := performPublishRequest(t, svc, "/api/v1/publish/create_centralized_project", body)
+	resp := performPublishRequest(t, svc, "/api/v1/centralized_project/create", body)
 
 	assertPublishResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
 	if svc.createCentralizedProjectCalls != 0 {
@@ -46,7 +47,7 @@ func TestPublishHandlerMissingRequiredFieldReturnsInvalidParam(t *testing.T) {
 
 func TestPublishHandlerInvalidObjectIDReturnsInvalidParam(t *testing.T) {
 	svc := &fakePublishService{}
-	resp := performPublishRequest(t, svc, "/api/v1/publish/building_detail", `{"id":"bad-id"}`)
+	resp := performPublishRequest(t, svc, "/api/v1/building/detail", `{"id":"bad-id"}`)
 
 	assertPublishResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
 	if svc.getBuildingCalls != 0 {
@@ -81,7 +82,7 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 		"photos":             []string{"https://example.com/a.jpg"},
 		"listing_facilities": []string{string(model.ListingFacilityElevator)},
 	})
-	resp := performPublishRequest(t, svc, "/api/v1/publish/create_building", body)
+	resp := performPublishRequest(t, svc, "/api/v1/building/create", body)
 
 	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
 	if svc.createBuildingCalls != 1 {
@@ -97,13 +98,147 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 		t.Fatalf("unexpected building details: %#v", svc.createBuildingInput)
 	}
 
-	var data model.HmdBuilding
+	var data map[string]any
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode response data: %v", err)
 	}
-	if data.ID != buildingID || data.BuildingName != "A栋" {
+	if data["id"] != buildingID.Hex() || data["building_name"] != "A栋" || data["project_id"] != projectID.Hex() {
 		t.Fatalf("unexpected response data: %#v", data)
 	}
+	assertJSONKeys(t, envelope.Data, []string{"building_name", "building_code", "created_at", "updated_at", "listing_facilities"}, []string{"buildingName", "buildingCode", "createdAt", "updatedAt", "listingFacilities"})
+}
+
+func TestPublishHandlerListWrapsDataListAndKeepsEmptyArray(t *testing.T) {
+	projectID := bson.NewObjectID()
+	svc := &fakePublishService{}
+
+	resp := performPublishRequest(t, svc, "/api/v1/building/list_by_project", mustJSON(t, map[string]any{"project_id": projectID.Hex()}))
+
+	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
+	var data struct {
+		List []map[string]any `json:"list"`
+	}
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		t.Fatalf("decode response data: %v", err)
+	}
+	if data.List == nil || len(data.List) != 0 {
+		t.Fatalf("expected empty list array, got %#v body=%s", data.List, string(envelope.Data))
+	}
+	if strings.HasPrefix(strings.TrimSpace(string(envelope.Data)), "[") {
+		t.Fatalf("list response must be wrapped object, got %s", string(envelope.Data))
+	}
+}
+
+func TestPublishHandlerCentralizedRoomStatusReturnsFullSnakeCaseDTO(t *testing.T) {
+	roomID := bson.NewObjectID()
+	projectID := bson.NewObjectID()
+	buildingID := bson.NewObjectID()
+	roomTypeID := bson.NewObjectID()
+	svc := &fakePublishService{
+		updateCentralizedRoomStatusResult: &model.HmdRoomCentralized{
+			CommonFields: model.CommonFields{ID: roomID, CreatedAt: 11, UpdatedAt: 22, Status: model.StatusActive, Version: 3},
+			ProjectID:    projectID,
+			BuildingID:   buildingID,
+			RoomTypeID:   roomTypeID,
+			RoomNo:       "1208",
+			RentMode:     model.RentModeWhole,
+			RoomStatus:   model.RoomStatusRented,
+		},
+	}
+
+	resp := performPublishRequest(t, svc, "/api/v1/centralized_room/update_status", mustJSON(t, map[string]any{
+		"id":          roomID.Hex(),
+		"room_status": int(model.RoomStatusRented),
+	}))
+
+	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
+	if svc.updateCentralizedRoomStatusCalls != 1 {
+		t.Fatalf("expected UpdateCentralizedRoomStatus to be called once, got %d", svc.updateCentralizedRoomStatusCalls)
+	}
+	if svc.updateCentralizedRoomStatusInput.ID != roomID || svc.updateCentralizedRoomStatusInput.RoomStatus != int(model.RoomStatusRented) {
+		t.Fatalf("unexpected room status input: %#v", svc.updateCentralizedRoomStatusInput)
+	}
+	var data map[string]any
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		t.Fatalf("decode response data: %v", err)
+	}
+	if data["id"] != roomID.Hex() || data["project_id"] != projectID.Hex() || data["building_id"] != buildingID.Hex() || data["room_type_id"] != roomTypeID.Hex() {
+		t.Fatalf("unexpected centralized room response: %#v", data)
+	}
+	if data["room_status"] != float64(model.RoomStatusRented) {
+		t.Fatalf("unexpected room status: %#v", data["room_status"])
+	}
+	assertJSONKeys(t, envelope.Data, []string{"room_no", "rent_mode", "room_status", "room_type_id", "created_at"}, []string{"roomNo", "rentMode", "roomStatus", "roomTypeId", "createdAt"})
+}
+
+func TestPublishHandlerRoomStatusRequiresExplicitAllowedTarget(t *testing.T) {
+	roomID := bson.NewObjectID()
+	cases := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "missing room_status",
+			body: mustJSON(t, map[string]any{"id": roomID.Hex()}),
+		},
+		{
+			name: "zero room_status",
+			body: mustJSON(t, map[string]any{"id": roomID.Hex(), "room_status": int(model.RoomStatusUnspecified)}),
+		},
+		{
+			name: "unknown room_status",
+			body: mustJSON(t, map[string]any{"id": roomID.Hex(), "room_status": 99}),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakePublishService{}
+			resp := performPublishRequest(t, svc, "/api/v1/centralized_room/update_status", tc.body)
+
+			assertPublishResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
+			if svc.updateCentralizedRoomStatusCalls != 0 {
+				t.Fatalf("expected service not to be called, got %d calls", svc.updateCentralizedRoomStatusCalls)
+			}
+		})
+	}
+}
+
+func TestPublishHandlerDecentralizedRoomDTOHasNoRoomTypeID(t *testing.T) {
+	roomID := bson.NewObjectID()
+	decentralizedID := bson.NewObjectID()
+	ignoredRoomTypeID := bson.NewObjectID()
+	svc := &fakePublishService{
+		createDecentralizedRoomResult: &model.HmdRoomDecentralized{
+			CommonFields:      model.CommonFields{ID: roomID},
+			DecentralizedID:   decentralizedID,
+			RoomNo:            "3-201",
+			RentMode:          model.RentModeShared,
+			RoomStatus:        model.RoomStatusAvailable,
+			RoomFacilities:    []model.RoomFacility{model.RoomFacilityBed},
+			ListingFacilities: []model.ListingFacility{model.ListingFacilitySubway},
+		},
+	}
+
+	resp := performPublishRequest(t, svc, "/api/v1/decentralized_room/create", mustJSON(t, map[string]any{
+		"decentralized_id": decentralizedID.Hex(),
+		"room_type_id":     ignoredRoomTypeID.Hex(),
+		"room_no":          "3-201",
+		"rent_mode":        string(model.RentModeShared),
+	}))
+
+	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
+	if svc.createDecentralizedRoomCalls != 1 || svc.createDecentralizedRoomInput.DecentralizedID != decentralizedID {
+		t.Fatalf("unexpected decentralized room input: %#v", svc.createDecentralizedRoomInput)
+	}
+	var data map[string]any
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		t.Fatalf("decode response data: %v", err)
+	}
+	if _, ok := data["room_type_id"]; ok {
+		t.Fatalf("decentralized room response must not contain room_type_id: %#v", data)
+	}
+	assertJSONKeys(t, envelope.Data, []string{"decentralized_id", "room_no", "rent_mode", "room_status"}, []string{"decentralizedId", "roomNo", "rentMode", "roomStatus", "room_type_id"})
 }
 
 func TestPublishHandlerServiceErrcodes(t *testing.T) {
@@ -123,7 +258,7 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 	}{
 		{
 			name: "not found",
-			path: "/api/v1/publish/building_detail",
+			path: "/api/v1/building/detail",
 			body: mustJSON(t, map[string]any{"id": id.Hex()}),
 			setup: func(s *fakePublishService) {
 				s.getBuildingErr = errcode.NotFound.WithError(fmt.Errorf("missing building"))
@@ -133,7 +268,7 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 		},
 		{
 			name: "already exists",
-			path: "/api/v1/publish/create_building",
+			path: "/api/v1/building/create",
 			body: buildingBody,
 			setup: func(s *fakePublishService) {
 				s.createBuildingErr = errcode.AlreadyExists.WithError(fmt.Errorf("duplicate building"))
@@ -143,7 +278,7 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 		},
 		{
 			name: "database error",
-			path: "/api/v1/publish/create_building",
+			path: "/api/v1/building/create",
 			body: buildingBody,
 			setup: func(s *fakePublishService) {
 				s.createBuildingErr = errcode.DatabaseError.WithError(fmt.Errorf("mongo failed"))
@@ -200,6 +335,21 @@ func mustJSON(t *testing.T, value any) string {
 	return string(data)
 }
 
+func assertJSONKeys(t *testing.T, data json.RawMessage, wantKeys []string, forbiddenKeys []string) {
+	t.Helper()
+	text := string(data)
+	for _, key := range wantKeys {
+		if !strings.Contains(text, `"`+key+`"`) {
+			t.Fatalf("expected json key %q in %s", key, text)
+		}
+	}
+	for _, key := range forbiddenKeys {
+		if strings.Contains(text, `"`+key+`"`) {
+			t.Fatalf("unexpected json key %q in %s", key, text)
+		}
+	}
+}
+
 type fakePublishService struct {
 	unimplementedPublishService
 
@@ -211,6 +361,15 @@ type fakePublishService struct {
 	getBuildingCalls              int
 	getBuildingResult             *model.HmdBuilding
 	getBuildingErr                error
+	listBuildingsByProjectResult  []model.HmdBuilding
+
+	updateCentralizedRoomStatusCalls  int
+	updateCentralizedRoomStatusResult *model.HmdRoomCentralized
+	updateCentralizedRoomStatusInput  publishsvc.UpdateCentralizedRoomStatusInput
+
+	createDecentralizedRoomCalls  int
+	createDecentralizedRoomInput  publishsvc.CreateDecentralizedRoomInput
+	createDecentralizedRoomResult *model.HmdRoomDecentralized
 }
 
 func (f *fakePublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*model.HmdCentralized, error) {
@@ -227,6 +386,22 @@ func (f *fakePublishService) CreateBuilding(ctx context.Context, input publishsv
 func (f *fakePublishService) GetBuilding(ctx context.Context, id bson.ObjectID) (*model.HmdBuilding, error) {
 	f.getBuildingCalls++
 	return f.getBuildingResult, f.getBuildingErr
+}
+
+func (f *fakePublishService) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error) {
+	return f.listBuildingsByProjectResult, nil
+}
+
+func (f *fakePublishService) UpdateCentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateCentralizedRoomStatusInput) (*model.HmdRoomCentralized, error) {
+	f.updateCentralizedRoomStatusCalls++
+	f.updateCentralizedRoomStatusInput = input
+	return f.updateCentralizedRoomStatusResult, nil
+}
+
+func (f *fakePublishService) CreateDecentralizedRoom(ctx context.Context, input publishsvc.CreateDecentralizedRoomInput) (*model.HmdRoomDecentralized, error) {
+	f.createDecentralizedRoomCalls++
+	f.createDecentralizedRoomInput = input
+	return f.createDecentralizedRoomResult, nil
 }
 
 type unimplementedPublishService struct{}

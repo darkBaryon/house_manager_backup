@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	authdomain "house-manager/internal/domain/auth"
 	"house-manager/pkg/errcode"
@@ -49,7 +48,7 @@ func (s *Service) WechatRegister(ctx context.Context, code, phoneCode, loginIP s
 
 func (s *Service) issueTokenForUser(ctx context.Context, userID bson.ObjectID, loginFailedDetail string) (string, error) {
 	if userID.IsZero() {
-		return "", errcode.InvalidParam.WithError(fmt.Errorf("userID is required"))
+		return "", errcode.InvalidParam.WithErrorf("userID is required")
 	}
 	if err := s.userProfile.TouchUserLastActive(ctx, userID); err != nil {
 		return "", err

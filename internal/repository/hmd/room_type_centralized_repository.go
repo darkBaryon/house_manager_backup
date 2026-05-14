@@ -46,14 +46,14 @@ func (r *RoomTypeCentralizedRepository) ListByProjectID(ctx context.Context, pro
 	if projectID.IsZero() {
 		return nil, fmt.Errorf("list hmd room types centralized by projectID: projectID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}), hmdListFindOptions())
 }
 
 func (r *RoomTypeCentralizedRepository) ListByBuildingID(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
 	if buildingID.IsZero() {
 		return nil, fmt.Errorf("list hmd room types centralized by buildingID: buildingID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}), hmdListFindOptions())
 }
 
 func (r *RoomTypeCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {

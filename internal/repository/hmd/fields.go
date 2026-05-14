@@ -6,6 +6,7 @@ import (
 	"house-manager/internal/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var (
@@ -99,6 +100,13 @@ func activeFilter(fields bson.M) bson.M {
 	}
 	filter["status"] = model.StatusActive
 	return filter
+}
+
+func hmdListFindOptions() *options.FindOptionsBuilder {
+	return options.Find().SetSort(bson.D{
+		{Key: "updated_at", Value: -1},
+		{Key: "_id", Value: -1},
+	})
 }
 
 func pickAllowedFields(fields bson.M, allowed map[string]struct{}) (bson.M, error) {

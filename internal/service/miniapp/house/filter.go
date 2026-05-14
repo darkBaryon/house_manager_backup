@@ -5,6 +5,7 @@ import (
 
 	"house-manager/internal/model"
 	repohpd "house-manager/internal/repository/hpd"
+	"house-manager/pkg/errcode"
 )
 
 const (
@@ -29,20 +30,20 @@ func normalizePage(page, pageSize int) (int, int) {
 func searchFilter(input SearchInput) (repohpd.MiniappListingSearchFilter, int, int, error) {
 	page, pageSize := normalizePage(input.Page, input.PageSize)
 	if input.MinPrice < 0 || input.MaxPrice < 0 {
-		return repohpd.MiniappListingSearchFilter{}, 0, 0, invalidParamf("price range must be non-negative")
+		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("price range must be non-negative")
 	}
 	if input.MaxPrice > 0 && input.MinPrice > input.MaxPrice {
-		return repohpd.MiniappListingSearchFilter{}, 0, 0, invalidParamf("min_price must be less than or equal to max_price")
+		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("min_price must be less than or equal to max_price")
 	}
 
 	rentMode := model.RentMode(strings.TrimSpace(input.RentMode))
 	if rentMode != "" && !rentMode.Valid() {
-		return repohpd.MiniappListingSearchFilter{}, 0, 0, invalidParamf("rent_mode is invalid")
+		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("rent_mode is invalid")
 	}
 
 	assetMode := model.HpdAssetMode(strings.TrimSpace(input.AssetMode))
 	if assetMode != "" && !assetMode.Valid() {
-		return repohpd.MiniappListingSearchFilter{}, 0, 0, invalidParamf("asset_mode is invalid")
+		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("asset_mode is invalid")
 	}
 
 	filter := repohpd.MiniappListingSearchFilter{

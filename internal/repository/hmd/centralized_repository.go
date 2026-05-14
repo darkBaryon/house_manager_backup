@@ -46,14 +46,14 @@ func (r *CentralizedRepository) ListByCity(ctx context.Context, city string) ([]
 	if city == "" {
 		return nil, fmt.Errorf("list hmd centralized by city: city is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"city": city}))
+	return r.FindMany(ctx, activeFilter(bson.M{"city": city}), hmdListFindOptions())
 }
 
 func (r *CentralizedRepository) ListByCityAndDistrict(ctx context.Context, city, district string) ([]model.HmdCentralized, error) {
 	if city == "" || district == "" {
 		return nil, fmt.Errorf("list hmd centralized by city and district: city and district are required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"city": city, "district": district}))
+	return r.FindMany(ctx, activeFilter(bson.M{"city": city, "district": district}), hmdListFindOptions())
 }
 
 func (r *CentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {

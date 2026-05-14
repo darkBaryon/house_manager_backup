@@ -1,4 +1,4 @@
-package common
+package paging
 
 const (
 	DefaultPage     = 1

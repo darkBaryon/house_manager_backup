@@ -49,7 +49,7 @@ func (r *RoomDecentralizedRepository) ListByDecentralizedID(ctx context.Context,
 	if decentralizedID.IsZero() {
 		return nil, fmt.Errorf("list hmd rooms decentralized by decentralizedID: decentralizedID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"decentralized_id": decentralizedID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"decentralized_id": decentralizedID}), hmdListFindOptions())
 }
 
 func (r *RoomDecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
@@ -70,7 +70,7 @@ func (r *RoomDecentralizedRepository) UpdateStatus(ctx context.Context, id bson.
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room decentralized status: id is required")
 	}
-	if !model.IsValidRoomStatus(roomStatus) {
+	if !model.IsValidRoomStatusUpdateTarget(roomStatus) {
 		return fmt.Errorf("update hmd room decentralized status: roomStatus is invalid")
 	}
 	return r.UpdateFieldsByID(ctx, id, roomStatusUpdateFields(roomStatus))

@@ -46,7 +46,7 @@ func (r *BuildingRepository) ListByProjectID(ctx context.Context, projectID bson
 	if projectID.IsZero() {
 		return nil, fmt.Errorf("list hmd buildings by projectID: projectID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}), hmdListFindOptions())
 }
 
 func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {

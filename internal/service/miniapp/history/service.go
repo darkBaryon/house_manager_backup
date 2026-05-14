@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"house-manager/internal/model"
-	minicommon "house-manager/internal/service/miniapp/common"
 	"house-manager/internal/service/miniapp/listingview"
+	"house-manager/internal/service/miniapp/paging"
+	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -34,14 +35,14 @@ func NewService(history historyRepository, miniappListings miniappListingReposit
 
 func (s *Service) Add(ctx context.Context, input AddInput) (*AddResult, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	if input.ListingID.IsZero() {
-		return nil, invalidParamf("listing_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("listing_id is required")
 	}
 	source := strings.TrimSpace(input.Source)
 	if !model.ValidHistorySource(source) {
-		return nil, invalidParamf("source is invalid")
+		return nil, errcode.InvalidParam.WithErrorf("source is invalid")
 	}
 	if err := s.requireOnlineListing(ctx, input.ListingID); err != nil {
 		return nil, err
@@ -53,25 +54,25 @@ func (s *Service) Add(ctx context.Context, input AddInput) (*AddResult, error) {
 		Source:    source,
 		ViewedAt:  viewedAt,
 	}); err != nil {
-		return nil, databasef("add history: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("add history: %w", err)
 	}
 	return &AddResult{ListingID: input.ListingID.Hex(), ViewedAt: viewedAt}, nil
 }
 
 func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
-	page, pageSize := minicommon.NormalizePage(input.Page, input.PageSize)
+	page, pageSize := paging.NormalizePage(input.Page, input.PageSize)
 	// TODO: replace full-load plus in-memory online filtering/paging with repository methods
 	// that can return online-visible count and page data in one bounded query path.
 	historyItems, err := s.history.List(ctx, input.UserID, 0, 0)
 	if err != nil {
-		return nil, databasef("list history: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("list history: %w", err)
 	}
 	listings, err := s.miniappListings.FindOnlineByListingIDs(ctx, historyListingIDs(historyItems))
 	if err != nil {
-		return nil, databasef("list history listings: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("list history listings: %w", err)
 	}
 	items := orderHistoryItems(historyItems, listings)
 	total := int64(len(items))
@@ -87,7 +88,7 @@ func pageHistoryItems(items []ListItem, page, pageSize int) []ListItem {
 	if len(items) == 0 {
 		return []ListItem{}
 	}
-	start := int(minicommon.Skip(page, pageSize))
+	start := int(paging.Skip(page, pageSize))
 	if start >= len(items) {
 		return []ListItem{}
 	}
@@ -100,26 +101,26 @@ func pageHistoryItems(items []ListItem, page, pageSize int) []ListItem {
 
 func (s *Service) Count(ctx context.Context, userID bson.ObjectID) (int64, error) {
 	if userID.IsZero() {
-		return 0, invalidParamf("user_id is required")
+		return 0, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	// Keep dashboard and list total semantics aligned: only online-visible listings count.
 	result, err := s.List(ctx, ListInput{UserID: userID, Page: 1, PageSize: 1})
 	if err != nil {
-		return 0, databasef("count history: %w", err)
+		return 0, errcode.DatabaseError.WithErrorf("count history: %w", err)
 	}
 	return result.Total, nil
 }
 
 func (s *Service) requireOnlineListing(ctx context.Context, listingID bson.ObjectID) error {
 	if s == nil || s.history == nil || s.miniappListings == nil {
-		return databasef("history service dependency is nil")
+		return errcode.DatabaseError.WithErrorf("history service dependency is nil")
 	}
 	listing, err := s.miniappListings.FindOnlineDetail(ctx, listingID)
 	if err != nil {
-		return databasef("find history listing: %w", err)
+		return errcode.DatabaseError.WithErrorf("find history listing: %w", err)
 	}
 	if listing == nil {
-		return notFoundf("listing not found")
+		return errcode.NotFound.WithErrorf("listing not found")
 	}
 	return nil
 }

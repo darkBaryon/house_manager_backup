@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"house-manager/internal/model"
+	"house-manager/pkg/errcode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -36,40 +37,40 @@ func NewService(users userRepository, profiles profileRepository, favorites coun
 
 func (s *Service) Profile(ctx context.Context, input ProfileInput) (*Profile, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	user, err := s.users.FindByID(ctx, input.UserID)
 	if err != nil {
-		return nil, databasef("find user profile: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("find user profile: %w", err)
 	}
 	if user == nil {
-		return nil, notFoundf("user not found")
+		return nil, errcode.NotFound.WithErrorf("user not found")
 	}
 	profile, err := s.profiles.FindByUserID(ctx, input.UserID)
 	if err != nil {
-		return nil, databasef("find user profile ext: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
 	}
 	return mapProfile(user, profile), nil
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (*Profile, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	if (input.BudgetMin != nil && *input.BudgetMin < 0) || (input.BudgetMax != nil && *input.BudgetMax < 0) {
-		return nil, invalidParamf("budget must be non-negative")
+		return nil, errcode.InvalidParam.WithErrorf("budget must be non-negative")
 	}
 	if rentMode := trimStringPtr(input.PreferredRentMode); rentMode != "" && !model.RentMode(rentMode).Valid() {
-		return nil, invalidParamf("preferred_rent_mode is invalid")
+		return nil, errcode.InvalidParam.WithErrorf("preferred_rent_mode is invalid")
 	}
 
 	profile, err := s.profiles.FindByUserID(ctx, input.UserID)
 	if err != nil {
-		return nil, databasef("find user profile ext: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
 	}
 	effectiveBudgetMin, effectiveBudgetMax := effectiveBudgetRange(profile, input)
 	if effectiveBudgetMax > 0 && effectiveBudgetMin > effectiveBudgetMax {
-		return nil, invalidParamf("budget_min must be less than or equal to budget_max")
+		return nil, errcode.InvalidParam.WithErrorf("budget_min must be less than or equal to budget_max")
 	}
 
 	userFields := bson.M{}
@@ -78,7 +79,7 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	setTrimmedString(userFields, "city", input.City)
 	if len(userFields) > 0 {
 		if err := s.users.UpdateProfileFields(ctx, input.UserID, userFields); err != nil {
-			return nil, databasef("update user profile: %w", err)
+			return nil, errcode.DatabaseError.WithErrorf("update user profile: %w", err)
 		}
 	}
 
@@ -97,7 +98,7 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	setTrimmedString(profileFields, "remark", input.Remark)
 	if len(profileFields) > 0 {
 		if _, err := s.profiles.UpsertByUserID(ctx, input.UserID, profileFields); err != nil {
-			return nil, databasef("update user profile ext: %w", err)
+			return nil, errcode.DatabaseError.WithErrorf("update user profile ext: %w", err)
 		}
 	}
 	return s.Profile(ctx, ProfileInput{UserID: input.UserID})
@@ -105,15 +106,15 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 
 func (s *Service) Dashboard(ctx context.Context, input DashboardInput) (*Dashboard, error) {
 	if input.UserID.IsZero() {
-		return nil, invalidParamf("user_id is required")
+		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
 	}
 	favoriteCount, err := s.favorites.Count(ctx, input.UserID)
 	if err != nil {
-		return nil, databasef("count favorites: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("count favorites: %w", err)
 	}
 	historyCount, err := s.history.Count(ctx, input.UserID)
 	if err != nil {
-		return nil, databasef("count history: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("count history: %w", err)
 	}
 	return &Dashboard{
 		FavoriteCount:           favoriteCount,

@@ -1,10 +1,14 @@
 package house
 
-import "context"
+import (
+	"context"
+
+	"house-manager/pkg/errcode"
+)
 
 func (s *HouseService) Search(ctx context.Context, input SearchInput) (*SearchResult, error) {
 	if s == nil || s.miniappListings == nil {
-		return nil, databasef("house search repository is nil")
+		return nil, errcode.DatabaseError.WithErrorf("house search repository is nil")
 	}
 
 	filter, page, pageSize, err := searchFilter(input)
@@ -14,11 +18,11 @@ func (s *HouseService) Search(ctx context.Context, input SearchInput) (*SearchRe
 
 	listings, err := s.miniappListings.SearchMiniapp(ctx, filter)
 	if err != nil {
-		return nil, databasef("search house listings: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("search house listings: %w", err)
 	}
 	total, err := s.miniappListings.CountMiniapp(ctx, filter)
 	if err != nil {
-		return nil, databasef("count house listings: %w", err)
+		return nil, errcode.DatabaseError.WithErrorf("count house listings: %w", err)
 	}
 
 	return &SearchResult{

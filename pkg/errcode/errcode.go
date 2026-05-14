@@ -29,6 +29,10 @@ func (e *Error) WithError(err error) *Error {
 	return &Error{Code: e.Code, Message: e.Message, cause: err}
 }
 
+func (e *Error) WithErrorf(format string, args ...any) *Error {
+	return e.WithError(fmt.Errorf(format, args...))
+}
+
 func FromError(err error) *Error {
 	var e *Error
 	errors.As(err, &e)

@@ -59,7 +59,7 @@ handler/v1/publish
   - `POST /api/v1/house/search`
   - `POST /api/v1/house/public_detail`
 - 发房端第一阶段 HMD 接口：
-  - `POST /api/v1/publish/{action}`
+  - `POST /api/v1/{业务module}/{action}`
 
 待接入：
 

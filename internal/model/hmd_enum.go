@@ -331,3 +331,8 @@ func (v Orientation) ValidOptional() bool {
 func IsValidRoomStatus(roomStatus int) bool {
 	return RoomStatus(roomStatus).Valid()
 }
+
+func IsValidRoomStatusUpdateTarget(roomStatus int) bool {
+	status := RoomStatus(roomStatus)
+	return status != RoomStatusUnspecified && status.Valid()
+}

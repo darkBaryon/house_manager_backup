@@ -49,21 +49,21 @@ func (r *RoomCentralizedRepository) ListByBuildingID(ctx context.Context, buildi
 	if buildingID.IsZero() {
 		return nil, fmt.Errorf("list hmd rooms centralized by buildingID: buildingID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}), hmdListFindOptions())
 }
 
 func (r *RoomCentralizedRepository) ListByProjectID(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
 	if projectID.IsZero() {
 		return nil, fmt.Errorf("list hmd rooms centralized by projectID: projectID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}), hmdListFindOptions())
 }
 
 func (r *RoomCentralizedRepository) ListByRoomTypeID(ctx context.Context, roomTypeID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
 	if roomTypeID.IsZero() {
 		return nil, fmt.Errorf("list hmd rooms centralized by roomTypeID: roomTypeID is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"room_type_id": roomTypeID}))
+	return r.FindMany(ctx, activeFilter(bson.M{"room_type_id": roomTypeID}), hmdListFindOptions())
 }
 
 func (r *RoomCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
@@ -84,7 +84,7 @@ func (r *RoomCentralizedRepository) UpdateStatus(ctx context.Context, id bson.Ob
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room centralized status: id is required")
 	}
-	if !model.IsValidRoomStatus(roomStatus) {
+	if !model.IsValidRoomStatusUpdateTarget(roomStatus) {
 		return fmt.Errorf("update hmd room centralized status: roomStatus is invalid")
 	}
 	return r.UpdateFieldsByID(ctx, id, roomStatusUpdateFields(roomStatus))

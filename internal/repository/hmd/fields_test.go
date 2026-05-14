@@ -8,6 +8,7 @@ import (
 	"house-manager/internal/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestActiveFilter(t *testing.T) {
@@ -29,6 +30,29 @@ func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
 	}
 	if got := filter["city"]; got != "深圳" {
 		t.Fatalf("expected city preserved, got %v", got)
+	}
+}
+
+func TestHmdListFindOptionsSortsByUpdatedAtAndIDDesc(t *testing.T) {
+	var findOptions options.FindOptions
+	for _, setter := range hmdListFindOptions().List() {
+		if err := setter(&findOptions); err != nil {
+			t.Fatalf("apply find option: %v", err)
+		}
+	}
+
+	sort, ok := findOptions.Sort.(bson.D)
+	if !ok {
+		t.Fatalf("expected bson.D sort, got %#v", findOptions.Sort)
+	}
+	want := bson.D{{Key: "updated_at", Value: -1}, {Key: "_id", Value: -1}}
+	if len(sort) != len(want) {
+		t.Fatalf("expected sort %v, got %v", want, sort)
+	}
+	for i := range want {
+		if sort[i] != want[i] {
+			t.Fatalf("expected sort %v, got %v", want, sort)
+		}
 	}
 }
 
@@ -89,6 +113,22 @@ func TestIsValidRoomStatus(t *testing.T) {
 	}
 }
 
+func TestIsValidRoomStatusUpdateTarget(t *testing.T) {
+	validStatuses := []int{-1, 1, 2, 3}
+	for _, status := range validStatuses {
+		if !model.IsValidRoomStatusUpdateTarget(status) {
+			t.Fatalf("expected status %d to be a valid update target", status)
+		}
+	}
+
+	invalidStatuses := []int{-2, 0, 4, 99}
+	for _, status := range invalidStatuses {
+		if model.IsValidRoomStatusUpdateTarget(status) {
+			t.Fatalf("expected status %d to be an invalid update target", status)
+		}
+	}
+}
+
 func TestRoomCentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
 	repo := &RoomCentralizedRepository{}
 	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), 99)
@@ -97,9 +137,25 @@ func TestRoomCentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
 	}
 }
 
+func TestRoomCentralizedUpdateStatusRejectsUnspecifiedRoomStatus(t *testing.T) {
+	repo := &RoomCentralizedRepository{}
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(model.RoomStatusUnspecified))
+	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
+		t.Fatalf("expected invalid roomStatus error, got %v", err)
+	}
+}
+
 func TestRoomDecentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
 	repo := &RoomDecentralizedRepository{}
 	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), 99)
+	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
+		t.Fatalf("expected invalid roomStatus error, got %v", err)
+	}
+}
+
+func TestRoomDecentralizedUpdateStatusRejectsUnspecifiedRoomStatus(t *testing.T) {
+	repo := &RoomDecentralizedRepository{}
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(model.RoomStatusUnspecified))
 	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
 		t.Fatalf("expected invalid roomStatus error, got %v", err)
 	}
