@@ -129,6 +129,29 @@ func TestPublishHandlerListWrapsDataListAndKeepsEmptyArray(t *testing.T) {
 	}
 }
 
+func TestPublishHandlerCentralizedProjectListAllowsEmptyFilter(t *testing.T) {
+	svc := &fakePublishService{}
+
+	resp := performPublishRequest(t, svc, "/api/v1/centralized_project/list", `{}`)
+
+	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
+	if svc.listCentralizedProjectsCalls != 1 {
+		t.Fatalf("expected ListCentralizedProjects to be called once, got %d", svc.listCentralizedProjectsCalls)
+	}
+	if svc.listCentralizedProjectsInput.City != "" || svc.listCentralizedProjectsInput.District != "" {
+		t.Fatalf("expected empty list filter, got %#v", svc.listCentralizedProjectsInput)
+	}
+	var data struct {
+		List []map[string]any `json:"list"`
+	}
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		t.Fatalf("decode response data: %v", err)
+	}
+	if data.List == nil {
+		t.Fatalf("expected list array, got nil body=%s", string(envelope.Data))
+	}
+}
+
 func TestPublishHandlerCentralizedRoomStatusReturnsFullSnakeCaseDTO(t *testing.T) {
 	roomID := bson.NewObjectID()
 	projectID := bson.NewObjectID()
@@ -354,6 +377,8 @@ type fakePublishService struct {
 	unimplementedPublishService
 
 	createCentralizedProjectCalls int
+	listCentralizedProjectsCalls  int
+	listCentralizedProjectsInput  publishsvc.ListCentralizedProjectsInput
 	createBuildingCalls           int
 	createBuildingInput           publishsvc.CreateBuildingInput
 	createBuildingResult          *model.HmdBuilding
@@ -374,6 +399,12 @@ type fakePublishService struct {
 
 func (f *fakePublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*model.HmdCentralized, error) {
 	f.createCentralizedProjectCalls++
+	return nil, nil
+}
+
+func (f *fakePublishService) ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
+	f.listCentralizedProjectsCalls++
+	f.listCentralizedProjectsInput = input
 	return nil, nil
 }
 

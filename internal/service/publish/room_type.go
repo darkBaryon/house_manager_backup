@@ -8,24 +8,33 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-func (s *PublishService) CreateRoomType(ctx context.Context, input CreateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
-	result, err := s.roomTypes.CreateRoomType(ctx, input)
-	return resolveHmdMutation(ctx, s.hpd, result, err)
+type roomTypeService struct {
+	hmd       roomTypeDomain
+	publisher mutationPublisher
 }
 
-func (s *PublishService) GetRoomType(ctx context.Context, id bson.ObjectID) (*model.HmdRoomTypeCentralized, error) {
-	return s.roomTypes.GetRoomType(ctx, id)
+func newRoomTypeService(hmd roomTypeDomain, publisher mutationPublisher) *roomTypeService {
+	return &roomTypeService{hmd: hmd, publisher: publisher}
 }
 
-func (s *PublishService) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
-	return s.roomTypes.ListRoomTypesByProject(ctx, projectID)
+func (s *roomTypeService) CreateRoomType(ctx context.Context, input CreateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
+	result, err := s.hmd.CreateRoomType(ctx, input)
+	return resolveHmdMutation(ctx, s.publisher, result, err)
 }
 
-func (s *PublishService) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
-	return s.roomTypes.ListRoomTypesByBuilding(ctx, buildingID)
+func (s *roomTypeService) GetRoomType(ctx context.Context, id bson.ObjectID) (*model.HmdRoomTypeCentralized, error) {
+	return s.hmd.GetRoomType(ctx, id)
 }
 
-func (s *PublishService) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
-	result, err := s.roomTypes.UpdateRoomType(ctx, input)
-	return resolveHmdMutation(ctx, s.hpd, result, err)
+func (s *roomTypeService) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+	return s.hmd.ListRoomTypesByProject(ctx, projectID)
+}
+
+func (s *roomTypeService) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+	return s.hmd.ListRoomTypesByBuilding(ctx, buildingID)
+}
+
+func (s *roomTypeService) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
+	result, err := s.hmd.UpdateRoomType(ctx, input)
+	return resolveHmdMutation(ctx, s.publisher, result, err)
 }

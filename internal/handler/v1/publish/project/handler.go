@@ -60,7 +60,7 @@ func (h *Handler) Detail(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	var req common.ListByCityRequest
+	var req listRequest
 	if !common.BindJSON(c, &req) {
 		return
 	}

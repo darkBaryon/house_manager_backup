@@ -25,6 +25,11 @@ type updateRequest struct {
 	BrandName   string                  `json:"brand_name"`
 }
 
+type listRequest struct {
+	City     string `json:"city"`
+	District string `json:"district"`
+}
+
 type response struct {
 	common.EntityMetaResponse
 

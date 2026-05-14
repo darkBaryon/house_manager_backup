@@ -28,7 +28,7 @@ func TestPublishServiceAppliesHmdChangesAfterWrite(t *testing.T) {
 		},
 	}
 	hpd := &fakeHpdApplier{}
-	service := &PublishService{centralizedProjects: hmd, hpd: hpd}
+	service := newTestPublishService(hmd, hpd)
 
 	got, err := service.CreateCentralizedProject(context.Background(), CreateCentralizedProjectInput{})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestPublishServiceSkipsApplyWhenHmdWriteFails(t *testing.T) {
 		createCentralizedProjectErr: errcode.InvalidParam.WithError(fmt.Errorf("projectName is required")),
 	}
 	hpd := &fakeHpdApplier{}
-	service := &PublishService{centralizedProjects: hmd, hpd: hpd}
+	service := newTestPublishService(hmd, hpd)
 
 	_, err := service.CreateCentralizedProject(context.Background(), CreateCentralizedProjectInput{})
 	if err == nil {
@@ -65,7 +65,7 @@ func TestPublishServiceReadDoesNotApplyHpdChanges(t *testing.T) {
 	entity := &model.HmdCentralized{CommonFields: model.CommonFields{ID: bson.NewObjectID()}}
 	hmd := &fakeHmdService{getCentralizedProjectResult: entity}
 	hpd := &fakeHpdApplier{}
-	service := &PublishService{centralizedProjects: hmd, hpd: hpd}
+	service := newTestPublishService(hmd, hpd)
 
 	got, err := service.GetCentralizedProject(context.Background(), entity.ID)
 	if err != nil {
@@ -89,11 +89,17 @@ func TestPublishServiceReturnsApplyError(t *testing.T) {
 		},
 	}
 	hpd := &fakeHpdApplier{err: applyErr}
-	service := &PublishService{centralizedProjects: hmd, hpd: hpd}
+	service := newTestPublishService(hmd, hpd)
 
 	_, err := service.CreateCentralizedProject(context.Background(), CreateCentralizedProjectInput{})
 	if err != applyErr {
 		t.Fatalf("expected apply error, got %v", err)
+	}
+}
+
+func newTestPublishService(hmd *fakeHmdService, hpd *fakeHpdApplier) *PublishService {
+	return &PublishService{
+		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{hpd: hpd}),
 	}
 }
 

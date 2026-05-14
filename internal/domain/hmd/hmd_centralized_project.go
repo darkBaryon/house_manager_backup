@@ -50,18 +50,7 @@ func (s *Service) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (
 func (s *Service) ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
 	city := strings.TrimSpace(input.City)
 	district := strings.TrimSpace(input.District)
-	if city == "" {
-		return nil, invalidParamf("list centralized projects: city is required")
-	}
-	var (
-		projects []model.HmdCentralized
-		err      error
-	)
-	if district != "" {
-		projects, err = s.centralizedRepo.ListByCityAndDistrict(ctx, city, district)
-	} else {
-		projects, err = s.centralizedRepo.ListByCity(ctx, city)
-	}
+	projects, err := s.centralizedRepo.List(ctx, city, district)
 	if err != nil {
 		return nil, databasef("list centralized projects: %w", err)
 	}

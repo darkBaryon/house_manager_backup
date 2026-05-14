@@ -42,18 +42,29 @@ func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) 
 	return r.Repository.FindByID(ctx, id)
 }
 
+func (r *CentralizedRepository) List(ctx context.Context, city, district string) ([]model.HmdCentralized, error) {
+	filter := bson.M{}
+	if city != "" {
+		filter["city"] = city
+	}
+	if district != "" {
+		filter["district"] = district
+	}
+	return r.FindMany(ctx, activeFilter(filter), hmdListFindOptions())
+}
+
 func (r *CentralizedRepository) ListByCity(ctx context.Context, city string) ([]model.HmdCentralized, error) {
 	if city == "" {
 		return nil, fmt.Errorf("list hmd centralized by city: city is required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"city": city}), hmdListFindOptions())
+	return r.List(ctx, city, "")
 }
 
 func (r *CentralizedRepository) ListByCityAndDistrict(ctx context.Context, city, district string) ([]model.HmdCentralized, error) {
 	if city == "" || district == "" {
 		return nil, fmt.Errorf("list hmd centralized by city and district: city and district are required")
 	}
-	return r.FindMany(ctx, activeFilter(bson.M{"city": city, "district": district}), hmdListFindOptions())
+	return r.List(ctx, city, district)
 }
 
 func (r *CentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
