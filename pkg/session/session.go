@@ -4,13 +4,36 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"house-manager/pkg/cache"
 )
 
 const keyPrefix = "hs:sess:"
+
+type principalContextKey struct{}
+
+const (
+	PrincipalTypeUser  = "user"
+	PrincipalTypeStaff = "staff"
+
+	TerminalMiniapp = "miniapp"
+	TerminalPublish = "publish"
+	TerminalAdmin   = "admin"
+)
+
+// Principal 是 Redis session 中保存的结构化登录身份。
+type Principal struct {
+	PrincipalType   string   `json:"principal_type"`
+	PrincipalID     string   `json:"principal_id"`
+	Terminal        string   `json:"terminal"`
+	Phone           string   `json:"phone"`
+	RoleCodes       []string `json:"role_codes"`
+	PermissionCodes []string `json:"permission_codes"`
+}
 
 // Store Redis session 存储
 type Store struct {
@@ -23,25 +46,76 @@ func NewStore(client cache.Client, ttl time.Duration) *Store {
 	return &Store{client: client, ttl: ttl}
 }
 
-// Create 创建 session，返回 token
+// Create 创建小程序 user session，返回 opaque token。
 func (s *Store) Create(ctx context.Context, userId string) (string, error) {
+	return s.CreateMiniappUser(ctx, userId, "")
+}
+
+// CreateMiniappUser 创建小程序用户 session，返回 opaque token。
+func (s *Store) CreateMiniappUser(ctx context.Context, userID, phone string) (string, error) {
+	return s.CreatePrincipal(ctx, Principal{
+		PrincipalType: PrincipalTypeUser,
+		PrincipalID:   userID,
+		Terminal:      TerminalMiniapp,
+		Phone:         phone,
+	})
+}
+
+// CreatePrincipal 创建结构化 principal session，返回 opaque token。
+func (s *Store) CreatePrincipal(ctx context.Context, principal Principal) (string, error) {
+	if err := principal.Validate(); err != nil {
+		return "", err
+	}
 	token, err := generateToken()
 	if err != nil {
 		return "", fmt.Errorf("generate token: %w", err)
 	}
-	if err := s.client.Set(ctx, keyPrefix+token, userId, s.ttl); err != nil {
+	payload, err := json.Marshal(principal.normalized())
+	if err != nil {
+		return "", fmt.Errorf("marshal principal: %w", err)
+	}
+	if err := s.client.Set(ctx, keyPrefix+token, string(payload), s.ttl); err != nil {
 		return "", fmt.Errorf("save session: %w", err)
 	}
 	return token, nil
 }
 
-// Get 根据 token 获取 userId，空字符串表示 session 不存在
+// Get 根据 token 获取 userId，空字符串表示 session 不存在或不是 user principal。
 func (s *Store) Get(ctx context.Context, token string) (string, error) {
-	val, err := s.client.Get(ctx, keyPrefix+token)
-	if err != nil {
+	return s.GetUserID(ctx, token)
+}
+
+// GetUserID 根据 token 获取 user principal ID。
+func (s *Store) GetUserID(ctx context.Context, token string) (string, error) {
+	principal, err := s.GetPrincipal(ctx, token)
+	if err != nil || principal == nil {
+		return "", err
+	}
+	if principal.PrincipalType != PrincipalTypeUser {
 		return "", nil
 	}
-	return val, nil
+	return principal.PrincipalID, nil
+}
+
+// GetPrincipal 根据 token 获取结构化 principal，nil 表示 session 不存在。
+func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil, nil
+	}
+	val, err := s.client.Get(ctx, keyPrefix+token)
+	if err != nil {
+		return nil, nil
+	}
+	var principal Principal
+	if err := json.Unmarshal([]byte(val), &principal); err != nil {
+		return nil, nil
+	}
+	if err := principal.Validate(); err != nil {
+		return nil, nil
+	}
+	normalized := principal.normalized()
+	return &normalized, nil
 }
 
 // Delete 删除 session
@@ -55,4 +129,65 @@ func generateToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func (p Principal) Validate() error {
+	if strings.TrimSpace(p.PrincipalType) == "" {
+		return fmt.Errorf("principal_type is required")
+	}
+	if strings.TrimSpace(p.PrincipalID) == "" {
+		return fmt.Errorf("principal_id is required")
+	}
+	if strings.TrimSpace(p.Terminal) == "" {
+		return fmt.Errorf("terminal is required")
+	}
+	switch p.PrincipalType {
+	case PrincipalTypeUser, PrincipalTypeStaff:
+	default:
+		return fmt.Errorf("principal_type is invalid")
+	}
+	switch p.Terminal {
+	case TerminalMiniapp, TerminalPublish, TerminalAdmin:
+	default:
+		return fmt.Errorf("terminal is invalid")
+	}
+	return nil
+}
+
+func (p Principal) normalized() Principal {
+	p.PrincipalType = strings.TrimSpace(p.PrincipalType)
+	p.PrincipalID = strings.TrimSpace(p.PrincipalID)
+	p.Terminal = strings.TrimSpace(p.Terminal)
+	p.Phone = strings.TrimSpace(p.Phone)
+	if p.RoleCodes == nil {
+		p.RoleCodes = []string{}
+	}
+	if p.PermissionCodes == nil {
+		p.PermissionCodes = []string{}
+	}
+	return p
+}
+
+// ContextWithPrincipal 把结构化登录身份放入 request context。
+func ContextWithPrincipal(ctx context.Context, principal Principal) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	normalized := principal.normalized()
+	return context.WithValue(ctx, principalContextKey{}, normalized)
+}
+
+// PrincipalFromContext 从 request context 读取结构化登录身份。
+func PrincipalFromContext(ctx context.Context) (Principal, bool) {
+	if ctx == nil {
+		return Principal{}, false
+	}
+	principal, ok := ctx.Value(principalContextKey{}).(Principal)
+	if !ok {
+		return Principal{}, false
+	}
+	if err := principal.Validate(); err != nil {
+		return Principal{}, false
+	}
+	return principal.normalized(), true
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"house-manager/internal/handler"
+	minicommon "house-manager/internal/handler/v1/miniapp/common"
 	authsvc "house-manager/internal/service/miniapp/auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/response"
@@ -86,12 +87,11 @@ func (h *AuthHandler) WechatRegister(c *gin.Context) {
 }
 
 func (h *SessionHandler) Session(c *gin.Context) {
-	userId, ok := c.Get("userId")
+	userID, ok := minicommon.CurrentUserID(c)
 	if !ok {
-		response.Err(c, errcode.Unauthorized)
 		return
 	}
-	response.Success(c, gin.H{"userId": userId})
+	response.Success(c, gin.H{"userId": userID.Hex()})
 }
 
 var _ handler.RouteRegistrar = (*AuthHandler)(nil)

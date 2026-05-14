@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	authdomain "house-manager/internal/domain/auth"
+	repoauth "house-manager/internal/repository/auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
 
@@ -15,17 +16,20 @@ import (
 type Service struct {
 	identity     *authdomain.IdentityService
 	userProfile  *authdomain.UserProfileService
+	userRepo     *repoauth.UserRepository
 	sessionStore *session.Store
 }
 
 func NewService(
 	identity *authdomain.IdentityService,
 	userProfile *authdomain.UserProfileService,
+	userRepo *repoauth.UserRepository,
 	sessionStore *session.Store,
 ) *Service {
 	return &Service{
 		identity:     identity,
 		userProfile:  userProfile,
+		userRepo:     userRepo,
 		sessionStore: sessionStore,
 	}
 }
@@ -53,7 +57,14 @@ func (s *Service) issueTokenForUser(ctx context.Context, userID bson.ObjectID, l
 	if err := s.userProfile.TouchUserLastActive(ctx, userID); err != nil {
 		return "", err
 	}
-	token, err := s.sessionStore.Create(ctx, userID.Hex())
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return "", errcode.DatabaseError.WithError(err)
+	}
+	if user == nil {
+		return "", errcode.DatabaseError.WithError(errors.New("user not found"))
+	}
+	token, err := s.sessionStore.CreateMiniappUser(ctx, userID.Hex(), user.Phone)
 	if err != nil {
 		return "", errcode.CacheError.WithError(err)
 	}

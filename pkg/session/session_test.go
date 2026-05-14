@@ -1,0 +1,113 @@
+package session
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+)
+
+func TestStoreCreatePrincipalStoresJSON(t *testing.T) {
+	cache := newFakeCache()
+	store := NewStore(cache, time.Minute)
+
+	token, err := store.CreatePrincipal(context.Background(), Principal{
+		PrincipalType:   PrincipalTypeStaff,
+		PrincipalID:     "staff-id",
+		Terminal:        TerminalPublish,
+		Phone:           "13800000000",
+		RoleCodes:       []string{"super_admin"},
+		PermissionCodes: []string{"house.manage"},
+	})
+	if err != nil {
+		t.Fatalf("create principal: %v", err)
+	}
+	if token == "" {
+		t.Fatalf("expected token")
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(cache.values[keyPrefix+token]), &raw); err != nil {
+		t.Fatalf("session payload must be json: %v payload=%q", err, cache.values[keyPrefix+token])
+	}
+	if raw["principal_type"] != PrincipalTypeStaff || raw["terminal"] != TerminalPublish {
+		t.Fatalf("unexpected payload: %#v", raw)
+	}
+
+	principal, err := store.GetPrincipal(context.Background(), token)
+	if err != nil {
+		t.Fatalf("get principal: %v", err)
+	}
+	if principal == nil || principal.PrincipalID != "staff-id" || principal.Phone != "13800000000" {
+		t.Fatalf("unexpected principal: %#v", principal)
+	}
+}
+
+func TestStoreCreateWritesMiniappUserPrincipal(t *testing.T) {
+	cache := newFakeCache()
+	store := NewStore(cache, time.Minute)
+
+	token, err := store.CreateMiniappUser(context.Background(), "user-id", "13800000000")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	principal, err := store.GetPrincipal(context.Background(), token)
+	if err != nil {
+		t.Fatalf("get principal: %v", err)
+	}
+	if principal == nil || principal.PrincipalType != PrincipalTypeUser || principal.Terminal != TerminalMiniapp {
+		t.Fatalf("unexpected principal: %#v", principal)
+	}
+	if principal.Phone != "13800000000" {
+		t.Fatalf("unexpected phone: %q", principal.Phone)
+	}
+	userID, err := store.GetUserID(context.Background(), token)
+	if err != nil {
+		t.Fatalf("get user id: %v", err)
+	}
+	if userID != "user-id" {
+		t.Fatalf("unexpected userID: %q", userID)
+	}
+}
+
+func TestPrincipalContextRoundTrip(t *testing.T) {
+	principal := Principal{
+		PrincipalType:   PrincipalTypeStaff,
+		PrincipalID:     "staff-id",
+		Terminal:        TerminalPublish,
+		RoleCodes:       []string{"super_admin"},
+		PermissionCodes: []string{"house.manage"},
+	}
+	ctx := ContextWithPrincipal(context.Background(), principal)
+	got, ok := PrincipalFromContext(ctx)
+	if !ok {
+		t.Fatalf("expected principal from context")
+	}
+	if got.PrincipalID != principal.PrincipalID || got.Terminal != TerminalPublish {
+		t.Fatalf("unexpected principal: %#v", got)
+	}
+}
+
+type fakeCache struct {
+	values map[string]string
+}
+
+func newFakeCache() *fakeCache {
+	return &fakeCache{values: map[string]string{}}
+}
+
+func (f *fakeCache) Get(ctx context.Context, key string) (string, error) {
+	return f.values[key], nil
+}
+
+func (f *fakeCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	f.values[key] = value
+	return nil
+}
+
+func (f *fakeCache) Del(ctx context.Context, keys ...string) error {
+	for _, key := range keys {
+		delete(f.values, key)
+	}
+	return nil
+}

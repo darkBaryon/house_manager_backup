@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	"house-manager/pkg/errcode"
+	"house-manager/pkg/session"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type authEnvelope struct {
@@ -77,8 +79,9 @@ func TestSessionRequiresUserID(t *testing.T) {
 }
 
 func TestSessionReturnsUserID(t *testing.T) {
+	userID := bson.NewObjectID()
 	resp := performAuthRequest(t, &fakeAuthService{}, "/api/v1/auth/session", `{}`, func(c *gin.Context) {
-		c.Set("userId", "user-id")
+		c.Set("userId", userID.Hex())
 	})
 
 	envelope := assertAuthResponse(t, resp, http.StatusOK, 0)
@@ -88,7 +91,31 @@ func TestSessionReturnsUserID(t *testing.T) {
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode data: %v", err)
 	}
-	if data.UserID != "user-id" {
+	if data.UserID != userID.Hex() {
+		t.Fatalf("unexpected userId: %q", data.UserID)
+	}
+}
+
+func TestSessionReturnsUserIDFromPrincipalContext(t *testing.T) {
+	userID := bson.NewObjectID()
+	resp := performAuthRequest(t, &fakeAuthService{}, "/api/v1/auth/session", `{}`, func(c *gin.Context) {
+		principal := session.Principal{
+			PrincipalType: session.PrincipalTypeUser,
+			PrincipalID:   userID.Hex(),
+			Terminal:      session.TerminalMiniapp,
+		}
+		c.Set("principal", principal)
+		c.Request = c.Request.WithContext(session.ContextWithPrincipal(c.Request.Context(), principal))
+	})
+
+	envelope := assertAuthResponse(t, resp, http.StatusOK, 0)
+	var data struct {
+		UserID string `json:"userId"`
+	}
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		t.Fatalf("decode data: %v", err)
+	}
+	if data.UserID != userID.Hex() {
 		t.Fatalf("unexpected userId: %q", data.UserID)
 	}
 }

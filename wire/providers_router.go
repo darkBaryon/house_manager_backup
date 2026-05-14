@@ -13,20 +13,24 @@ import (
 func newRouteGroups(
 	internalV1 internalV1Registrars,
 	publicV1 publicV1Registrars,
-	protectedV1 protectedV1Registrars,
+	miniappProtectedV1 miniappProtectedV1Registrars,
+	publishProtectedV1 publishProtectedV1Registrars,
 	store *session.Store,
 ) []app.RouteGroup {
-	auth := middleware.Auth(store)
+	miniappAuth := middleware.MiniappAuth(store)
+	publishAuth := middleware.PublishAuth(store)
 	return []app.RouteGroup{
 		{Prefix: "/api/v1", Registrars: []handler.RouteRegistrar(internalV1)},
 		{Prefix: "/api/v1", Registrars: []handler.RouteRegistrar(publicV1)},
-		{Prefix: "/api/v1", Middleware: []gin.HandlerFunc{auth}, Registrars: []handler.RouteRegistrar(protectedV1)},
+		{Prefix: "/api/v1", Middleware: []gin.HandlerFunc{miniappAuth}, Registrars: []handler.RouteRegistrar(miniappProtectedV1)},
+		{Prefix: "/api/v1", Middleware: []gin.HandlerFunc{publishAuth}, Registrars: []handler.RouteRegistrar(publishProtectedV1)},
 	}
 }
 
 var RouterSet = wire.NewSet(
 	newInternalV1Registrars,
 	newPublicV1Registrars,
-	newProtectedV1Registrars,
+	newMiniappProtectedV1Registrars,
+	newPublishProtectedV1Registrars,
 	newRouteGroups,
 )

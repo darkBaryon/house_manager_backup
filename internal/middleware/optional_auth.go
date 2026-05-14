@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"strings"
-
 	"house-manager/pkg/session"
 
 	"github.com/gin-gonic/gin"
@@ -15,19 +13,14 @@ func OptionalAuth(store *session.Store) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		auth := c.GetHeader("Authorization")
-		if auth == "" {
+		tokenStr, ok := bearerToken(c)
+		if !ok {
 			c.Next()
 			return
 		}
-		tokenStr := strings.TrimPrefix(auth, "Bearer ")
-		if tokenStr == auth || strings.TrimSpace(tokenStr) == "" {
-			c.Next()
-			return
-		}
-		userID, err := store.Get(c.Request.Context(), tokenStr)
-		if err == nil && userID != "" {
-			c.Set("userId", userID)
+		principal, err := store.GetPrincipal(c.Request.Context(), tokenStr)
+		if err == nil && principal != nil && principal.Terminal == session.TerminalMiniapp && principal.PrincipalType == session.PrincipalTypeUser {
+			setPrincipal(c, tokenStr, *principal)
 		}
 		c.Next()
 	}
