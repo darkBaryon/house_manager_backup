@@ -13,7 +13,7 @@ import (
 )
 
 func TestLoginRejectsPhoneOnlyOutsideLocal(t *testing.T) {
-	svc := NewService(nil, nil, nil, nil, nil, nil, nil, "prod")
+	svc := NewService(nil, nil, "prod")
 
 	_, err := svc.Login(context.Background(), LoginInput{Phone: "13800000000"})
 
@@ -24,7 +24,7 @@ func TestLoginRejectsPhoneOnlyOutsideLocal(t *testing.T) {
 }
 
 func TestLoginRequiresPhone(t *testing.T) {
-	svc := NewService(nil, nil, nil, nil, nil, nil, nil, "local")
+	svc := NewService(nil, nil, "local")
 
 	_, err := svc.Login(context.Background(), LoginInput{})
 
@@ -35,7 +35,7 @@ func TestLoginRequiresPhone(t *testing.T) {
 }
 
 func TestSessionRejectsNonPublishPrincipal(t *testing.T) {
-	svc := NewService(nil, nil, nil, nil, nil, nil, nil, "local")
+	svc := NewService(nil, nil, "local")
 
 	_, err := svc.Session(context.Background(), session.Principal{
 		PrincipalType: session.PrincipalTypeUser,
@@ -49,34 +49,17 @@ func TestSessionRejectsNonPublishPrincipal(t *testing.T) {
 	}
 }
 
-func TestLoginBuildsStaffPrincipalWithRolesAndPermissions(t *testing.T) {
-	staffID := bson.NewObjectID()
-	roleID := bson.NewObjectID()
-	permissionID := bson.NewObjectID()
+func TestLoginBuildsUserPrincipal(t *testing.T) {
+	userID := bson.NewObjectID()
 	store := session.NewStore(newFakeCache(), 0)
-	staffRepo := &fakeStaffRepository{
-		activeByPhone: &authmodel.AdmStaff{
-			CommonFields: commonmodel.CommonFields{ID: staffID, Status: commonmodel.StatusActive},
-			Name:         "管家",
+	userRepo := &fakeOwnerUserRepository{
+		activeByPhone: &authmodel.User{
+			CommonFields: commonmodel.CommonFields{ID: userID, Status: commonmodel.StatusActive},
 			Phone:        "13800000000",
+			Nickname:     "房东A",
 		},
 	}
-	svc := newService(
-		staffRepo,
-		&fakeRoleRepository{roles: []authmodel.AdmRole{{
-			CommonFields: commonmodel.CommonFields{ID: roleID, Status: commonmodel.StatusActive},
-			RoleCode:     "super_admin",
-		}}},
-		&fakePermissionRepository{permissions: []authmodel.AdmPermission{{
-			CommonFields:   commonmodel.CommonFields{ID: permissionID, Status: commonmodel.StatusActive},
-			PermissionCode: "house.manage",
-		}}},
-		&fakeStaffRoleRepository{staffRoles: []authmodel.AdmStaffRole{{RoleID: roleID}}},
-		&fakeRolePermissionRepository{rolePermissions: []authmodel.AdmRolePermission{{PermissionID: permissionID}}},
-		&fakeLoginLogRepository{},
-		store,
-		"local",
-	)
+	svc := newService(userRepo, store, "local")
 
 	result, err := svc.Login(context.Background(), LoginInput{Phone: "13800000000", LoginIP: "127.0.0.1"})
 	if err != nil {
@@ -85,81 +68,34 @@ func TestLoginBuildsStaffPrincipalWithRolesAndPermissions(t *testing.T) {
 	if result.Token == "" {
 		t.Fatal("expected token")
 	}
-	if result.Principal.PrincipalType != session.PrincipalTypeStaff || result.Principal.Terminal != session.TerminalPublish {
+	if result.Principal.PrincipalType != session.PrincipalTypeUser || result.Principal.Terminal != session.TerminalPublish {
 		t.Fatalf("unexpected principal: %#v", result.Principal)
 	}
-	if result.Principal.PrincipalID != staffID.Hex() || result.Principal.Phone != "13800000000" {
+	if result.Principal.PrincipalID != userID.Hex() || result.Principal.Phone != "13800000000" {
 		t.Fatalf("unexpected principal identity: %#v", result.Principal)
 	}
-	if len(result.Principal.RoleCodes) != 1 || result.Principal.RoleCodes[0] != "super_admin" {
-		t.Fatalf("unexpected role codes: %#v", result.Principal.RoleCodes)
+	if len(result.Principal.RoleCodes) != 0 || len(result.Principal.PermissionCodes) != 0 {
+		t.Fatalf("expected no role or permission codes, got %#v", result.Principal)
 	}
-	if len(result.Principal.PermissionCodes) != 1 || result.Principal.PermissionCodes[0] != "house.manage" {
-		t.Fatalf("unexpected permission codes: %#v", result.Principal.PermissionCodes)
-	}
-	if !staffRepo.touched {
-		t.Fatal("expected staff last login touched")
+	if result.Subject.Name != "房东A" {
+		t.Fatalf("unexpected subject: %#v", result.Subject)
 	}
 }
 
-type fakeStaffRepository struct {
-	activeByPhone *authmodel.AdmStaff
-	byID          *authmodel.AdmStaff
-	touched       bool
+type fakeOwnerUserRepository struct {
+	activeByPhone *authmodel.User
+	byID          *authmodel.User
 }
 
-func (f *fakeStaffRepository) FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error) {
+func (f *fakeOwnerUserRepository) FindActiveByPhone(ctx context.Context, phone string) (*authmodel.User, error) {
 	return f.activeByPhone, nil
 }
 
-func (f *fakeStaffRepository) FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error) {
+func (f *fakeOwnerUserRepository) FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.User, error) {
 	if f.byID != nil {
 		return f.byID, nil
 	}
 	return f.activeByPhone, nil
-}
-
-func (f *fakeStaffRepository) TouchLastLogin(ctx context.Context, staffID bson.ObjectID, lastLoginAt int64, lastLoginIP string) error {
-	f.touched = true
-	return nil
-}
-
-type fakeRoleRepository struct {
-	roles []authmodel.AdmRole
-}
-
-func (f *fakeRoleRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error) {
-	return f.roles, nil
-}
-
-type fakePermissionRepository struct {
-	permissions []authmodel.AdmPermission
-}
-
-func (f *fakePermissionRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error) {
-	return f.permissions, nil
-}
-
-type fakeStaffRoleRepository struct {
-	staffRoles []authmodel.AdmStaffRole
-}
-
-func (f *fakeStaffRoleRepository) ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]authmodel.AdmStaffRole, error) {
-	return f.staffRoles, nil
-}
-
-type fakeRolePermissionRepository struct {
-	rolePermissions []authmodel.AdmRolePermission
-}
-
-func (f *fakeRolePermissionRepository) ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]authmodel.AdmRolePermission, error) {
-	return f.rolePermissions, nil
-}
-
-type fakeLoginLogRepository struct{}
-
-func (f *fakeLoginLogRepository) Create(ctx context.Context, log *authmodel.AdmLoginLog) error {
-	return nil
 }
 
 type fakeCache struct {

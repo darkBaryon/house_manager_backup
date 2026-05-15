@@ -20,7 +20,8 @@ func TestServiceApplyDispatchesAllMiniappScopes(t *testing.T) {
 		bson.NewObjectID(),
 	}
 	projector := &fakeMiniappProjector{}
-	service := &Service{miniappProjector: projector}
+	publisher := &fakePublisherProjector{}
+	service := &Service{miniappProjector: projector, publisherProjector: publisher}
 
 	err := service.Apply(context.Background(), []hmd.HmdChange{
 		{Scope: hmd.HmdScopeCentralizedProject, EntityID: ids[0]},
@@ -49,6 +50,9 @@ func TestServiceApplyDispatchesAllMiniappScopes(t *testing.T) {
 		if projector.calls[i] != want[i] {
 			t.Fatalf("call %d: expected %s, got %s", i, want[i], projector.calls[i])
 		}
+		if publisher.calls[i] != want[i] {
+			t.Fatalf("publisher call %d: expected %s, got %s", i, want[i], publisher.calls[i])
+		}
 	}
 }
 
@@ -63,7 +67,8 @@ func TestServiceUpdateListingStatusRefreshesMiniappProjection(t *testing.T) {
 	}
 	repo := &fakeHpdListingRepo{listing: listing}
 	projector := &fakeMiniappProjector{}
-	service := &Service{listingRepo: repo, miniappProjector: projector}
+	publisher := &fakePublisherProjector{}
+	service := &Service{listingRepo: repo, miniappProjector: projector, publisherProjector: publisher}
 
 	if err := service.UpdateListingStatus(context.Background(), listingID, hpdmodel.HpdListingStatusPublished); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -75,11 +80,54 @@ func TestServiceUpdateListingStatusRefreshesMiniappProjection(t *testing.T) {
 	if len(projector.refreshedListings) != 1 || projector.refreshedListings[0] != listing {
 		t.Fatalf("expected listing refresh, got %#v", projector.refreshedListings)
 	}
+	if len(publisher.refreshedListings) != 1 || publisher.refreshedListings[0] != listing {
+		t.Fatalf("expected publisher listing refresh, got %#v", publisher.refreshedListings)
+	}
 }
 
 type fakeMiniappProjector struct {
 	calls             []string
 	refreshedListings []*hpdmodel.HpdListing
+}
+
+type fakePublisherProjector struct {
+	calls             []string
+	refreshedListings []*hpdmodel.HpdListing
+}
+
+func (f *fakePublisherProjector) RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error {
+	f.refreshedListings = append(f.refreshedListings, listing)
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
+	f.calls = append(f.calls, "centralized_room:"+roomID.Hex())
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
+	f.calls = append(f.calls, "decentralized_room:"+roomID.Hex())
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshCentralizedProject(ctx context.Context, projectID bson.ObjectID) error {
+	f.calls = append(f.calls, "centralized_project:"+projectID.Hex())
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshBuilding(ctx context.Context, buildingID bson.ObjectID) error {
+	f.calls = append(f.calls, "building:"+buildingID.Hex())
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshRoomTypeCentralized(ctx context.Context, roomTypeID bson.ObjectID) error {
+	f.calls = append(f.calls, "room_type_centralized:"+roomTypeID.Hex())
+	return nil
+}
+
+func (f *fakePublisherProjector) RefreshDecentralizedCommunity(ctx context.Context, decentralizedID bson.ObjectID) error {
+	f.calls = append(f.calls, "decentralized_community:"+decentralizedID.Hex())
+	return nil
 }
 
 func (f *fakeMiniappProjector) RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error {

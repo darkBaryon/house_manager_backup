@@ -4,7 +4,6 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
-	hpdmodel "house-manager/internal/model/hpd"
 )
 
 type decentralizedRoomService struct {
@@ -22,18 +21,13 @@ func (s *decentralizedRoomService) CreateDecentralizedRoom(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	if err := requireDecentralizedCommunityAccess(ctx, scope, s.hmd, input.DecentralizedID, "create decentralized room"); err != nil {
+	if err := requireDecentralizedCommunityAccess(ctx, scope, input.DecentralizedID, "create decentralized room"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.CreateDecentralizedRoom(ctx, input)
 	entity, err := resolveHmdMutation(ctx, s.publisher, result, err)
 	if err != nil {
 		return nil, err
-	}
-	if entity != nil {
-		if err := registerRoomEntrust(ctx, s.access, hpdmodel.HpdSourceTypeDecentralizedRoom, entity.ID, scope.principal); err != nil {
-			return nil, err
-		}
 	}
 	return entity, nil
 }
@@ -43,10 +37,16 @@ func (s *decentralizedRoomService) GetDecentralizedRoom(ctx context.Context, id 
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeDecentralizedRoom, id, "get decentralized room"); err != nil {
+	room, err := s.hmd.GetDecentralizedRoom(ctx, id)
+	if err != nil {
 		return nil, err
 	}
-	return s.hmd.GetDecentralizedRoom(ctx, id)
+	if room != nil {
+		if err := requireDecentralizedCommunityAccess(ctx, scope, room.DecentralizedID, "get decentralized room"); err != nil {
+			return nil, err
+		}
+	}
+	return room, nil
 }
 
 func (s *decentralizedRoomService) ListDecentralizedRoomsByCommunity(ctx context.Context, decentralizedID bson.ObjectID) ([]hmdmodel.HmdRoomDecentralized, error) {
@@ -54,11 +54,14 @@ func (s *decentralizedRoomService) ListDecentralizedRoomsByCommunity(ctx context
 	if err != nil {
 		return nil, err
 	}
-	rooms, err := s.hmd.ListDecentralizedRoomsByCommunity(ctx, decentralizedID)
+	allowed, err := canAccessDecentralizedCommunity(ctx, scope, decentralizedID)
 	if err != nil {
 		return nil, err
 	}
-	return filterDecentralizedRoomsByScope(ctx, scope, rooms)
+	if !allowed {
+		return []hmdmodel.HmdRoomDecentralized{}, nil
+	}
+	return s.hmd.ListDecentralizedRoomsByCommunity(ctx, decentralizedID)
 }
 
 func (s *decentralizedRoomService) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecentralizedRoomInput) (*hmdmodel.HmdRoomDecentralized, error) {
@@ -66,7 +69,14 @@ func (s *decentralizedRoomService) UpdateDecentralizedRoom(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeDecentralizedRoom, input.ID, "update decentralized room"); err != nil {
+	room, err := s.hmd.GetDecentralizedRoom(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if room == nil {
+		return nil, scopeNotFound("update decentralized room")
+	}
+	if err := requireDecentralizedCommunityAccess(ctx, scope, room.DecentralizedID, "update decentralized room"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateDecentralizedRoom(ctx, input)
@@ -78,7 +88,14 @@ func (s *decentralizedRoomService) UpdateDecentralizedRoomStatus(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeDecentralizedRoom, input.ID, "update decentralized room status"); err != nil {
+	room, err := s.hmd.GetDecentralizedRoom(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if room == nil {
+		return nil, scopeNotFound("update decentralized room status")
+	}
+	if err := requireDecentralizedCommunityAccess(ctx, scope, room.DecentralizedID, "update decentralized room status"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateDecentralizedRoomStatus(ctx, input)

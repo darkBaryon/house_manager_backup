@@ -123,6 +123,55 @@ func roomTypePaymentCycle(roomType *hmdmodel.HmdRoomTypeCentralized) hmdmodel.Pa
 	return roomType.PaymentCycle
 }
 
+func roomTypeDecorationLevel(roomType *hmdmodel.HmdRoomTypeCentralized) hmdmodel.DecorationLevel {
+	if roomType == nil {
+		return ""
+	}
+	return roomType.DecorationLevel
+}
+
+func roomTypeAgencyFeeMode(roomType *hmdmodel.HmdRoomTypeCentralized) hmdmodel.AgencyFeeMode {
+	if roomType == nil {
+		return ""
+	}
+	return roomType.AgencyFeeMode
+}
+
+func roomTypeAgencyFeeValue(roomType *hmdmodel.HmdRoomTypeCentralized) int {
+	if roomType == nil {
+		return 0
+	}
+	return roomType.AgencyFeeValue
+}
+
+func roomTypeRent(roomType *hmdmodel.HmdRoomTypeCentralized) int {
+	if roomType == nil {
+		return 0
+	}
+	return roomType.Rent
+}
+
+func roomTypeDeposit(roomType *hmdmodel.HmdRoomTypeCentralized) int {
+	if roomType == nil {
+		return 0
+	}
+	return roomType.Deposit
+}
+
+func roomTypeServiceFee(roomType *hmdmodel.HmdRoomTypeCentralized) int {
+	if roomType == nil {
+		return 0
+	}
+	return roomType.ServiceFee
+}
+
+func roomTypeName(roomType *hmdmodel.HmdRoomTypeCentralized) string {
+	if roomType == nil {
+		return ""
+	}
+	return roomType.RoomTypeName
+}
+
 func roomTypeImages(roomType *hmdmodel.HmdRoomTypeCentralized) []hmdmodel.TaggedImage {
 	if roomType == nil {
 		return nil
@@ -197,6 +246,24 @@ func firstPaymentCycle(values ...hmdmodel.PaymentCycle) hmdmodel.PaymentCycle {
 	return ""
 }
 
+func firstDecorationLevel(values ...hmdmodel.DecorationLevel) hmdmodel.DecorationLevel {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstAgencyFeeMode(values ...hmdmodel.AgencyFeeMode) hmdmodel.AgencyFeeMode {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func firstImages(values ...[]hmdmodel.TaggedImage) []hmdmodel.TaggedImage {
 	for _, value := range values {
 		if len(value) > 0 {
@@ -220,6 +287,15 @@ func cloneListingFacilities(items []hmdmodel.ListingFacility) []hmdmodel.Listing
 		return nil
 	}
 	out := make([]hmdmodel.ListingFacility, len(items))
+	copy(out, items)
+	return out
+}
+
+func cloneRoomFacilities(items []hmdmodel.RoomFacility) []hmdmodel.RoomFacility {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]hmdmodel.RoomFacility, len(items))
 	copy(out, items)
 	return out
 }

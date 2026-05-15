@@ -81,7 +81,14 @@ func (s *roomTypeService) UpdateRoomType(ctx context.Context, input UpdateRoomTy
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireGlobal("update room type"); err != nil {
+	roomType, err := s.hmd.GetRoomType(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if roomType == nil {
+		return nil, scopeNotFound("update room type")
+	}
+	if err := s.requireRoomTypeAccess(ctx, scope, roomType, "update room type"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateRoomType(ctx, input)
@@ -89,16 +96,10 @@ func (s *roomTypeService) UpdateRoomType(ctx context.Context, input UpdateRoomTy
 }
 
 func (s *roomTypeService) canAccessProject(ctx context.Context, scope PublishScope, projectID bson.ObjectID) (bool, error) {
-	if scope.IsGlobal() {
-		return true, nil
-	}
-	return canAccessCentralizedProject(ctx, scope, s.scopeHmd, projectID)
+	return canAccessCentralizedProject(ctx, scope, projectID)
 }
 
 func (s *roomTypeService) canAccessBuilding(ctx context.Context, scope PublishScope, buildingID bson.ObjectID) (bool, error) {
-	if scope.IsGlobal() {
-		return true, nil
-	}
 	building, err := s.scopeHmd.GetBuilding(ctx, buildingID)
 	if err != nil {
 		if isNotFoundError(err) {

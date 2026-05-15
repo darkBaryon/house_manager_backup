@@ -30,6 +30,7 @@ const (
 
 type HpdOnlineStatus int
 type HpdRelationStatus int
+type HpdRootScopeType string
 
 const (
 	HpdOnlineStatusNo  HpdOnlineStatus = 0
@@ -41,6 +42,11 @@ const (
 	HpdRelationStatusActive      HpdRelationStatus = 1
 	HpdRelationStatusEnded       HpdRelationStatus = 2
 	HpdRelationStatusClosed      HpdRelationStatus = -1
+)
+
+const (
+	HpdRootScopeTypeCentralizedProject     HpdRootScopeType = "centralized_project"
+	HpdRootScopeTypeDecentralizedCommunity HpdRootScopeType = "decentralized_community"
 )
 
 var validHpdSourceTypes = map[HpdSourceType]struct{}{
@@ -75,6 +81,11 @@ var validHpdRelationStatuses = map[HpdRelationStatus]struct{}{
 	HpdRelationStatusClosed:      {},
 }
 
+var validHpdRootScopeTypes = map[HpdRootScopeType]struct{}{
+	HpdRootScopeTypeCentralizedProject:     {},
+	HpdRootScopeTypeDecentralizedCommunity: {},
+}
+
 func (v HpdSourceType) Valid() bool {
 	_, ok := validHpdSourceTypes[v]
 	return ok
@@ -97,6 +108,11 @@ func (v HpdOnlineStatus) Valid() bool {
 
 func (v HpdRelationStatus) Valid() bool {
 	_, ok := validHpdRelationStatuses[v]
+	return ok
+}
+
+func (v HpdRootScopeType) Valid() bool {
+	_, ok := validHpdRootScopeTypes[v]
 	return ok
 }
 

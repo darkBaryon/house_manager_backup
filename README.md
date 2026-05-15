@@ -137,11 +137,11 @@ internal/
       validation.go
   repository/               Mongo repository
     miniapp_auth/           小程序认证：用户、微信绑定、资料扩展
-    publish_auth/           发房端认证：员工、角色、权限、登录日志
+    publish_auth/           发房端认证：房东登录主档查询
     favorite/               小程序收藏
     history/                小程序足迹
     hmd/                    HMD 主数据读写
-    hpd/                    HPD listing / miniapp read model / entrust relation
+    hpd/                    HPD listing / miniapp & publisher read model / root owner scope relation
   service/                  端侧应用服务
     miniapp/auth/
     miniapp/house/

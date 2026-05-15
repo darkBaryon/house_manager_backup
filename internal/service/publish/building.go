@@ -65,7 +65,14 @@ func (s *buildingService) UpdateBuilding(ctx context.Context, input UpdateBuildi
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireGlobal("update building"); err != nil {
+	building, err := s.hmd.GetBuilding(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if building == nil {
+		return nil, scopeNotFound("update building")
+	}
+	if err := s.requireProjectAccess(ctx, scope, building.ProjectID, "update building"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateBuilding(ctx, input)
@@ -73,10 +80,7 @@ func (s *buildingService) UpdateBuilding(ctx context.Context, input UpdateBuildi
 }
 
 func (s *buildingService) canAccessProject(ctx context.Context, scope PublishScope, projectID bson.ObjectID) (bool, error) {
-	if scope.IsGlobal() {
-		return true, nil
-	}
-	return canAccessCentralizedProject(ctx, scope, s.hmd, projectID)
+	return canAccessCentralizedProject(ctx, scope, projectID)
 }
 
 func (s *buildingService) requireProjectAccess(ctx context.Context, scope PublishScope, projectID bson.ObjectID, action string) error {

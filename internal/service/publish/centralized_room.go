@@ -4,7 +4,6 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
-	hpdmodel "house-manager/internal/model/hpd"
 )
 
 type centralizedRoomService struct {
@@ -30,11 +29,6 @@ func (s *centralizedRoomService) CreateCentralizedRoom(ctx context.Context, inpu
 	if err != nil {
 		return nil, err
 	}
-	if entity != nil {
-		if err := registerRoomEntrust(ctx, s.access, hpdmodel.HpdSourceTypeCentralizedRoom, entity.ID, scope.principal); err != nil {
-			return nil, err
-		}
-	}
 	return entity, nil
 }
 
@@ -43,10 +37,16 @@ func (s *centralizedRoomService) GetCentralizedRoom(ctx context.Context, id bson
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeCentralizedRoom, id, "get centralized room"); err != nil {
+	room, err := s.hmd.GetCentralizedRoom(ctx, id)
+	if err != nil {
 		return nil, err
 	}
-	return s.hmd.GetCentralizedRoom(ctx, id)
+	if room != nil {
+		if err := requireCentralizedProjectAccess(ctx, scope, room.ProjectID, "get centralized room"); err != nil {
+			return nil, err
+		}
+	}
+	return room, nil
 }
 
 func (s *centralizedRoomService) ListCentralizedRoomsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
@@ -54,11 +54,14 @@ func (s *centralizedRoomService) ListCentralizedRoomsByProject(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	rooms, err := s.hmd.ListCentralizedRoomsByProject(ctx, projectID)
+	allowed, err := canAccessCentralizedProject(ctx, scope, projectID)
 	if err != nil {
 		return nil, err
 	}
-	return filterCentralizedRoomsByScope(ctx, scope, rooms)
+	if !allowed {
+		return []hmdmodel.HmdRoomCentralized{}, nil
+	}
+	return s.hmd.ListCentralizedRoomsByProject(ctx, projectID)
 }
 
 func (s *centralizedRoomService) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
@@ -66,11 +69,14 @@ func (s *centralizedRoomService) ListCentralizedRoomsByBuilding(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	rooms, err := s.hmd.ListCentralizedRoomsByBuilding(ctx, buildingID)
+	allowed, err := s.canAccessBuilding(ctx, scope, buildingID)
 	if err != nil {
 		return nil, err
 	}
-	return filterCentralizedRoomsByScope(ctx, scope, rooms)
+	if !allowed {
+		return []hmdmodel.HmdRoomCentralized{}, nil
+	}
+	return s.hmd.ListCentralizedRoomsByBuilding(ctx, buildingID)
 }
 
 func (s *centralizedRoomService) UpdateCentralizedRoom(ctx context.Context, input UpdateCentralizedRoomInput) (*hmdmodel.HmdRoomCentralized, error) {
@@ -78,7 +84,14 @@ func (s *centralizedRoomService) UpdateCentralizedRoom(ctx context.Context, inpu
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeCentralizedRoom, input.ID, "update centralized room"); err != nil {
+	room, err := s.hmd.GetCentralizedRoom(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if room == nil {
+		return nil, scopeNotFound("update centralized room")
+	}
+	if err := requireCentralizedProjectAccess(ctx, scope, room.ProjectID, "update centralized room"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateCentralizedRoom(ctx, input)
@@ -90,7 +103,14 @@ func (s *centralizedRoomService) UpdateCentralizedRoomStatus(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	if err := scope.requireCanAccessSource(ctx, hpdmodel.HpdSourceTypeCentralizedRoom, input.ID, "update centralized room status"); err != nil {
+	room, err := s.hmd.GetCentralizedRoom(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	if room == nil {
+		return nil, scopeNotFound("update centralized room status")
+	}
+	if err := requireCentralizedProjectAccess(ctx, scope, room.ProjectID, "update centralized room status"); err != nil {
 		return nil, err
 	}
 	result, err := s.hmd.UpdateCentralizedRoomStatus(ctx, input)
@@ -98,9 +118,6 @@ func (s *centralizedRoomService) UpdateCentralizedRoomStatus(ctx context.Context
 }
 
 func (s *centralizedRoomService) canAccessBuilding(ctx context.Context, scope PublishScope, buildingID bson.ObjectID) (bool, error) {
-	if scope.IsGlobal() {
-		return true, nil
-	}
 	building, err := s.hmd.GetBuilding(ctx, buildingID)
 	if err != nil {
 		if isNotFoundError(err) {
@@ -111,7 +128,7 @@ func (s *centralizedRoomService) canAccessBuilding(ctx context.Context, scope Pu
 	if building == nil {
 		return false, nil
 	}
-	return canAccessCentralizedProject(ctx, scope, s.hmd, building.ProjectID)
+	return canAccessCentralizedProject(ctx, scope, building.ProjectID)
 }
 
 func (s *centralizedRoomService) requireBuildingAccess(ctx context.Context, scope PublishScope, buildingID bson.ObjectID, action string) error {

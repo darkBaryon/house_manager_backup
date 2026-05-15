@@ -168,34 +168,9 @@ func TestMiniappCountUsesSearchValidation(t *testing.T) {
 	}
 }
 
-func TestEntrustRelationFieldsOverwriteEmptyPrincipals(t *testing.T) {
-	listingID := bson.NewObjectID()
-	staffID := bson.NewObjectID()
-	fields := entrustRelationFields(&hpdmodel.HpdEntrustRelation{
-		ListingID:         listingID,
-		MaintainerStaffID: staffID,
-		ServiceStaffID:    staffID,
-		RelationStatus:    hpdmodel.HpdRelationStatusActive,
-	})
-
-	if got := fields["listing_id"]; got != listingID {
-		t.Fatalf("expected listing id, got %v", got)
-	}
-	if got := fields["relation_status"]; got != hpdmodel.HpdRelationStatusActive {
-		t.Fatalf("expected active relation status, got %v", got)
-	}
-	if got, ok := fields["owner_phone"]; !ok || got != "" {
-		t.Fatalf("expected empty owner_phone to overwrite stale values, got %v", got)
-	}
-	if got := fields["maintainer_staff_id"]; got != staffID {
-		t.Fatalf("expected maintainer staff id, got %v", got)
-	}
-}
-
-func TestActiveEntrustAccessFilterBuildsStaffOrOwnerScope(t *testing.T) {
-	listingID := bson.NewObjectID()
-	staffID := bson.NewObjectID()
-	filter, err := activeEntrustAccessFilter(listingID, staffID, " 13800000000 ")
+func TestActiveRootScopeAccessFilterBuildsOwnerScope(t *testing.T) {
+	rootID := bson.NewObjectID()
+	filter, err := activeRootScopeAccessFilter(hpdmodel.HpdRootScopeTypeCentralizedProject, rootID, " 13800000000 ")
 	if err != nil {
 		t.Fatalf("expected access filter, got %v", err)
 	}
@@ -205,24 +180,48 @@ func TestActiveEntrustAccessFilterBuildsStaffOrOwnerScope(t *testing.T) {
 	if got := filter["relation_status"]; got != hpdmodel.HpdRelationStatusActive {
 		t.Fatalf("expected active relation status, got %v", got)
 	}
-	if got := filter["listing_id"]; got != listingID {
-		t.Fatalf("expected listing id, got %v", got)
+	if got := filter["root_type"]; got != hpdmodel.HpdRootScopeTypeCentralizedProject {
+		t.Fatalf("expected root type, got %v", got)
 	}
-	clauses, ok := filter["$or"].(bson.A)
-	if !ok || len(clauses) != 3 {
-		t.Fatalf("expected staff + owner access clauses, got %#v", filter["$or"])
+	if got := filter["root_id"]; got != rootID {
+		t.Fatalf("expected root id, got %v", got)
+	}
+	if got := filter["owner_phone"]; got != "13800000000" {
+		t.Fatalf("expected owner phone filter, got %#v", got)
 	}
 }
 
-func TestEntrustRepositoryRejectsEmptyScopeInputs(t *testing.T) {
-	repo := &EntrustRelationRepository{}
-	if _, err := repo.FindActiveByListingID(context.Background(), bson.ObjectID{}); err == nil || !strings.Contains(err.Error(), "listingID is required") {
-		t.Fatalf("expected listing id error, got %v", err)
+func TestRootScopeRepositoryRejectsEmptyScopeInputs(t *testing.T) {
+	repo := &RootScopeRepository{}
+	if _, err := repo.FindActiveByRoot(context.Background(), hpdmodel.HpdRootScopeType(""), bson.NewObjectID(), "13800000000"); err == nil || !strings.Contains(err.Error(), "rootType is invalid") {
+		t.Fatalf("expected root type error, got %v", err)
 	}
-	if _, err := repo.ListActiveListingIDsByStaff(context.Background(), bson.ObjectID{}); err == nil || !strings.Contains(err.Error(), "staffID is required") {
-		t.Fatalf("expected staff id error, got %v", err)
-	}
-	if _, err := repo.ListActiveListingIDsByOwnerPhone(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "ownerPhone is required") {
+	if _, err := repo.ListActiveRootIDsByOwnerPhone(context.Background(), hpdmodel.HpdRootScopeTypeCentralizedProject, " "); err == nil || !strings.Contains(err.Error(), "ownerPhone is required") {
 		t.Fatalf("expected owner phone error, got %v", err)
+	}
+}
+
+func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
+	listingID := bson.NewObjectID()
+	rootID := bson.NewObjectID()
+	fields := publisherListingFields(&hpdmodel.HpdPublisherListing{
+		ListingID:     listingID,
+		RootType:      hpdmodel.HpdRootScopeTypeCentralizedProject,
+		RootID:        rootID,
+		RoomNo:        "1201",
+		ListingStatus: hpdmodel.HpdListingStatusDraft,
+	})
+
+	if got := fields["listing_id"]; got != listingID {
+		t.Fatalf("expected listing id, got %v", got)
+	}
+	if got := fields["root_type"]; got != hpdmodel.HpdRootScopeTypeCentralizedProject {
+		t.Fatalf("expected root type, got %v", got)
+	}
+	if got := fields["root_id"]; got != rootID {
+		t.Fatalf("expected root id, got %v", got)
+	}
+	if got := fields["room_no"]; got != "1201" {
+		t.Fatalf("expected room no, got %v", got)
 	}
 }

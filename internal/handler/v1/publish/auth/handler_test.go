@@ -29,14 +29,12 @@ func TestLoginBindsPhoneAndReturnsSnakeCasePrincipal(t *testing.T) {
 			Token: "opaque-token",
 			AuthSession: authsvc.AuthSession{
 				Principal: session.Principal{
-					PrincipalType:   session.PrincipalTypeStaff,
-					PrincipalID:     "staff-id",
-					Terminal:        session.TerminalPublish,
-					Phone:           "13800000000",
-					RoleCodes:       []string{"super_admin"},
-					PermissionCodes: []string{"house.manage"},
+					PrincipalType: session.PrincipalTypeUser,
+					PrincipalID:   "user-id",
+					Terminal:      session.TerminalPublish,
+					Phone:         "13800000000",
 				},
-				Subject: authsvc.Subject{ID: "staff-id", Name: "管家", Phone: "13800000000"},
+				Subject: authsvc.Subject{ID: "user-id", Name: "房东A", Phone: "13800000000"},
 			},
 		},
 	}
@@ -63,7 +61,7 @@ func TestLoginBindsPhoneAndReturnsSnakeCasePrincipal(t *testing.T) {
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode data: %v", err)
 	}
-	if data.Token != "opaque-token" || data.Principal.PrincipalType != session.PrincipalTypeStaff || data.Principal.PrincipalID != "staff-id" {
+	if data.Token != "opaque-token" || data.Principal.PrincipalType != session.PrincipalTypeUser || data.Principal.PrincipalID != "user-id" {
 		t.Fatalf("unexpected data: %#v", data)
 	}
 }
@@ -97,22 +95,22 @@ func TestSessionReturnsPrincipal(t *testing.T) {
 	svc := &fakePublishAuthService{
 		sessionResult: &authsvc.AuthSession{
 			Principal: session.Principal{
-				PrincipalType: session.PrincipalTypeStaff,
-				PrincipalID:   "staff-id",
+				PrincipalType: session.PrincipalTypeUser,
+				PrincipalID:   "user-id",
 				Terminal:      session.TerminalPublish,
 				Phone:         "13800000000",
 			},
-			Subject: authsvc.Subject{ID: "staff-id", Name: "管家", Phone: "13800000000"},
+			Subject: authsvc.Subject{ID: "user-id", Name: "房东A", Phone: "13800000000"},
 		},
 	}
-	principal := session.Principal{PrincipalType: session.PrincipalTypeStaff, PrincipalID: "staff-id", Terminal: session.TerminalPublish}
+	principal := session.Principal{PrincipalType: session.PrincipalTypeUser, PrincipalID: "user-id", Terminal: session.TerminalPublish, Phone: "13800000000"}
 
 	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/session", `{}`, func(c *gin.Context) {
 		c.Set(middleware.ContextPrincipal, principal)
 	}, false)
 
 	envelope := assertPublishAuthResponse(t, resp, http.StatusOK, 0)
-	if svc.sessionCalls != 1 || svc.sessionPrincipal.PrincipalID != "staff-id" {
+	if svc.sessionCalls != 1 || svc.sessionPrincipal.PrincipalID != "user-id" {
 		t.Fatalf("unexpected session call: %#v", svc)
 	}
 	if !bytes.Contains(envelope.Data, []byte("principal_type")) {

@@ -18,6 +18,10 @@ type hpdMiniappListingRepository interface {
 	UpsertByListingID(ctx context.Context, entity *hpdmodel.HpdMiniappListing) (*hpdmodel.HpdMiniappListing, error)
 }
 
+type hpdPublisherListingRepository interface {
+	UpsertByListingID(ctx context.Context, entity *hpdmodel.HpdPublisherListing) (*hpdmodel.HpdPublisherListing, error)
+}
+
 type hmdCentralizedRepository interface {
 	FindByID(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error)
 }

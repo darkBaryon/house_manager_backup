@@ -71,18 +71,72 @@ func (m *HpdMiniappListing) ValidateForCreate() error {
 	)
 }
 
-func (m *HpdEntrustRelation) ValidateForCreate() error {
+func (m *HpdPublisherListing) ValidateForCreate() error {
 	if m == nil {
-		return fmt.Errorf("hpd entrust relation is nil")
+		return fmt.Errorf("hpd publisher listing is nil")
 	}
-	if m.ListingID.IsZero() {
-		return fmt.Errorf("listingID is required")
+	if m.ListingID.IsZero() || m.SourceID.IsZero() || m.RootID.IsZero() {
+		return fmt.Errorf("listingID, sourceID and rootID are required")
+	}
+	if !m.SourceType.Valid() {
+		return fmt.Errorf("sourceType is invalid")
+	}
+	if !m.AssetMode.Valid() {
+		return fmt.Errorf("assetMode is invalid")
+	}
+	if !HpdSourceAssetModeMatch(m.SourceType, m.AssetMode) {
+		return fmt.Errorf("sourceType and assetMode mismatch")
+	}
+	if !m.RootType.Valid() {
+		return fmt.Errorf("rootType is invalid")
+	}
+	if !m.RentMode.Valid() {
+		return fmt.Errorf("rentMode is invalid")
+	}
+	if m.ListingStatus == HpdListingStatusUnspecified || !m.ListingStatus.Valid() {
+		return fmt.Errorf("listingStatus is invalid")
+	}
+	if !m.RoomStatus.Valid() {
+		return fmt.Errorf("roomStatus is invalid")
+	}
+	if commonmodel.IsBlank(m.City) || commonmodel.IsBlank(m.Title) || commonmodel.IsBlank(m.RoomNo) {
+		return fmt.Errorf("city, title and roomNo are required")
+	}
+	return validateHpdPublisherListingFields(
+		m.Price,
+		m.AreaSize,
+		m.FloorNo,
+		m.Deposit,
+		m.ServiceFee,
+		m.AgencyFeeValue,
+		m.Orientation,
+		m.DecorationLevel,
+		m.PaymentCycle,
+		m.AgencyFeeMode,
+		m.ViewingTimeRule,
+		m.StartRentRule,
+		m.ListingFacilities,
+		m.RoomFacilities,
+		m.Images,
+		m.IsOnline,
+	)
+}
+
+func (m *HpdRootScopeRelation) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("hpd root scope relation is nil")
+	}
+	if !m.RootType.Valid() {
+		return fmt.Errorf("rootType is invalid")
+	}
+	if m.RootID.IsZero() {
+		return fmt.Errorf("rootID is required")
 	}
 	if m.RelationStatus == HpdRelationStatusUnspecified || !m.RelationStatus.Valid() {
 		return fmt.Errorf("relationStatus is invalid")
 	}
-	if commonmodel.IsBlank(m.OwnerPhone) && m.MaintainerStaffID.IsZero() && m.ServiceStaffID.IsZero() {
-		return fmt.Errorf("ownerPhone or staffID is required")
+	if commonmodel.IsBlank(m.OwnerPhone) {
+		return fmt.Errorf("ownerPhone is required")
 	}
 	if err := validateNonNegativeInt64("effectiveFrom", m.EffectiveFrom); err != nil {
 		return err
@@ -139,11 +193,16 @@ func validateHpdUpdateField(key string, value any) error {
 		if !hmdmodel.RentMode(fmt.Sprint(value)).Valid() {
 			return fmt.Errorf("rentMode is invalid")
 		}
+	case "room_status":
+		intValue, ok := hpdAnyInt(value)
+		if !ok || !hmdmodel.RoomStatus(intValue).Valid() {
+			return fmt.Errorf("roomStatus is invalid")
+		}
 	case "city", "title":
 		if text, ok := value.(string); !ok || commonmodel.IsBlank(text) {
 			return fmt.Errorf("%s is required", key)
 		}
-	case "price", "subway_distance_m", "area_size", "weight_score":
+	case "price", "subway_distance_m", "area_size", "weight_score", "floor_no", "deposit", "service_fee", "agency_fee_value":
 		intValue, ok := hpdAnyInt(value)
 		if !ok {
 			return fmt.Errorf("%s must be int", key)
@@ -163,6 +222,18 @@ func validateHpdUpdateField(key string, value any) error {
 		if !hmdmodel.PaymentCycle(fmt.Sprint(value)).ValidOptional() {
 			return fmt.Errorf("paymentCycle is invalid")
 		}
+	case "decoration_level":
+		if !hmdmodel.DecorationLevel(fmt.Sprint(value)).ValidOptional() {
+			return fmt.Errorf("decorationLevel is invalid")
+		}
+	case "agency_fee_mode":
+		if !hmdmodel.AgencyFeeMode(fmt.Sprint(value)).ValidOptional() {
+			return fmt.Errorf("agencyFeeMode is invalid")
+		}
+	case "viewing_time_rule":
+		if !hmdmodel.ViewingTimeRule(fmt.Sprint(value)).ValidOptional() {
+			return fmt.Errorf("viewingTimeRule is invalid")
+		}
 	case "start_rent_rule":
 		if !hmdmodel.StartRentRule(fmt.Sprint(value)).ValidOptional() {
 			return fmt.Errorf("startRentRule is invalid")
@@ -173,6 +244,12 @@ func validateHpdUpdateField(key string, value any) error {
 			return fmt.Errorf("listingFacilities must be []ListingFacility")
 		}
 		return validateHpdListingFacilities(facilities)
+	case "room_facilities":
+		facilities, ok := value.([]hmdmodel.RoomFacility)
+		if !ok {
+			return fmt.Errorf("roomFacilities must be []RoomFacility")
+		}
+		return validateHpdRoomFacilities(facilities)
 	case "images":
 		images, ok := value.([]hmdmodel.TaggedImage)
 		if !ok {
@@ -250,11 +327,83 @@ func validateHpdListingFacilities(facilities []hmdmodel.ListingFacility) error {
 	return nil
 }
 
+func validateHpdRoomFacilities(facilities []hmdmodel.RoomFacility) error {
+	for _, facility := range facilities {
+		if !facility.Valid() {
+			return fmt.Errorf("room facility %q is invalid", facility)
+		}
+	}
+	return nil
+}
+
 func validateHpdTaggedImages(images []hmdmodel.TaggedImage) error {
 	for _, image := range images {
 		if !image.Tag.ValidOptional() {
 			return fmt.Errorf("image tag %q is invalid", image.Tag)
 		}
+	}
+	return nil
+}
+
+func validateHpdPublisherListingFields(
+	price int,
+	areaSize int,
+	floorNo int,
+	deposit int,
+	serviceFee int,
+	agencyFeeValue int,
+	orientation hmdmodel.Orientation,
+	decorationLevel hmdmodel.DecorationLevel,
+	paymentCycle hmdmodel.PaymentCycle,
+	agencyFeeMode hmdmodel.AgencyFeeMode,
+	viewingTimeRule hmdmodel.ViewingTimeRule,
+	startRentRule hmdmodel.StartRentRule,
+	listingFacilities []hmdmodel.ListingFacility,
+	roomFacilities []hmdmodel.RoomFacility,
+	images []hmdmodel.TaggedImage,
+	isOnline HpdOnlineStatus,
+) error {
+	for name, value := range map[string]int{
+		"price":          price,
+		"areaSize":       areaSize,
+		"floorNo":        floorNo,
+		"deposit":        deposit,
+		"serviceFee":     serviceFee,
+		"agencyFeeValue": agencyFeeValue,
+	} {
+		if err := validateNonNegativeInt(name, value); err != nil {
+			return err
+		}
+	}
+	if !orientation.ValidOptional() {
+		return fmt.Errorf("orientation is invalid")
+	}
+	if !decorationLevel.ValidOptional() {
+		return fmt.Errorf("decorationLevel is invalid")
+	}
+	if !paymentCycle.ValidOptional() {
+		return fmt.Errorf("paymentCycle is invalid")
+	}
+	if !agencyFeeMode.ValidOptional() {
+		return fmt.Errorf("agencyFeeMode is invalid")
+	}
+	if !viewingTimeRule.ValidOptional() {
+		return fmt.Errorf("viewingTimeRule is invalid")
+	}
+	if !startRentRule.ValidOptional() {
+		return fmt.Errorf("startRentRule is invalid")
+	}
+	if err := validateHpdListingFacilities(listingFacilities); err != nil {
+		return err
+	}
+	if err := validateHpdRoomFacilities(roomFacilities); err != nil {
+		return err
+	}
+	if err := validateHpdTaggedImages(images); err != nil {
+		return err
+	}
+	if !isOnline.Valid() {
+		return fmt.Errorf("isOnline is invalid")
 	}
 	return nil
 }

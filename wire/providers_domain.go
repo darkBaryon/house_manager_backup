@@ -45,8 +45,16 @@ func newHpdMiniappListingRepository(client *dbmongo.Client) *repohpd.MiniappList
 	return repohpd.NewMiniappListingRepository(client)
 }
 
-func newHpdEntrustRelationRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.EntrustRelationRepository, error) {
-	repo := repohpd.NewEntrustRelationRepository(client)
+func newHpdPublisherListingRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.PublisherListingRepository, error) {
+	repo := repohpd.NewPublisherListingRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
+func newHpdRootScopeRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.RootScopeRepository, error) {
+	repo := repohpd.NewRootScopeRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
@@ -75,6 +83,28 @@ func newHpdMiniappProjector(
 	)
 }
 
+func newHpdPublisherProjector(
+	hpdListingRepo *repohpd.ListingRepository,
+	hpdPublisherListingRepo *repohpd.PublisherListingRepository,
+	hmdCentralizedRepo *repohmd.CentralizedRepository,
+	hmdBuildingRepo *repohmd.BuildingRepository,
+	hmdDecentralizedRepo *repohmd.DecentralizedRepository,
+	hmdRoomTypeCentralizedRepo *repohmd.RoomTypeCentralizedRepository,
+	hmdRoomCentralizedRepo *repohmd.RoomCentralizedRepository,
+	hmdRoomDecentralizedRepo *repohmd.RoomDecentralizedRepository,
+) *listingprojection.PublisherProjector {
+	return listingprojection.NewPublisherProjector(
+		hpdListingRepo,
+		hpdPublisherListingRepo,
+		hmdCentralizedRepo,
+		hmdBuildingRepo,
+		hmdDecentralizedRepo,
+		hmdRoomTypeCentralizedRepo,
+		hmdRoomCentralizedRepo,
+		hmdRoomDecentralizedRepo,
+	)
+}
+
 var DomainHmdSet = wire.NewSet(
 	newHmdCentralizedRepository,
 	newHmdBuildingRepository,
@@ -88,11 +118,13 @@ var DomainHmdSet = wire.NewSet(
 var HpdStorageSet = wire.NewSet(
 	newHpdListingRepository,
 	newHpdMiniappListingRepository,
-	newHpdEntrustRelationRepository,
+	newHpdPublisherListingRepository,
+	newHpdRootScopeRepository,
 )
 
 var ListingProjectionSet = wire.NewSet(
 	newHpdMiniappProjector,
+	newHpdPublisherProjector,
 	listingprojection.NewService,
 )
 

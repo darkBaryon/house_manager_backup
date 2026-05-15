@@ -4,94 +4,46 @@ import (
 	"context"
 	"fmt"
 	authmodel "house-manager/internal/model/auth"
-	commonmodel "house-manager/internal/model/common"
 	publishauthrepo "house-manager/internal/repository/publish_auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type Service struct {
-	staffRepo          staffRepository
-	roleRepo           roleRepository
-	permissionRepo     permissionRepository
-	staffRoleRepo      staffRoleRepository
-	rolePermissionRepo rolePermissionRepository
-	loginLogRepo       loginLogRepository
-	sessionStore       *session.Store
-	env                string
+	ownerUserRepo ownerUserRepository
+	sessionStore  *session.Store
+	env           string
 }
 
-type staffRepository interface {
-	FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error)
-	FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error)
-	TouchLastLogin(ctx context.Context, staffID bson.ObjectID, lastLoginAt int64, lastLoginIP string) error
-}
-
-type roleRepository interface {
-	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error)
-}
-
-type permissionRepository interface {
-	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error)
-}
-
-type staffRoleRepository interface {
-	ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]authmodel.AdmStaffRole, error)
-}
-
-type rolePermissionRepository interface {
-	ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]authmodel.AdmRolePermission, error)
-}
-
-type loginLogRepository interface {
-	Create(ctx context.Context, log *authmodel.AdmLoginLog) error
+type ownerUserRepository interface {
+	FindActiveByPhone(ctx context.Context, phone string) (*authmodel.User, error)
+	FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.User, error)
 }
 
 func NewService(
-	staffRepo *publishauthrepo.StaffRepository,
-	roleRepo *publishauthrepo.RoleRepository,
-	permissionRepo *publishauthrepo.PermissionRepository,
-	staffRoleRepo *publishauthrepo.StaffRoleRepository,
-	rolePermissionRepo *publishauthrepo.RolePermissionRepository,
-	loginLogRepo *publishauthrepo.LoginLogRepository,
+	ownerUserRepo *publishauthrepo.OwnerUserRepository,
 	sessionStore *session.Store,
 	env string,
 ) *Service {
 	return newService(
-		staffRepo,
-		roleRepo,
-		permissionRepo,
-		staffRoleRepo,
-		rolePermissionRepo,
-		loginLogRepo,
+		ownerUserRepo,
 		sessionStore,
 		env,
 	)
 }
 
 func newService(
-	staffRepo staffRepository,
-	roleRepo roleRepository,
-	permissionRepo permissionRepository,
-	staffRoleRepo staffRoleRepository,
-	rolePermissionRepo rolePermissionRepository,
-	loginLogRepo loginLogRepository,
+	ownerUserRepo ownerUserRepository,
 	sessionStore *session.Store,
 	env string,
 ) *Service {
 	return &Service{
-		staffRepo:          staffRepo,
-		roleRepo:           roleRepo,
-		permissionRepo:     permissionRepo,
-		staffRoleRepo:      staffRoleRepo,
-		rolePermissionRepo: rolePermissionRepo,
-		loginLogRepo:       loginLogRepo,
-		sessionStore:       sessionStore,
-		env:                env,
+		ownerUserRepo: ownerUserRepo,
+		sessionStore:  sessionStore,
+		env:           env,
 	}
 }
 
@@ -103,43 +55,25 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, er
 	if s.env != "local" {
 		return nil, errcode.Forbidden.WithError(fmt.Errorf("phone-only publish login is local-only"))
 	}
-	if s.staffRepo == nil || s.sessionStore == nil {
+	if s.ownerUserRepo == nil || s.sessionStore == nil {
 		return nil, errcode.DatabaseError.WithError(fmt.Errorf("publish auth dependency is nil"))
 	}
 
-	staff, err := s.staffRepo.FindActiveByPhone(ctx, phone)
+	user, err := s.ownerUserRepo.FindActiveByPhone(ctx, phone)
 	if err != nil {
 		return nil, errcode.DatabaseError.WithError(err)
 	}
-	if staff == nil {
-		return nil, errcode.Unauthorized.WithError(fmt.Errorf("staff not found"))
+	if user == nil {
+		return nil, errcode.Unauthorized.WithError(fmt.Errorf("user not found"))
 	}
 
-	authSession, err := s.buildSession(ctx, staff)
+	authSession, err := s.buildSession(user)
 	if err != nil {
 		return nil, err
 	}
 	token, err := s.sessionStore.CreatePrincipal(ctx, authSession.Principal)
 	if err != nil {
 		return nil, errcode.CacheError.WithError(err)
-	}
-
-	now := time.Now().Unix()
-	if err := s.staffRepo.TouchLastLogin(ctx, staff.ID, now, input.LoginIP); err != nil {
-		_ = s.sessionStore.Delete(ctx, token)
-		return nil, errcode.DatabaseError.WithError(err)
-	}
-	if s.loginLogRepo != nil {
-		if err := s.loginLogRepo.Create(ctx, &authmodel.AdmLoginLog{
-			StaffID:     staff.ID,
-			LoginAt:     now,
-			LoginIP:     input.LoginIP,
-			UserAgent:   input.UserAgent,
-			LoginResult: 1,
-		}); err != nil {
-			_ = s.sessionStore.Delete(ctx, token)
-			return nil, errcode.DatabaseError.WithError(err)
-		}
 	}
 
 	return &LoginResult{
@@ -149,21 +83,21 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, er
 }
 
 func (s *Service) Session(ctx context.Context, principal session.Principal) (*AuthSession, error) {
-	if principal.Terminal != session.TerminalPublish || principal.PrincipalType != session.PrincipalTypeStaff {
+	if principal.Terminal != session.TerminalPublish || principal.PrincipalType != session.PrincipalTypeUser {
 		return nil, errcode.Unauthorized
 	}
-	staffID, err := bson.ObjectIDFromHex(principal.PrincipalID)
+	userID, err := bson.ObjectIDFromHex(principal.PrincipalID)
 	if err != nil {
 		return nil, errcode.Unauthorized.WithError(err)
 	}
-	staff, err := s.staffRepo.FindByID(ctx, staffID)
+	user, err := s.ownerUserRepo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, errcode.DatabaseError.WithError(err)
 	}
-	if staff == nil || staff.Status != commonmodel.StatusActive {
-		return nil, errcode.Unauthorized.WithError(fmt.Errorf("staff not found"))
+	if user == nil {
+		return nil, errcode.Unauthorized.WithError(fmt.Errorf("user not found"))
 	}
-	return s.buildSession(ctx, staff)
+	return s.buildSession(user)
 }
 
 func (s *Service) Logout(ctx context.Context, token string) error {
@@ -176,93 +110,24 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
-func (s *Service) buildSession(ctx context.Context, staff *authmodel.AdmStaff) (*AuthSession, error) {
-	if staff == nil || staff.ID.IsZero() {
-		return nil, errcode.DatabaseError.WithError(fmt.Errorf("staff is required"))
-	}
-
-	roleCodes, permissionCodes, err := s.loadRoleAndPermissionCodes(ctx, staff.ID)
-	if err != nil {
-		return nil, err
+func (s *Service) buildSession(user *authmodel.User) (*AuthSession, error) {
+	if user == nil || user.ID.IsZero() {
+		return nil, errcode.DatabaseError.WithError(fmt.Errorf("user is required"))
 	}
 	principal := session.Principal{
-		PrincipalType:   session.PrincipalTypeStaff,
-		PrincipalID:     staff.ID.Hex(),
+		PrincipalType:   session.PrincipalTypeUser,
+		PrincipalID:     user.ID.Hex(),
 		Terminal:        session.TerminalPublish,
-		Phone:           staff.Phone,
-		RoleCodes:       roleCodes,
-		PermissionCodes: permissionCodes,
+		Phone:           user.Phone,
+		RoleCodes:       []string{},
+		PermissionCodes: []string{},
 	}
 	return &AuthSession{
 		Principal: principal,
 		Subject: Subject{
-			ID:    staff.ID.Hex(),
-			Name:  staff.Name,
-			Phone: staff.Phone,
+			ID:    user.ID.Hex(),
+			Name:  user.Nickname,
+			Phone: user.Phone,
 		},
 	}, nil
-}
-
-func (s *Service) loadRoleAndPermissionCodes(ctx context.Context, staffID bson.ObjectID) ([]string, []string, error) {
-	if s.staffRoleRepo == nil || s.roleRepo == nil || s.rolePermissionRepo == nil || s.permissionRepo == nil {
-		return []string{}, []string{}, nil
-	}
-	staffRoles, err := s.staffRoleRepo.ListActiveByStaffID(ctx, staffID)
-	if err != nil {
-		return nil, nil, errcode.DatabaseError.WithError(err)
-	}
-	roleIDs := make([]bson.ObjectID, 0, len(staffRoles))
-	for _, staffRole := range staffRoles {
-		if !staffRole.RoleID.IsZero() {
-			roleIDs = append(roleIDs, staffRole.RoleID)
-		}
-	}
-
-	roles, err := s.roleRepo.FindActiveByIDs(ctx, roleIDs)
-	if err != nil {
-		return nil, nil, errcode.DatabaseError.WithError(err)
-	}
-	roleCodes := make([]string, 0, len(roles))
-	activeRoleIDs := make([]bson.ObjectID, 0, len(roles))
-	seenRoleCodes := map[string]struct{}{}
-	for _, role := range roles {
-		if role.RoleCode != "" {
-			if _, ok := seenRoleCodes[role.RoleCode]; ok {
-				continue
-			}
-			seenRoleCodes[role.RoleCode] = struct{}{}
-			roleCodes = append(roleCodes, role.RoleCode)
-		}
-		if !role.ID.IsZero() {
-			activeRoleIDs = append(activeRoleIDs, role.ID)
-		}
-	}
-
-	rolePermissions, err := s.rolePermissionRepo.ListActiveByRoleIDs(ctx, activeRoleIDs)
-	if err != nil {
-		return nil, nil, errcode.DatabaseError.WithError(err)
-	}
-	permissionIDs := make([]bson.ObjectID, 0, len(rolePermissions))
-	for _, rolePermission := range rolePermissions {
-		if !rolePermission.PermissionID.IsZero() {
-			permissionIDs = append(permissionIDs, rolePermission.PermissionID)
-		}
-	}
-
-	permissions, err := s.permissionRepo.FindActiveByIDs(ctx, permissionIDs)
-	if err != nil {
-		return nil, nil, errcode.DatabaseError.WithError(err)
-	}
-	permissionCodes := make([]string, 0, len(permissions))
-	seenPermissionCodes := map[string]struct{}{}
-	for _, permission := range permissions {
-		if permission.PermissionCode != "" {
-			if _, ok := seenPermissionCodes[permission.PermissionCode]; ok {
-				continue
-			}
-			seenPermissionCodes[permission.PermissionCode] = struct{}{}
-			permissionCodes = append(permissionCodes, permission.PermissionCode)
-		}
-	}
-	return roleCodes, permissionCodes, nil
 }

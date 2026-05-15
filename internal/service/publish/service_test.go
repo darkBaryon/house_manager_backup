@@ -65,12 +65,23 @@ func TestPublishServiceSkipsApplyWhenHmdWriteFails(t *testing.T) {
 }
 
 func TestPublishServiceReadDoesNotApplyHpdChanges(t *testing.T) {
-	entity := &hmdmodel.HmdCentralized{CommonFields: commonmodel.CommonFields{ID: bson.NewObjectID()}}
-	hmd := &fakeHmdService{getCentralizedProjectResult: entity}
+	projectID := bson.NewObjectID()
+	roomID := bson.NewObjectID()
+	entity := &hmdmodel.HmdCentralized{CommonFields: commonmodel.CommonFields{ID: projectID}}
+	hmd := &fakeHmdService{
+		getCentralizedProjectResult: entity,
+		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
+			roomID: {CommonFields: commonmodel.CommonFields{ID: roomID}, ProjectID: projectID},
+		},
+	}
 	projection := &fakeListingProjection{}
-	service := newTestPublishService(hmd, projection)
+	service := &PublishService{
+		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{listingProjection: projection}, &fakePublishAccess{
+			accessibleProjectIDs: []bson.ObjectID{projectID},
+		}),
+	}
 
-	got, err := service.GetCentralizedProject(publishGlobalContext(), entity.ID)
+	got, err := service.GetCentralizedProject(publishLandlordContext("13800000000"), entity.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,6 +111,86 @@ func TestPublishServiceReturnsApplyError(t *testing.T) {
 	}
 }
 
+func TestPublishServiceRollsBackCentralizedProjectWhenApplyFails(t *testing.T) {
+	projectID := bson.NewObjectID()
+	applyErr := errcode.InternalError.WithError(fmt.Errorf("apply failed"))
+	hmd := &fakeHmdService{
+		createCentralizedProjectResult: &hmddomain.HmdMutationResult[hmdmodel.HmdCentralized]{
+			Entity:  &hmdmodel.HmdCentralized{CommonFields: commonmodel.CommonFields{ID: projectID}},
+			Changes: []hmddomain.HmdChange{{EntityID: projectID}},
+		},
+	}
+	projection := &fakeListingProjection{err: applyErr}
+	service := newTestPublishService(hmd, projection)
+
+	_, err := service.CreateCentralizedProject(publishGlobalContext(), CreateCentralizedProjectInput{})
+	if err != applyErr {
+		t.Fatalf("expected apply error, got %v", err)
+	}
+	if hmd.rollbackCentralizedProjectCalls != 1 {
+		t.Fatalf("expected centralized project rollback once, got %d", hmd.rollbackCentralizedProjectCalls)
+	}
+	if hmd.rollbackCentralizedProjectID != projectID {
+		t.Fatalf("expected rollback project id %s, got %s", projectID.Hex(), hmd.rollbackCentralizedProjectID.Hex())
+	}
+}
+
+func TestPublishServiceRollsBackCentralizedProjectWhenRootScopeFails(t *testing.T) {
+	projectID := bson.NewObjectID()
+	rootScopeErr := errcode.InternalError.WithError(fmt.Errorf("root scope failed"))
+	hmd := &fakeHmdService{
+		createCentralizedProjectResult: &hmddomain.HmdMutationResult[hmdmodel.HmdCentralized]{
+			Entity:  &hmdmodel.HmdCentralized{CommonFields: commonmodel.CommonFields{ID: projectID}},
+			Changes: []hmddomain.HmdChange{{EntityID: projectID}},
+		},
+	}
+	projection := &fakeListingProjection{}
+	service := &PublishService{
+		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{listingProjection: projection}, &fakePublishAccess{
+			rootScopeErr: rootScopeErr,
+		}),
+	}
+
+	_, err := service.CreateCentralizedProject(publishGlobalContext(), CreateCentralizedProjectInput{})
+	if err != rootScopeErr {
+		t.Fatalf("expected root scope error, got %v", err)
+	}
+	if hmd.rollbackCentralizedProjectCalls != 1 {
+		t.Fatalf("expected centralized project rollback once, got %d", hmd.rollbackCentralizedProjectCalls)
+	}
+	if hmd.rollbackCentralizedProjectID != projectID {
+		t.Fatalf("expected rollback project id %s, got %s", projectID.Hex(), hmd.rollbackCentralizedProjectID.Hex())
+	}
+}
+
+func TestPublishServiceRollsBackDecentralizedCommunityWhenRootScopeFails(t *testing.T) {
+	communityID := bson.NewObjectID()
+	rootScopeErr := errcode.InternalError.WithError(fmt.Errorf("root scope failed"))
+	hmd := &fakeHmdService{
+		createDecentralizedCommunityResult: &hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized]{
+			Entity:  &hmdmodel.HmdDecentralized{CommonFields: commonmodel.CommonFields{ID: communityID}},
+			Changes: []hmddomain.HmdChange{{EntityID: communityID}},
+		},
+	}
+	projection := &fakeListingProjection{}
+	service := &PublishService{
+		decentralizedCommunityService: newDecentralizedCommunityService(hmd, mutationPublisher{listingProjection: projection}, &fakePublishAccess{
+			rootScopeErr: rootScopeErr,
+		}),
+	}
+
+	_, err := service.CreateDecentralizedCommunity(publishGlobalContext(), CreateDecentralizedCommunityInput{})
+	if err != rootScopeErr {
+		t.Fatalf("expected root scope error, got %v", err)
+	}
+	if hmd.rollbackDecentralizedCommunityCalls != 1 {
+		t.Fatalf("expected decentralized community rollback once, got %d", hmd.rollbackDecentralizedCommunityCalls)
+	}
+	if hmd.rollbackDecentralizedCommunityID != communityID {
+		t.Fatalf("expected rollback community id %s, got %s", communityID.Hex(), hmd.rollbackDecentralizedCommunityID.Hex())
+	}
+}
+
 func TestPublishServiceFailsClosedWithoutListingProjection(t *testing.T) {
 	entity := &hmdmodel.HmdCentralized{CommonFields: commonmodel.CommonFields{ID: bson.NewObjectID()}}
 	hmd := &fakeHmdService{
@@ -118,10 +209,11 @@ func TestPublishServiceFailsClosedWithoutListingProjection(t *testing.T) {
 	}
 }
 
-func TestPublishServiceCreatesEntrustRelationAfterCentralizedRoomCreate(t *testing.T) {
+func TestPublishServiceCreatesCentralizedRoomWithinAccessibleProject(t *testing.T) {
 	roomID := bson.NewObjectID()
-	listingID := bson.NewObjectID()
-	staffID := bson.NewObjectID()
+	projectID := bson.NewObjectID()
+	buildingID := bson.NewObjectID()
+	accessibleRoomID := bson.NewObjectID()
 	change := hmddomain.HmdChange{
 		Action:     hmddomain.HmdChangeCreated,
 		EntityType: hmddomain.HmdEntityRoomCentralized,
@@ -133,15 +225,22 @@ func TestPublishServiceCreatesEntrustRelationAfterCentralizedRoomCreate(t *testi
 			Entity:  &hmdmodel.HmdRoomCentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
 			Changes: []hmddomain.HmdChange{change},
 		},
+		buildingsByID: map[bson.ObjectID]*hmdmodel.HmdBuilding{
+			buildingID: {CommonFields: commonmodel.CommonFields{ID: buildingID}, ProjectID: projectID},
+		},
+		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
+			accessibleRoomID: {CommonFields: commonmodel.CommonFields{ID: accessibleRoomID}, ProjectID: projectID},
+		},
 	}
 	projection := &fakeListingProjection{}
-	entrust := &fakePublishAccess{listing: &hpdmodel.HpdListing{CommonFields: commonmodel.CommonFields{ID: listingID}}}
-	service := &PublishService{
-		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, entrust),
+	access := &fakePublishAccess{
+		accessibleProjectIDs: []bson.ObjectID{projectID},
 	}
-	ctx := publishGlobalContextForStaff(staffID)
+	service := &PublishService{
+		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, access),
+	}
 
-	got, err := service.CreateCentralizedRoom(ctx, CreateCentralizedRoomInput{})
+	got, err := service.CreateCentralizedRoom(publishLandlordContext("13800000000"), CreateCentralizedRoomInput{BuildingID: buildingID})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -151,18 +250,12 @@ func TestPublishServiceCreatesEntrustRelationAfterCentralizedRoomCreate(t *testi
 	if projection.calls != 1 {
 		t.Fatalf("expected listing projection Apply to be called once, got %d", projection.calls)
 	}
-	if entrust.findSourceType != hpdmodel.HpdSourceTypeCentralizedRoom || entrust.findSourceID != roomID {
-		t.Fatalf("unexpected listing source lookup: %s %s", entrust.findSourceType, entrust.findSourceID.Hex())
-	}
-	if entrust.upsertListingID != listingID || entrust.upsertPrincipal.PrincipalID != staffID.Hex() {
-		t.Fatalf("unexpected entrust upsert: listing=%s principal=%#v", entrust.upsertListingID.Hex(), entrust.upsertPrincipal)
-	}
 }
 
-func TestPublishServiceCreatesEntrustRelationAfterDecentralizedRoomCreate(t *testing.T) {
+func TestPublishServiceCreatesDecentralizedRoomWithinAccessibleCommunity(t *testing.T) {
 	roomID := bson.NewObjectID()
-	listingID := bson.NewObjectID()
-	staffID := bson.NewObjectID()
+	communityID := bson.NewObjectID()
+	accessibleRoomID := bson.NewObjectID()
 	change := hmddomain.HmdChange{
 		Action:     hmddomain.HmdChangeCreated,
 		EntityType: hmddomain.HmdEntityRoomDecentralized,
@@ -174,15 +267,19 @@ func TestPublishServiceCreatesEntrustRelationAfterDecentralizedRoomCreate(t *tes
 			Entity:  &hmdmodel.HmdRoomDecentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
 			Changes: []hmddomain.HmdChange{change},
 		},
+		decentralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized{
+			accessibleRoomID: {CommonFields: commonmodel.CommonFields{ID: accessibleRoomID}, DecentralizedID: communityID},
+		},
 	}
 	projection := &fakeListingProjection{}
-	entrust := &fakePublishAccess{listing: &hpdmodel.HpdListing{CommonFields: commonmodel.CommonFields{ID: listingID}}}
-	service := &PublishService{
-		decentralizedRoomService: newDecentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, entrust),
+	access := &fakePublishAccess{
+		accessibleCommunityIDs: []bson.ObjectID{communityID},
 	}
-	ctx := publishGlobalContextForStaff(staffID)
+	service := &PublishService{
+		decentralizedRoomService: newDecentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, access),
+	}
 
-	got, err := service.CreateDecentralizedRoom(ctx, CreateDecentralizedRoomInput{})
+	got, err := service.CreateDecentralizedRoom(publishLandlordContext("13800000000"), CreateDecentralizedRoomInput{DecentralizedID: communityID})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,12 +288,6 @@ func TestPublishServiceCreatesEntrustRelationAfterDecentralizedRoomCreate(t *tes
 	}
 	if projection.calls != 1 {
 		t.Fatalf("expected listing projection Apply to be called once, got %d", projection.calls)
-	}
-	if entrust.findSourceType != hpdmodel.HpdSourceTypeDecentralizedRoom || entrust.findSourceID != roomID {
-		t.Fatalf("unexpected listing source lookup: %s %s", entrust.findSourceType, entrust.findSourceID.Hex())
-	}
-	if entrust.upsertListingID != listingID || entrust.upsertPrincipal.PrincipalID != staffID.Hex() {
-		t.Fatalf("unexpected entrust upsert: listing=%s principal=%#v", entrust.upsertListingID.Hex(), entrust.upsertPrincipal)
 	}
 }
 
@@ -207,9 +298,9 @@ func TestPublishServiceCreateCentralizedRoomRequiresPrincipalBeforeWrite(t *test
 		},
 	}
 	projection := &fakeListingProjection{}
-	entrust := &fakePublishAccess{}
+	access := &fakePublishAccess{}
 	service := &PublishService{
-		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, entrust),
+		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{listingProjection: projection}, access),
 	}
 
 	_, err := service.CreateCentralizedRoom(context.Background(), CreateCentralizedRoomInput{})
@@ -221,86 +312,23 @@ func TestPublishServiceCreateCentralizedRoomRequiresPrincipalBeforeWrite(t *test
 	}
 }
 
-func TestPublishServiceCreateCentralizedRoomFailsClosedWithoutEntrust(t *testing.T) {
-	roomID := bson.NewObjectID()
-	hmd := &fakeHmdService{
-		createCentralizedRoomResult: &hmddomain.HmdMutationResult[hmdmodel.HmdRoomCentralized]{
-			Entity: &hmdmodel.HmdRoomCentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
-		},
-	}
-	service := &PublishService{
-		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{listingProjection: &fakeListingProjection{}}, nil),
-	}
-	ctx := session.ContextWithPrincipal(context.Background(), session.Principal{
-		PrincipalType: session.PrincipalTypeStaff,
-		PrincipalID:   bson.NewObjectID().Hex(),
-		Terminal:      session.TerminalPublish,
-		RoleCodes:     []string{"super_admin"},
-	})
-
-	_, err := service.CreateCentralizedRoom(ctx, CreateCentralizedRoomInput{})
-	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.InternalError.Code {
-		t.Fatalf("expected internal error, got %v", err)
-	}
-}
-
-func TestPublishServiceCreateCentralizedRoomPropagatesEntrustError(t *testing.T) {
-	roomID := bson.NewObjectID()
-	listingID := bson.NewObjectID()
-	entrustErr := errcode.DatabaseError.WithError(fmt.Errorf("upsert entrust failed"))
-	hmd := &fakeHmdService{
-		createCentralizedRoomResult: &hmddomain.HmdMutationResult[hmdmodel.HmdRoomCentralized]{
-			Entity: &hmdmodel.HmdRoomCentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
-		},
-	}
-	service := &PublishService{
-		centralizedRoomService: newCentralizedRoomService(
-			hmd,
-			mutationPublisher{listingProjection: &fakeListingProjection{}},
-			&fakePublishAccess{
-				listing:     &hpdmodel.HpdListing{CommonFields: commonmodel.CommonFields{ID: listingID}},
-				registerErr: entrustErr,
-			},
-		),
-	}
-	ctx := session.ContextWithPrincipal(context.Background(), session.Principal{
-		PrincipalType: session.PrincipalTypeStaff,
-		PrincipalID:   bson.NewObjectID().Hex(),
-		Terminal:      session.TerminalPublish,
-		RoleCodes:     []string{"super_admin"},
-	})
-
-	_, err := service.CreateCentralizedRoom(ctx, CreateCentralizedRoomInput{})
-	if err != entrustErr {
-		t.Fatalf("expected entrust error, got %v", err)
-	}
-}
-
 func TestPublishServiceFiltersCentralizedProjectsByScope(t *testing.T) {
 	projectA := bson.NewObjectID()
 	projectB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
-	roomB := bson.NewObjectID()
 	hmd := &fakeHmdService{
 		listCentralizedProjectsResult: []hmdmodel.HmdCentralized{
 			{CommonFields: commonmodel.CommonFields{ID: projectA}, City: "杭州", District: "西湖"},
 			{CommonFields: commonmodel.CommonFields{ID: projectB}, City: "杭州", District: "西湖"},
 		},
-		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, ProjectID: projectA},
-			roomB: {CommonFields: commonmodel.CommonFields{ID: roomB}, ProjectID: projectB},
-		},
 	}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeCentralizedRoom, SourceID: roomA},
-		},
+		accessibleProjectIDs: []bson.ObjectID{projectA},
 	}
 	service := &PublishService{
 		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{}, access),
 	}
 
-	got, err := service.ListCentralizedProjects(publishStaffContext(), ListCentralizedProjectsInput{
+	got, err := service.ListCentralizedProjects(publishLandlordContext("13800000000"), ListCentralizedProjectsInput{
 		City:     "杭州",
 		District: "西湖",
 	})
@@ -315,7 +343,7 @@ func TestPublishServiceFiltersCentralizedProjectsByScope(t *testing.T) {
 	}
 }
 
-func TestPublishServiceGlobalScopeKeepsFullCentralizedProjectList(t *testing.T) {
+func TestPublishServiceWithoutAccessibleProjectsReturnsEmptyCentralizedProjectList(t *testing.T) {
 	projectA := bson.NewObjectID()
 	projectB := bson.NewObjectID()
 	hmd := &fakeHmdService{
@@ -329,60 +357,63 @@ func TestPublishServiceGlobalScopeKeepsFullCentralizedProjectList(t *testing.T) 
 		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{}, access),
 	}
 
-	got, err := service.ListCentralizedProjects(publishGlobalContext(), ListCentralizedProjectsInput{})
+	got, err := service.ListCentralizedProjects(publishLandlordContext("13800000000"), ListCentralizedProjectsInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected landlord scope without listings to see no projects, got %#v", got)
+	}
+	if access.listAccessibleProjectCalls != 1 {
+		t.Fatalf("expected landlord scope to query root scope once, got %d calls", access.listAccessibleProjectCalls)
+	}
+}
+
+func TestPublishServiceListsAllCentralizedRoomsWithinAccessibleProject(t *testing.T) {
+	roomA := bson.NewObjectID()
+	roomB := bson.NewObjectID()
+	projectID := bson.NewObjectID()
+	hmd := &fakeHmdService{
+		listCentralizedRoomsByProjectResult: []hmdmodel.HmdRoomCentralized{
+			{CommonFields: commonmodel.CommonFields{ID: roomA}, ProjectID: projectID},
+			{CommonFields: commonmodel.CommonFields{ID: roomB}, ProjectID: projectID},
+		},
+	}
+	access := &fakePublishAccess{
+		accessibleProjectIDs: []bson.ObjectID{projectID},
+	}
+	service := &PublishService{
+		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{}, access),
+	}
+
+	got, err := service.ListCentralizedRoomsByProject(publishLandlordContext("13800000000"), projectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("expected global scope to see all projects, got %#v", got)
-	}
-	if access.listAccessibleCalls != 0 {
-		t.Fatalf("global scope should not query entrust relation, got %d calls", access.listAccessibleCalls)
+		t.Fatalf("expected all project rooms, got %#v", got)
 	}
 }
 
-func TestPublishServiceFiltersCentralizedRoomsByRelation(t *testing.T) {
-	roomA := bson.NewObjectID()
-	roomB := bson.NewObjectID()
-	hmd := &fakeHmdService{
-		listCentralizedRoomsByProjectResult: []hmdmodel.HmdRoomCentralized{
-			{CommonFields: commonmodel.CommonFields{ID: roomA}},
-			{CommonFields: commonmodel.CommonFields{ID: roomB}},
-		},
-	}
-	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeCentralizedRoom, SourceID: roomA},
-		},
-	}
-	service := &PublishService{
-		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{}, access),
-	}
-
-	got, err := service.ListCentralizedRoomsByProject(publishStaffContext(), bson.NewObjectID())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(got) != 1 || got[0].ID != roomA {
-		t.Fatalf("expected only scoped room A, got %#v", got)
-	}
-}
-
-func TestPublishServiceRejectsCrossStaffCentralizedRoomUpdate(t *testing.T) {
+func TestPublishServiceRejectsCrossOwnerCentralizedRoomUpdate(t *testing.T) {
 	roomID := bson.NewObjectID()
+	projectID := bson.NewObjectID()
 	hmd := &fakeHmdService{
+		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
+			roomID: {CommonFields: commonmodel.CommonFields{ID: roomID}, ProjectID: projectID},
+		},
 		updateCentralizedRoomResult: &hmddomain.HmdMutationResult[hmdmodel.HmdRoomCentralized]{
 			Entity: &hmdmodel.HmdRoomCentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
 		},
 	}
-	access := &fakePublishAccess{canAccessSource: false}
+	access := &fakePublishAccess{}
 	service := &PublishService{
 		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.UpdateCentralizedRoom(publishStaffContext(), UpdateCentralizedRoomInput{ID: roomID})
+	_, err := service.UpdateCentralizedRoom(publishLandlordContext("13800000000"), UpdateCentralizedRoomInput{ID: roomID})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
-		t.Fatalf("expected not found for cross-staff update, got %v", err)
+		t.Fatalf("expected not found for cross-owner update, got %v", err)
 	}
 	if hmd.updateCentralizedRoomCalls != 0 {
 		t.Fatalf("expected HMD update not to be called, got %d calls", hmd.updateCentralizedRoomCalls)
@@ -392,28 +423,20 @@ func TestPublishServiceRejectsCrossStaffCentralizedRoomUpdate(t *testing.T) {
 func TestPublishServiceFiltersDecentralizedCommunitiesByScope(t *testing.T) {
 	communityA := bson.NewObjectID()
 	communityB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
-	roomB := bson.NewObjectID()
 	hmd := &fakeHmdService{
 		listDecentralizedCommunitiesResult: []hmdmodel.HmdDecentralized{
 			{CommonFields: commonmodel.CommonFields{ID: communityA}, City: "杭州"},
 			{CommonFields: commonmodel.CommonFields{ID: communityB}, City: "杭州"},
 		},
-		decentralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, DecentralizedID: communityA},
-			roomB: {CommonFields: commonmodel.CommonFields{ID: roomB}, DecentralizedID: communityB},
-		},
 	}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeDecentralizedRoom, SourceID: roomA},
-		},
+		accessibleCommunityIDs: []bson.ObjectID{communityA},
 	}
 	service := &PublishService{
 		decentralizedCommunityService: newDecentralizedCommunityService(hmd, mutationPublisher{}, access),
 	}
 
-	got, err := service.ListDecentralizedCommunities(publishStaffContext(), ListDecentralizedCommunitiesInput{City: "杭州"})
+	got, err := service.ListDecentralizedCommunities(publishLandlordContext("13800000000"), ListDecentralizedCommunitiesInput{City: "杭州"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -424,25 +447,19 @@ func TestPublishServiceFiltersDecentralizedCommunitiesByScope(t *testing.T) {
 
 func TestPublishServiceListDecentralizedCommunitiesTreatsCityAsOptionalFilter(t *testing.T) {
 	communityA := bson.NewObjectID()
-	roomA := bson.NewObjectID()
 	hmd := &fakeHmdService{
 		listDecentralizedCommunitiesResult: []hmdmodel.HmdDecentralized{
 			{CommonFields: commonmodel.CommonFields{ID: communityA}},
 		},
-		decentralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, DecentralizedID: communityA},
-		},
 	}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeDecentralizedRoom, SourceID: roomA},
-		},
+		accessibleCommunityIDs: []bson.ObjectID{communityA},
 	}
 	service := &PublishService{
 		decentralizedCommunityService: newDecentralizedCommunityService(hmd, mutationPublisher{}, access),
 	}
 
-	got, err := service.ListDecentralizedCommunities(publishStaffContext(), ListDecentralizedCommunitiesInput{})
+	got, err := service.ListDecentralizedCommunities(publishLandlordContext("13800000000"), ListDecentralizedCommunitiesInput{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -457,22 +474,15 @@ func TestPublishServiceListDecentralizedCommunitiesTreatsCityAsOptionalFilter(t 
 func TestPublishServiceRejectsBuildingCreateWhenProjectOutOfScope(t *testing.T) {
 	projectA := bson.NewObjectID()
 	projectB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
-	hmd := &fakeHmdService{
-		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, ProjectID: projectA},
-		},
-	}
+	hmd := &fakeHmdService{}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeCentralizedRoom, SourceID: roomA},
-		},
+		accessibleProjectIDs: []bson.ObjectID{projectA},
 	}
 	service := &PublishService{
 		buildingService: newBuildingService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.CreateBuilding(publishStaffContext(), CreateBuildingInput{ProjectID: projectB})
+	_, err := service.CreateBuilding(publishLandlordContext("13800000000"), CreateBuildingInput{ProjectID: projectB})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
 		t.Fatalf("expected not found for out-of-scope project create, got %v", err)
 	}
@@ -484,26 +494,20 @@ func TestPublishServiceRejectsBuildingCreateWhenProjectOutOfScope(t *testing.T) 
 func TestPublishServiceRejectsCentralizedRoomCreateWhenBuildingOutOfScope(t *testing.T) {
 	projectA := bson.NewObjectID()
 	projectB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
 	buildingB := bson.NewObjectID()
 	hmd := &fakeHmdService{
-		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, ProjectID: projectA},
-		},
 		buildingsByID: map[bson.ObjectID]*hmdmodel.HmdBuilding{
 			buildingB: {CommonFields: commonmodel.CommonFields{ID: buildingB}, ProjectID: projectB},
 		},
 	}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeCentralizedRoom, SourceID: roomA},
-		},
+		accessibleProjectIDs: []bson.ObjectID{projectA},
 	}
 	service := &PublishService{
 		centralizedRoomService: newCentralizedRoomService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.CreateCentralizedRoom(publishStaffContext(), CreateCentralizedRoomInput{BuildingID: buildingB})
+	_, err := service.CreateCentralizedRoom(publishLandlordContext("13800000000"), CreateCentralizedRoomInput{BuildingID: buildingB})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
 		t.Fatalf("expected not found for out-of-scope building create, got %v", err)
 	}
@@ -515,26 +519,20 @@ func TestPublishServiceRejectsCentralizedRoomCreateWhenBuildingOutOfScope(t *tes
 func TestPublishServiceRejectsRoomTypeCreateWhenBuildingOutOfScope(t *testing.T) {
 	projectA := bson.NewObjectID()
 	projectB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
 	buildingB := bson.NewObjectID()
 	hmd := &fakeHmdService{
-		centralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomCentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, ProjectID: projectA},
-		},
 		buildingsByID: map[bson.ObjectID]*hmdmodel.HmdBuilding{
 			buildingB: {CommonFields: commonmodel.CommonFields{ID: buildingB}, ProjectID: projectB},
 		},
 	}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeCentralizedRoom, SourceID: roomA},
-		},
+		accessibleProjectIDs: []bson.ObjectID{projectA},
 	}
 	service := &PublishService{
 		roomTypeService: newRoomTypeService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.CreateRoomType(publishStaffContext(), CreateRoomTypeInput{BuildingID: buildingB})
+	_, err := service.CreateRoomType(publishLandlordContext("13800000000"), CreateRoomTypeInput{BuildingID: buildingB})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
 		t.Fatalf("expected not found for out-of-scope room type create, got %v", err)
 	}
@@ -546,22 +544,15 @@ func TestPublishServiceRejectsRoomTypeCreateWhenBuildingOutOfScope(t *testing.T)
 func TestPublishServiceRejectsDecentralizedRoomCreateWhenCommunityOutOfScope(t *testing.T) {
 	communityA := bson.NewObjectID()
 	communityB := bson.NewObjectID()
-	roomA := bson.NewObjectID()
-	hmd := &fakeHmdService{
-		decentralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized{
-			roomA: {CommonFields: commonmodel.CommonFields{ID: roomA}, DecentralizedID: communityA},
-		},
-	}
+	hmd := &fakeHmdService{}
 	access := &fakePublishAccess{
-		accessibleListings: []hpdmodel.HpdListing{
-			{SourceType: hpdmodel.HpdSourceTypeDecentralizedRoom, SourceID: roomA},
-		},
+		accessibleCommunityIDs: []bson.ObjectID{communityA},
 	}
 	service := &PublishService{
 		decentralizedRoomService: newDecentralizedRoomService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.CreateDecentralizedRoom(publishStaffContext(), CreateDecentralizedRoomInput{DecentralizedID: communityB})
+	_, err := service.CreateDecentralizedRoom(publishLandlordContext("13800000000"), CreateDecentralizedRoomInput{DecentralizedID: communityB})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
 		t.Fatalf("expected not found for out-of-scope community create, got %v", err)
 	}
@@ -570,7 +561,7 @@ func TestPublishServiceRejectsDecentralizedRoomCreateWhenCommunityOutOfScope(t *
 	}
 }
 
-func TestPublishServiceRejectsParentUpdatesForNonGlobalScope(t *testing.T) {
+func TestPublishServiceRejectsParentUpdatesOutOfScope(t *testing.T) {
 	hmd := &fakeHmdService{}
 	service := &PublishService{
 		centralizedProjectService:     newCentralizedProjectService(hmd, mutationPublisher{}, &fakePublishAccess{}),
@@ -578,7 +569,7 @@ func TestPublishServiceRejectsParentUpdatesForNonGlobalScope(t *testing.T) {
 		roomTypeService:               newRoomTypeService(hmd, mutationPublisher{}, &fakePublishAccess{}),
 		decentralizedCommunityService: newDecentralizedCommunityService(hmd, mutationPublisher{}, &fakePublishAccess{}),
 	}
-	ctx := publishStaffContext()
+	ctx := publishLandlordContext("13800000000")
 
 	if _, err := service.UpdateCentralizedProject(ctx, UpdateCentralizedProjectInput{ID: bson.NewObjectID()}); errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
 		t.Fatalf("expected project update not found, got %v", err)
@@ -602,21 +593,25 @@ func TestPublishServiceRejectsParentUpdatesForNonGlobalScope(t *testing.T) {
 	}
 }
 
-func TestPublishServiceRejectsCrossStaffDecentralizedRoomUpdate(t *testing.T) {
+func TestPublishServiceRejectsCrossOwnerDecentralizedRoomUpdate(t *testing.T) {
 	roomID := bson.NewObjectID()
+	communityID := bson.NewObjectID()
 	hmd := &fakeHmdService{
+		decentralizedRoomsByID: map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized{
+			roomID: {CommonFields: commonmodel.CommonFields{ID: roomID}, DecentralizedID: communityID},
+		},
 		updateDecentralizedRoomResult: &hmddomain.HmdMutationResult[hmdmodel.HmdRoomDecentralized]{
 			Entity: &hmdmodel.HmdRoomDecentralized{CommonFields: commonmodel.CommonFields{ID: roomID}},
 		},
 	}
-	access := &fakePublishAccess{canAccessSource: false}
+	access := &fakePublishAccess{}
 	service := &PublishService{
 		decentralizedRoomService: newDecentralizedRoomService(hmd, mutationPublisher{}, access),
 	}
 
-	_, err := service.UpdateDecentralizedRoom(publishStaffContext(), UpdateDecentralizedRoomInput{ID: roomID})
+	_, err := service.UpdateDecentralizedRoom(publishLandlordContext("13800000000"), UpdateDecentralizedRoomInput{ID: roomID})
 	if errcode.FromError(err) == nil || errcode.FromError(err).Code != errcode.NotFound.Code {
-		t.Fatalf("expected not found for cross-staff decentralized update, got %v", err)
+		t.Fatalf("expected not found for cross-owner decentralized update, got %v", err)
 	}
 	if hmd.updateDecentralizedRoomCalls != 0 {
 		t.Fatalf("expected HMD decentralized room update not to be called, got %d", hmd.updateDecentralizedRoomCalls)
@@ -625,30 +620,21 @@ func TestPublishServiceRejectsCrossStaffDecentralizedRoomUpdate(t *testing.T) {
 
 func newTestPublishService(hmd *fakeHmdService, projection *fakeListingProjection) *PublishService {
 	return &PublishService{
-		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{listingProjection: projection}, nil),
+		centralizedProjectService: newCentralizedProjectService(hmd, mutationPublisher{listingProjection: projection}, &fakePublishAccess{}),
 	}
 }
 
-func publishStaffContext() context.Context {
+func publishLandlordContext(phone string) context.Context {
 	return session.ContextWithPrincipal(context.Background(), session.Principal{
-		PrincipalType: session.PrincipalTypeStaff,
+		PrincipalType: session.PrincipalTypeUser,
 		PrincipalID:   bson.NewObjectID().Hex(),
 		Terminal:      session.TerminalPublish,
+		Phone:         phone,
 	})
 }
 
 func publishGlobalContext() context.Context {
-	return publishGlobalContextForStaff(bson.NewObjectID())
-}
-
-func publishGlobalContextForStaff(staffID bson.ObjectID) context.Context {
-	return session.ContextWithPrincipal(context.Background(), session.Principal{
-		PrincipalType:   session.PrincipalTypeStaff,
-		PrincipalID:     staffID.Hex(),
-		Terminal:        session.TerminalPublish,
-		RoleCodes:       []string{"super_admin"},
-		PermissionCodes: []string{"house.manage"},
-	})
+	return publishLandlordContext("13800000000")
 }
 
 type fakeListingProjection struct {
@@ -664,46 +650,60 @@ func (f *fakeListingProjection) Apply(ctx context.Context, changes []hmddomain.H
 }
 
 type fakePublishAccess struct {
-	listing             *hpdmodel.HpdListing
-	findSourceType      hpdmodel.HpdSourceType
-	findSourceID        bson.ObjectID
-	upsertListingID     bson.ObjectID
-	upsertPrincipal     session.Principal
-	registerErr         error
-	accessibleListings  []hpdmodel.HpdListing
-	listAccessibleCalls int
-	canAccessSource     bool
+	upsertRootID                 bson.ObjectID
+	upsertRootType               hpdmodel.HpdRootScopeType
+	upsertPrincipal              session.Principal
+	rootScopeErr                 error
+	accessibleProjectIDs         []bson.ObjectID
+	accessibleCommunityIDs       []bson.ObjectID
+	listAccessibleProjectCalls   int
+	listAccessibleCommunityCalls int
 }
 
-func (f *fakePublishAccess) FindListingBySource(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID) (*hpdmodel.HpdListing, error) {
-	f.findSourceType = sourceType
-	f.findSourceID = sourceID
-	return f.listing, nil
-}
-
-func (f *fakePublishAccess) UpsertEntrustForPrincipal(ctx context.Context, listingID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdEntrustRelation, error) {
-	f.upsertListingID = listingID
+func (f *fakePublishAccess) UpsertRootScopeForPrincipal(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdRootScopeRelation, error) {
+	f.upsertRootType = rootType
+	f.upsertRootID = rootID
 	f.upsertPrincipal = principal
-	if f.registerErr != nil {
-		return nil, f.registerErr
+	if f.rootScopeErr != nil {
+		return nil, f.rootScopeErr
 	}
-	return &hpdmodel.HpdEntrustRelation{ListingID: listingID}, nil
+	return &hpdmodel.HpdRootScopeRelation{RootType: rootType, RootID: rootID}, nil
 }
 
-func (f *fakePublishAccess) ListAccessibleListings(ctx context.Context, principal session.Principal) ([]hpdmodel.HpdListing, error) {
-	f.listAccessibleCalls++
-	return f.accessibleListings, nil
+func (f *fakePublishAccess) ListAccessibleProjectIDs(ctx context.Context, principal session.Principal) ([]bson.ObjectID, error) {
+	f.listAccessibleProjectCalls++
+	return append([]bson.ObjectID(nil), f.accessibleProjectIDs...), nil
 }
 
-func (f *fakePublishAccess) CanAccessSourceForPrincipal(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID, principal session.Principal) (bool, error) {
-	f.findSourceType = sourceType
-	f.findSourceID = sourceID
-	return f.canAccessSource, nil
+func (f *fakePublishAccess) ListAccessibleCommunityIDs(ctx context.Context, principal session.Principal) ([]bson.ObjectID, error) {
+	f.listAccessibleCommunityCalls++
+	return append([]bson.ObjectID(nil), f.accessibleCommunityIDs...), nil
+}
+
+func (f *fakePublishAccess) CanAccessProjectForPrincipal(ctx context.Context, projectID bson.ObjectID, principal session.Principal) (bool, error) {
+	for _, id := range f.accessibleProjectIDs {
+		if id == projectID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *fakePublishAccess) CanAccessCommunityForPrincipal(ctx context.Context, communityID bson.ObjectID, principal session.Principal) (bool, error) {
+	for _, id := range f.accessibleCommunityIDs {
+		if id == communityID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 type fakeHmdService struct {
 	createCentralizedProjectResult      *hmddomain.HmdMutationResult[hmdmodel.HmdCentralized]
 	createCentralizedProjectErr         error
+	rollbackCentralizedProjectCalls     int
+	rollbackCentralizedProjectID        bson.ObjectID
+	rollbackCentralizedProjectErr       error
 	updateCentralizedProjectCalls       int
 	getCentralizedProjectResult         *hmdmodel.HmdCentralized
 	getCentralizedProjectErr            error
@@ -727,6 +727,11 @@ type fakeHmdService struct {
 	updateDecentralizedRoomResult       *hmddomain.HmdMutationResult[hmdmodel.HmdRoomDecentralized]
 	updateDecentralizedRoomCalls        int
 	decentralizedRoomsByID              map[bson.ObjectID]*hmdmodel.HmdRoomDecentralized
+	createDecentralizedCommunityResult  *hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized]
+	createDecentralizedCommunityErr     error
+	rollbackDecentralizedCommunityCalls int
+	rollbackDecentralizedCommunityID    bson.ObjectID
+	rollbackDecentralizedCommunityErr   error
 	listDecentralizedCommunitiesResult  []hmdmodel.HmdDecentralized
 	listDecentralizedCommunitiesInput   ListDecentralizedCommunitiesInput
 	updateDecentralizedCommunityCalls   int
@@ -734,6 +739,12 @@ type fakeHmdService struct {
 
 func (f *fakeHmdService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdCentralized], error) {
 	return f.createCentralizedProjectResult, f.createCentralizedProjectErr
+}
+
+func (f *fakeHmdService) RollbackCentralizedProjectCreate(ctx context.Context, id bson.ObjectID) error {
+	f.rollbackCentralizedProjectCalls++
+	f.rollbackCentralizedProjectID = id
+	return f.rollbackCentralizedProjectErr
 }
 
 func (f *fakeHmdService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
@@ -848,7 +859,13 @@ func (f *fakeHmdService) UpdateDecentralizedRoomStatus(ctx context.Context, inpu
 }
 
 func (f *fakeHmdService) CreateDecentralizedCommunity(ctx context.Context, input CreateDecentralizedCommunityInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized], error) {
-	return nil, nil
+	return f.createDecentralizedCommunityResult, f.createDecentralizedCommunityErr
+}
+
+func (f *fakeHmdService) RollbackDecentralizedCommunityCreate(ctx context.Context, id bson.ObjectID) error {
+	f.rollbackDecentralizedCommunityCalls++
+	f.rollbackDecentralizedCommunityID = id
+	return f.rollbackDecentralizedCommunityErr
 }
 
 func (f *fakeHmdService) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error) {

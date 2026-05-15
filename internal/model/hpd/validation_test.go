@@ -32,29 +32,70 @@ func TestHpdMiniappListingValidateForCreateRejectsInvalidOnlineStatus(t *testing
 	}
 }
 
-func TestHpdEntrustRelationValidateForCreateRequiresPrincipal(t *testing.T) {
-	relation := &HpdEntrustRelation{
-		ListingID:      bson.NewObjectID(),
+func TestHpdPublisherListingValidateForCreateRequiresRootAndRoomFields(t *testing.T) {
+	listing := &HpdPublisherListing{
+		ListingID:     bson.NewObjectID(),
+		SourceType:    HpdSourceTypeCentralizedRoom,
+		SourceID:      bson.NewObjectID(),
+		AssetMode:     HpdAssetModeCentralized,
+		ListingStatus: HpdListingStatusDraft,
+		RoomStatus:    hmdmodel.RoomStatusAvailable,
+		RentMode:      hmdmodel.RentModeWhole,
+		City:          "杭州",
+		Title:         "测试房源",
+	}
+
+	err := listing.ValidateForCreate()
+	if err == nil || !strings.Contains(err.Error(), "rootID") {
+		t.Fatalf("expected rootID required error, got %v", err)
+	}
+}
+
+func TestHpdPublisherListingValidateForCreateAcceptsMinimalValidListing(t *testing.T) {
+	listing := &HpdPublisherListing{
+		ListingID:     bson.NewObjectID(),
+		SourceType:    HpdSourceTypeCentralizedRoom,
+		SourceID:      bson.NewObjectID(),
+		AssetMode:     HpdAssetModeCentralized,
+		RootType:      HpdRootScopeTypeCentralizedProject,
+		RootID:        bson.NewObjectID(),
+		RentMode:      hmdmodel.RentModeWhole,
+		City:          "杭州",
+		RoomNo:        "1201",
+		Title:         "测试房源",
+		ListingStatus: HpdListingStatusDraft,
+		RoomStatus:    hmdmodel.RoomStatusAvailable,
+		IsOnline:      HpdOnlineStatusNo,
+	}
+
+	if err := listing.ValidateForCreate(); err != nil {
+		t.Fatalf("expected valid publisher listing, got %v", err)
+	}
+}
+
+func TestHpdRootScopeRelationValidateForCreateRequiresOwnerPhone(t *testing.T) {
+	relation := &HpdRootScopeRelation{
+		RootType:       HpdRootScopeTypeCentralizedProject,
+		RootID:         bson.NewObjectID(),
 		RelationStatus: HpdRelationStatusActive,
 	}
 
 	err := relation.ValidateForCreate()
-	if err == nil || !strings.Contains(err.Error(), "ownerPhone or staffID is required") {
-		t.Fatalf("expected principal requirement error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "ownerPhone is required") {
+		t.Fatalf("expected owner phone requirement error, got %v", err)
 	}
 }
 
-func TestHpdEntrustRelationValidateForCreateAcceptsStaffPrincipal(t *testing.T) {
-	staffID := bson.NewObjectID()
-	relation := &HpdEntrustRelation{
-		ListingID:         bson.NewObjectID(),
-		MaintainerStaffID: staffID,
-		ServiceStaffID:    staffID,
-		RelationStatus:    HpdRelationStatusActive,
+func TestHpdRootScopeRelationValidateForCreateAcceptsValidOwnerRelation(t *testing.T) {
+	relation := &HpdRootScopeRelation{
+		RootType:       HpdRootScopeTypeDecentralizedCommunity,
+		RootID:         bson.NewObjectID(),
+		OwnerPhone:     "13800000000",
+		RelationStatus: HpdRelationStatusActive,
 	}
 
 	if err := relation.ValidateForCreate(); err != nil {
-		t.Fatalf("expected valid staff relation, got %v", err)
+		t.Fatalf("expected valid root scope relation, got %v", err)
 	}
 }
 

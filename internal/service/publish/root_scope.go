@@ -21,17 +21,10 @@ func requirePublishPrincipal(ctx context.Context) (session.Principal, error) {
 	return principal, nil
 }
 
-func registerRoomEntrust(ctx context.Context, entrust publishEntrustRegistrar, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID, principal session.Principal) error {
-	if entrust == nil {
+func registerRootScope(ctx context.Context, access publishRootScopeRegistrar, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal) error {
+	if access == nil {
 		return errcode.InternalError.WithError(fmt.Errorf("publish access service is required"))
 	}
-	listing, err := entrust.FindListingBySource(ctx, sourceType, sourceID)
-	if err != nil {
-		return err
-	}
-	if listing == nil {
-		return errcode.DatabaseError.WithError(fmt.Errorf("hpd listing not found for %s %s", sourceType, sourceID.Hex()))
-	}
-	_, err = entrust.UpsertEntrustForPrincipal(ctx, listing.ID, principal)
+	_, err := access.UpsertRootScopeForPrincipal(ctx, rootType, rootID, principal)
 	return err
 }

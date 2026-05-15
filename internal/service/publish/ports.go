@@ -13,6 +13,7 @@ import (
 
 type centralizedProjectDomain interface {
 	CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdCentralized], error)
+	RollbackCentralizedProjectCreate(ctx context.Context, id bson.ObjectID) error
 	GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error)
 	ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error)
 	UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdCentralized], error)
@@ -66,6 +67,7 @@ type centralizedRoomScopeDomain interface {
 
 type decentralizedCommunityDomain interface {
 	CreateDecentralizedCommunity(ctx context.Context, input CreateDecentralizedCommunityInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized], error)
+	RollbackDecentralizedCommunityCreate(ctx context.Context, id bson.ObjectID) error
 	GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error)
 	ListDecentralizedCommunities(ctx context.Context, input ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error)
 	UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized], error)
@@ -88,13 +90,14 @@ type listingProjectionApplier interface {
 	Apply(ctx context.Context, changes []hmddomain.HmdChange) error
 }
 
-type publishEntrustRegistrar interface {
-	FindListingBySource(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID) (*hpdmodel.HpdListing, error)
-	UpsertEntrustForPrincipal(ctx context.Context, listingID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdEntrustRelation, error)
+type publishRootScopeRegistrar interface {
+	UpsertRootScopeForPrincipal(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdRootScopeRelation, error)
 }
 
 type publishAccessService interface {
-	publishEntrustRegistrar
-	ListAccessibleListings(ctx context.Context, principal session.Principal) ([]hpdmodel.HpdListing, error)
-	CanAccessSourceForPrincipal(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID, principal session.Principal) (bool, error)
+	publishRootScopeRegistrar
+	ListAccessibleProjectIDs(ctx context.Context, principal session.Principal) ([]bson.ObjectID, error)
+	ListAccessibleCommunityIDs(ctx context.Context, principal session.Principal) ([]bson.ObjectID, error)
+	CanAccessProjectForPrincipal(ctx context.Context, projectID bson.ObjectID, principal session.Principal) (bool, error)
+	CanAccessCommunityForPrincipal(ctx context.Context, communityID bson.ObjectID, principal session.Principal) (bool, error)
 }

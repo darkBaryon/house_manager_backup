@@ -41,6 +41,13 @@ func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCent
 	}), nil
 }
 
+func (s *Service) RollbackCentralizedProjectCreate(ctx context.Context, id bson.ObjectID) error {
+	if err := s.centralizedRepo.SoftDeleteByID(ctx, id); err != nil {
+		return mutationError("rollback centralized project create", err)
+	}
+	return nil
+}
+
 func (s *Service) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
 	return s.requireCentralizedProject(ctx, id, "get centralized project")
 }

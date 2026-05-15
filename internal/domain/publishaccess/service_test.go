@@ -2,44 +2,19 @@ package publishaccess
 
 import (
 	"context"
-	hpdmodel "house-manager/internal/model/hpd"
-	"house-manager/pkg/session"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hpdmodel "house-manager/internal/model/hpd"
+	"house-manager/pkg/session"
 )
 
-func TestServiceUpsertsEntrustForStaffPrincipal(t *testing.T) {
-	listingID := bson.NewObjectID()
-	staffID := bson.NewObjectID()
-	repo := &fakeHpdEntrustRelationRepo{}
-	service := &Service{entrustRepo: repo}
+func TestServiceUpsertsRootScopeForUserPrincipal(t *testing.T) {
+	rootID := bson.NewObjectID()
+	repo := &fakeHpdRootScopeRepo{}
+	service := &Service{rootScopeRepo: repo}
 
-	relation, err := service.UpsertEntrustForPrincipal(context.Background(), listingID, session.Principal{
-		PrincipalType: session.PrincipalTypeStaff,
-		PrincipalID:   staffID.Hex(),
-		Terminal:      session.TerminalPublish,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if relation == nil || relation.ListingID != listingID {
-		t.Fatalf("unexpected relation: %#v", relation)
-	}
-	if repo.upserted.MaintainerStaffID != staffID || repo.upserted.ServiceStaffID != staffID {
-		t.Fatalf("expected staff relation, got %#v", repo.upserted)
-	}
-	if repo.upserted.OwnerPhone != "" {
-		t.Fatalf("staff relation should not set owner phone")
-	}
-}
-
-func TestServiceUpsertsEntrustForUserPrincipal(t *testing.T) {
-	listingID := bson.NewObjectID()
-	repo := &fakeHpdEntrustRelationRepo{}
-	service := &Service{entrustRepo: repo}
-
-	_, err := service.UpsertEntrustForPrincipal(context.Background(), listingID, session.Principal{
+	_, err := service.UpsertRootScopeForPrincipal(context.Background(), hpdmodel.HpdRootScopeTypeCentralizedProject, rootID, session.Principal{
 		PrincipalType: session.PrincipalTypeUser,
 		PrincipalID:   bson.NewObjectID().Hex(),
 		Terminal:      session.TerminalPublish,
@@ -51,32 +26,24 @@ func TestServiceUpsertsEntrustForUserPrincipal(t *testing.T) {
 	if repo.upserted.OwnerPhone != "13800000000" {
 		t.Fatalf("expected owner phone relation, got %#v", repo.upserted)
 	}
-	if !repo.upserted.MaintainerStaffID.IsZero() || !repo.upserted.ServiceStaffID.IsZero() {
-		t.Fatalf("user relation should not set staff ids: %#v", repo.upserted)
+	if repo.upserted.RootType != hpdmodel.HpdRootScopeTypeCentralizedProject || repo.upserted.RootID != rootID {
+		t.Fatalf("expected project root scope relation, got %#v", repo.upserted)
 	}
 }
 
-type fakeHpdEntrustRelationRepo struct {
-	upserted *hpdmodel.HpdEntrustRelation
+type fakeHpdRootScopeRepo struct {
+	upserted *hpdmodel.HpdRootScopeRelation
 }
 
-func (f *fakeHpdEntrustRelationRepo) UpsertActiveByListingID(ctx context.Context, entity *hpdmodel.HpdEntrustRelation) (*hpdmodel.HpdEntrustRelation, error) {
+func (f *fakeHpdRootScopeRepo) UpsertActiveByRoot(ctx context.Context, entity *hpdmodel.HpdRootScopeRelation) (*hpdmodel.HpdRootScopeRelation, error) {
 	f.upserted = entity
 	return entity, nil
 }
 
-func (f *fakeHpdEntrustRelationRepo) FindActiveByListingID(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdEntrustRelation, error) {
+func (f *fakeHpdRootScopeRepo) ListActiveRootIDsByOwnerPhone(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerPhone string) ([]bson.ObjectID, error) {
 	return nil, nil
 }
 
-func (f *fakeHpdEntrustRelationRepo) ListActiveListingIDsByStaff(ctx context.Context, staffID bson.ObjectID) ([]bson.ObjectID, error) {
-	return nil, nil
-}
-
-func (f *fakeHpdEntrustRelationRepo) ListActiveListingIDsByOwnerPhone(ctx context.Context, ownerPhone string) ([]bson.ObjectID, error) {
-	return nil, nil
-}
-
-func (f *fakeHpdEntrustRelationRepo) CanAccessListing(ctx context.Context, listingID, staffID bson.ObjectID, ownerPhone string) (bool, error) {
+func (f *fakeHpdRootScopeRepo) CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bool, error) {
 	return false, nil
 }

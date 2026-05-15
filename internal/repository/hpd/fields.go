@@ -47,6 +47,50 @@ var (
 		"weight_score",
 		"is_online",
 	)
+
+	publisherProjectionFields = allowedFields(
+		"root_type",
+		"root_id",
+		"project_id",
+		"project_name",
+		"building_id",
+		"building_name",
+		"room_type_id",
+		"room_type_name",
+		"decentralized_id",
+		"community_name",
+		"rent_mode",
+		"city",
+		"district",
+		"biz_area",
+		"subway_station",
+		"address_text",
+		"geo",
+		"room_no",
+		"floor_no",
+		"title",
+		"subtitle",
+		"price",
+		"price_text",
+		"layout_text",
+		"area_size",
+		"orientation",
+		"decoration_level",
+		"payment_cycle",
+		"deposit",
+		"service_fee",
+		"agency_fee_mode",
+		"agency_fee_value",
+		"room_status",
+		"listing_status",
+		"viewing_time_rule",
+		"start_rent_rule",
+		"feature_flags",
+		"listing_facilities",
+		"room_facilities",
+		"images",
+		"is_online",
+	)
 )
 
 func allowedFields(fields ...string) map[string]struct{} {
@@ -142,49 +186,91 @@ func miniappListingFields(entity *hpdmodel.HpdMiniappListing) bson.M {
 	}
 }
 
+func publisherListingFields(entity *hpdmodel.HpdPublisherListing) bson.M {
+	return bson.M{
+		"listing_id":         entity.ListingID,
+		"source_type":        entity.SourceType,
+		"source_id":          entity.SourceID,
+		"asset_mode":         entity.AssetMode,
+		"root_type":          entity.RootType,
+		"root_id":            entity.RootID,
+		"project_id":         entity.ProjectID,
+		"project_name":       entity.ProjectName,
+		"building_id":        entity.BuildingID,
+		"building_name":      entity.BuildingName,
+		"room_type_id":       entity.RoomTypeID,
+		"room_type_name":     entity.RoomTypeName,
+		"decentralized_id":   entity.DecentralizedID,
+		"community_name":     entity.CommunityName,
+		"rent_mode":          entity.RentMode,
+		"city":               entity.City,
+		"district":           entity.District,
+		"biz_area":           entity.BizArea,
+		"subway_station":     entity.SubwayStation,
+		"address_text":       entity.AddressText,
+		"geo":                entity.Geo,
+		"room_no":            entity.RoomNo,
+		"floor_no":           entity.FloorNo,
+		"title":              entity.Title,
+		"subtitle":           entity.Subtitle,
+		"price":              entity.Price,
+		"price_text":         entity.PriceText,
+		"layout_text":        entity.LayoutText,
+		"area_size":          entity.AreaSize,
+		"orientation":        entity.Orientation,
+		"decoration_level":   entity.DecorationLevel,
+		"payment_cycle":      entity.PaymentCycle,
+		"deposit":            entity.Deposit,
+		"service_fee":        entity.ServiceFee,
+		"agency_fee_mode":    entity.AgencyFeeMode,
+		"agency_fee_value":   entity.AgencyFeeValue,
+		"room_status":        entity.RoomStatus,
+		"listing_status":     entity.ListingStatus,
+		"viewing_time_rule":  entity.ViewingTimeRule,
+		"start_rent_rule":    entity.StartRentRule,
+		"feature_flags":      entity.FeatureFlags,
+		"listing_facilities": entity.ListingFacilities,
+		"room_facilities":    entity.RoomFacilities,
+		"images":             entity.Images,
+		"is_online":          entity.IsOnline,
+	}
+}
+
 func listingStatusUpdateFields(listingStatus hpdmodel.HpdListingStatus) bson.M {
 	return bson.M{"listing_status": listingStatus}
 }
 
-func entrustRelationFields(entity *hpdmodel.HpdEntrustRelation) bson.M {
+func rootScopeRelationFields(entity *hpdmodel.HpdRootScopeRelation) bson.M {
 	return bson.M{
-		"listing_id":          entity.ListingID,
-		"owner_name":          entity.OwnerName,
-		"owner_phone":         entity.OwnerPhone,
-		"maintainer_staff_id": entity.MaintainerStaffID,
-		"service_staff_id":    entity.ServiceStaffID,
-		"relation_status":     entity.RelationStatus,
-		"effective_from":      entity.EffectiveFrom,
-		"effective_to":        entity.EffectiveTo,
+		"root_type":       entity.RootType,
+		"root_id":         entity.RootID,
+		"owner_phone":     entity.OwnerPhone,
+		"relation_status": entity.RelationStatus,
+		"effective_from":  entity.EffectiveFrom,
+		"effective_to":    entity.EffectiveTo,
 	}
 }
 
-func activeEntrustRelationFilter(fields bson.M) bson.M {
+func activeRootScopeRelationFilter(fields bson.M) bson.M {
 	filter := activeFilter(fields)
 	filter["relation_status"] = hpdmodel.HpdRelationStatusActive
 	return filter
 }
 
-func activeEntrustAccessFilter(listingID bson.ObjectID, staffID bson.ObjectID, ownerPhone string) (bson.M, error) {
-	if listingID.IsZero() {
-		return nil, fmt.Errorf("listingID is required")
+func activeRootScopeAccessFilter(rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bson.M, error) {
+	if !rootType.Valid() {
+		return nil, fmt.Errorf("rootType is invalid")
+	}
+	if rootID.IsZero() {
+		return nil, fmt.Errorf("rootID is required")
 	}
 	ownerPhone = strings.TrimSpace(ownerPhone)
-	clauses := make(bson.A, 0, 3)
-	if !staffID.IsZero() {
-		clauses = append(clauses,
-			bson.M{"maintainer_staff_id": staffID},
-			bson.M{"service_staff_id": staffID},
-		)
+	if ownerPhone == "" {
+		return nil, fmt.Errorf("ownerPhone is required")
 	}
-	if ownerPhone != "" {
-		clauses = append(clauses, bson.M{"owner_phone": ownerPhone})
-	}
-	if len(clauses) == 0 {
-		return nil, fmt.Errorf("staffID or ownerPhone is required")
-	}
-	return activeEntrustRelationFilter(bson.M{
-		"listing_id": listingID,
-		"$or":        clauses,
+	return activeRootScopeRelationFilter(bson.M{
+		"root_type":   rootType,
+		"root_id":     rootID,
+		"owner_phone": ownerPhone,
 	}), nil
 }

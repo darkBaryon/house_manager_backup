@@ -41,6 +41,13 @@ func (s *Service) CreateDecentralizedCommunity(ctx context.Context, input Create
 	}), nil
 }
 
+func (s *Service) RollbackDecentralizedCommunityCreate(ctx context.Context, id bson.ObjectID) error {
+	if err := s.decentralizedRepo.SoftDeleteByID(ctx, id); err != nil {
+		return mutationError("rollback decentralized community create", err)
+	}
+	return nil
+}
+
 func (s *Service) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error) {
 	return s.requireDecentralized(ctx, id, "get decentralized community")
 }
