@@ -24,17 +24,24 @@ func NewService(
 }
 
 func (s *Service) UpsertRootScopeForPrincipal(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdRootScopeRelation, error) {
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.upsert.start", "root_type", rootType, "root_id", rootID.Hex())
 	if s == nil || s.rootScopeRepo == nil {
-		return nil, databasef("upsert hpd root scope relation: root scope repo is nil")
+		err := databasef("upsert hpd root scope relation: root scope repo is nil")
+		logPublishAccessResult(ctx, "publishaccess.root_scope.upsert.success", "publishaccess.root_scope.upsert.failed", err, "root_type", rootType, "root_id", rootID.Hex())
+		return nil, err
 	}
 	relation, err := rootScopeRelationForPrincipal(rootType, rootID, principal)
 	if err != nil {
+		logPublishAccessResult(ctx, "publishaccess.root_scope.upsert.success", "publishaccess.root_scope.upsert.failed", err, "root_type", rootType, "root_id", rootID.Hex())
 		return nil, err
 	}
 	result, err := s.rootScopeRepo.UpsertActiveByRoot(ctx, relation)
 	if err != nil {
-		return nil, databasef("upsert hpd root scope relation: %w", err)
+		err = databasef("upsert hpd root scope relation: %w", err)
+		logPublishAccessResult(ctx, "publishaccess.root_scope.upsert.success", "publishaccess.root_scope.upsert.failed", err, "root_type", rootType, "root_id", rootID.Hex())
+		return nil, err
 	}
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.upsert.success", "root_type", rootType, "root_id", rootID.Hex(), "owner_phone", maskAccessPhone(relation.OwnerPhone))
 	return result, nil
 }
 
@@ -55,32 +62,46 @@ func (s *Service) CanAccessCommunityForPrincipal(ctx context.Context, communityI
 }
 
 func (s *Service) listRootIDsForPrincipal(ctx context.Context, rootType hpdmodel.HpdRootScopeType, principal session.Principal, action string) ([]bson.ObjectID, error) {
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.list.start", "root_type", rootType, "action", action)
 	if s == nil || s.rootScopeRepo == nil {
-		return nil, databasef("%s: root scope repo is nil", action)
+		err := databasef("%s: root scope repo is nil", action)
+		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "action", action)
+		return nil, err
 	}
 	ownerPhone, err := ownerPhoneForPrincipal(principal)
 	if err != nil {
+		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "action", action)
 		return nil, err
 	}
 	ids, err := s.rootScopeRepo.ListActiveRootIDsByOwnerPhone(ctx, rootType, ownerPhone)
 	if err != nil {
-		return nil, databasef("%s: %w", action, err)
+		err = databasef("%s: %w", action, err)
+		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "owner_phone", maskAccessPhone(ownerPhone))
+		return nil, err
 	}
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.list.success", "root_type", rootType, "owner_phone", maskAccessPhone(ownerPhone), "result_count", len(ids))
 	return ids, nil
 }
 
 func (s *Service) canAccessRootForPrincipal(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal, action string) (bool, error) {
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.can_access.start", "root_type", rootType, "root_id", rootID.Hex(), "action", action)
 	if s == nil || s.rootScopeRepo == nil {
-		return false, databasef("%s: root scope repo is nil", action)
+		err := databasef("%s: root scope repo is nil", action)
+		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex())
+		return false, err
 	}
 	ownerPhone, err := ownerPhoneForPrincipal(principal)
 	if err != nil {
+		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex())
 		return false, err
 	}
 	allowed, err := s.rootScopeRepo.CanAccessRoot(ctx, rootType, rootID, ownerPhone)
 	if err != nil {
-		return false, databasef("%s: %w", action, err)
+		err = databasef("%s: %w", action, err)
+		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex(), "owner_phone", maskAccessPhone(ownerPhone))
+		return false, err
 	}
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.can_access.success", "root_type", rootType, "root_id", rootID.Hex(), "owner_phone", maskAccessPhone(ownerPhone), "allowed", allowed)
 	return allowed, nil
 }
 

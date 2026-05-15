@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"log/slog"
 
 	"house-manager/internal/handler"
 	minicommon "house-manager/internal/handler/v1/miniapp/common"
@@ -63,7 +62,6 @@ func (h *AuthHandler) WechatLogin(c *gin.Context) {
 
 	token, err := h.service.WechatLogin(c.Request.Context(), req.Code, c.ClientIP())
 	if err != nil {
-		slog.Error("wechat login failed", "error", err)
 		response.Err(c, err)
 		return
 	}
@@ -79,7 +77,6 @@ func (h *AuthHandler) WechatRegister(c *gin.Context) {
 
 	token, err := h.service.WechatRegister(c.Request.Context(), req.Code, req.PhoneCode, c.ClientIP())
 	if err != nil {
-		slog.Error("wechat register failed", "error", err)
 		response.Err(c, err)
 		return
 	}

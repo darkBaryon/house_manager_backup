@@ -55,34 +55,43 @@ func (s *Service) Apply(ctx context.Context, changes []hmd.HmdChange) error {
 	if s == nil {
 		return nil
 	}
+	logProjectionInfo(ctx, "listingprojection.apply.start", "change_count", len(changes))
 	for _, change := range changes {
+		logProjectionInfo(ctx, "listingprojection.apply.change", "scope", change.Scope, "entity_id", change.EntityID.Hex())
 		switch change.Scope {
 		case hmd.HmdScopeCentralizedProject:
 			if err := s.refreshCentralizedProject(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd centralized project projection: %w", err)
 			}
 		case hmd.HmdScopeBuilding:
 			if err := s.refreshBuilding(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd building projection: %w", err)
 			}
 		case hmd.HmdScopeRoomTypeCentralized:
 			if err := s.refreshRoomTypeCentralized(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd room type centralized projection: %w", err)
 			}
 		case hmd.HmdScopeCentralizedRoom:
 			if err := s.refreshCentralizedRoom(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd centralized room projection: %w", err)
 			}
 		case hmd.HmdScopeDecentralizedCommunity:
 			if err := s.refreshDecentralizedCommunity(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd decentralized community projection: %w", err)
 			}
 		case hmd.HmdScopeDecentralizedRoom:
 			if err := s.refreshDecentralizedRoom(ctx, change.EntityID); err != nil {
+				logProjectionError(ctx, "listingprojection.apply.failed", "scope", change.Scope, "entity_id", change.EntityID.Hex(), "error", err)
 				return databasef("apply hpd decentralized room projection: %w", err)
 			}
 		}
 	}
+	logProjectionInfo(ctx, "listingprojection.apply.success", "change_count", len(changes))
 	return nil
 }
 
@@ -90,26 +99,43 @@ func (s *Service) UpdateListingStatus(ctx context.Context, listingID bson.Object
 	if s == nil || s.listingRepo == nil {
 		return nil
 	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.update_status.start", "listing_id", listingID.Hex(), "listing_status", listingStatus)
 	if err := s.listingRepo.UpdateStatus(ctx, listingID, listingStatus); err != nil {
+		logProjectionError(ctx, "listingprojection.lifecycle.update_status.failed", "listing_id", listingID.Hex(), "error", err)
 		return databasef("update hpd listing status: %w", err)
 	}
-	return s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+	err := s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+	if err != nil {
+		logProjectionError(ctx, "listingprojection.lifecycle.update_status.failed", "listing_id", listingID.Hex(), "error", err)
+		return err
+	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.update_status.success", "listing_id", listingID.Hex(), "listing_status", listingStatus)
+	return nil
 }
 
 func (s *Service) UpdateListingLifecycleFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
 	if s == nil || s.listingRepo == nil {
 		return nil
 	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.update_fields.start", "listing_id", listingID.Hex(), "field_count", len(fields))
 	if err := s.listingRepo.UpdateLifecycleFields(ctx, listingID, fields); err != nil {
+		logProjectionError(ctx, "listingprojection.lifecycle.update_fields.failed", "listing_id", listingID.Hex(), "error", err)
 		return databasef("update hpd listing lifecycle fields: %w", err)
 	}
-	return s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+	err := s.refreshListingAfterLifecycleUpdate(ctx, listingID)
+	if err != nil {
+		logProjectionError(ctx, "listingprojection.lifecycle.update_fields.failed", "listing_id", listingID.Hex(), "error", err)
+		return err
+	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.update_fields.success", "listing_id", listingID.Hex(), "field_count", len(fields))
+	return nil
 }
 
 func (s *Service) refreshListingAfterLifecycleUpdate(ctx context.Context, listingID bson.ObjectID) error {
 	if s.miniappProjector == nil && s.publisherProjector == nil {
 		return nil
 	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.refresh.start", "listing_id", listingID.Hex())
 	listing, err := s.listingRepo.FindByID(ctx, listingID)
 	if err != nil {
 		return databasef("refresh hpd listing after lifecycle update: %w", err)
@@ -127,6 +153,7 @@ func (s *Service) refreshListingAfterLifecycleUpdate(ctx context.Context, listin
 			return databasef("refresh hpd listing after lifecycle update: %w", err)
 		}
 	}
+	logProjectionInfo(ctx, "listingprojection.lifecycle.refresh.success", "listing_id", listingID.Hex(), "source_type", listing.SourceType)
 	return nil
 }
 

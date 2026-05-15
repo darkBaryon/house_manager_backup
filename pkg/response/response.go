@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"house-manager/pkg/errcode"
+	"house-manager/pkg/requestlog"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,20 +16,31 @@ type Response struct {
 }
 
 func Success(c *gin.Context, data any) {
+	requestlog.SetResponse(c, 0, "", "")
 	c.JSON(http.StatusOK, Response{Code: 0, Data: data})
 }
 
 func Err(c *gin.Context, err error) {
 	e := errcode.FromError(err)
 	if e == nil {
+		requestlog.SetResponse(c, 50001, "服务内部错误", errString(err))
 		c.JSON(http.StatusInternalServerError, Response{Code: 50001, Error: "服务内部错误"})
 		return
 	}
+	requestlog.SetResponse(c, e.Code, e.Message, errString(err))
 	c.JSON(toHTTPStatus(e.Code), Response{Code: e.Code, Error: e.Message})
 }
 
 func SuccessPage(c *gin.Context, data any, size int, maxSize int64) {
+	requestlog.SetResponse(c, 0, "", "")
 	c.JSON(http.StatusOK, PageResponse{Code: 0, MaxSize: maxSize, Size: size, Data: data})
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 type PageResponse struct {

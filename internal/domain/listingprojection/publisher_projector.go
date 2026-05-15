@@ -47,6 +47,7 @@ func (p *PublisherProjector) RefreshByListing(ctx context.Context, listing *hpdm
 	if listing == nil {
 		return fmt.Errorf("hpd listing is nil")
 	}
+	logProjectionInfo(ctx, "listingprojection.publisher.refresh_by_listing.start", "listing_id", listing.ID.Hex(), "source_type", listing.SourceType, "source_id", listing.SourceID.Hex())
 	switch listing.SourceType {
 	case hpdmodel.HpdSourceTypeCentralizedRoom:
 		return p.RefreshCentralizedRoom(ctx, listing.SourceID)
@@ -58,6 +59,7 @@ func (p *PublisherProjector) RefreshByListing(ctx context.Context, listing *hpdm
 }
 
 func (p *PublisherProjector) RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
+	logProjectionInfo(ctx, "listingprojection.publisher.refresh_centralized_room.start", "room_id", roomID.Hex())
 	room, err := p.hmdRoomCentralizedRepo.FindByID(ctx, roomID)
 	if err != nil {
 		return fmt.Errorf("find hmd centralized room: %w", err)
@@ -106,10 +108,12 @@ func (p *PublisherProjector) RefreshCentralizedRoom(ctx context.Context, roomID 
 	if _, err := p.hpdPublisherListingRepo.UpsertByListingID(ctx, publisherListing); err != nil {
 		return fmt.Errorf("upsert hpd publisher listing: %w", err)
 	}
+	logProjectionInfo(ctx, "listingprojection.publisher.refresh_centralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
 }
 
 func (p *PublisherProjector) RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
+	logProjectionInfo(ctx, "listingprojection.publisher.refresh_decentralized_room.start", "room_id", roomID.Hex())
 	room, err := p.hmdRoomDecentralizedRepo.FindByID(ctx, roomID)
 	if err != nil {
 		return fmt.Errorf("find hmd decentralized room: %w", err)
@@ -142,5 +146,6 @@ func (p *PublisherProjector) RefreshDecentralizedRoom(ctx context.Context, roomI
 	if _, err := p.hpdPublisherListingRepo.UpsertByListingID(ctx, publisherListing); err != nil {
 		return fmt.Errorf("upsert hpd publisher listing: %w", err)
 	}
+	logProjectionInfo(ctx, "listingprojection.publisher.refresh_decentralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
 }

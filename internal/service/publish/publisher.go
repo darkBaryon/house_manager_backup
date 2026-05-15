@@ -16,6 +16,7 @@ func (p mutationPublisher) Apply(ctx context.Context, changes []hmddomain.HmdCha
 	if p.listingProjection == nil {
 		return errcode.InternalError.WithError(fmt.Errorf("listing projection service is required"))
 	}
+	logPublishInfo(ctx, "publish.projection.apply.start", "change_count", len(changes))
 	return p.listingProjection.Apply(ctx, changes)
 }
 
@@ -27,7 +28,9 @@ func resolveHmdMutation[T any](ctx context.Context, publisher mutationPublisher,
 		return nil, nil
 	}
 	if err := publisher.Apply(ctx, result.Changes); err != nil {
+		logPublishResult(ctx, "publish.projection.apply.success", "publish.projection.apply.failed", err, "change_count", len(result.Changes))
 		return nil, err
 	}
+	logPublishInfo(ctx, "publish.projection.apply.success", "change_count", len(result.Changes))
 	return result.Entity, nil
 }
