@@ -2,7 +2,7 @@ package roomtype
 
 import (
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -99,7 +99,7 @@ type response struct {
 	RoomFacilities  []string                     `json:"room_facilities"`
 }
 
-func toResponse(roomType *model.HmdRoomTypeCentralized) *response {
+func toResponse(roomType *hmdmodel.HmdRoomTypeCentralized) *response {
 	if roomType == nil {
 		return nil
 	}
@@ -126,7 +126,7 @@ func toResponse(roomType *model.HmdRoomTypeCentralized) *response {
 	}
 }
 
-func toListResponse(roomTypes []model.HmdRoomTypeCentralized) common.ListResponse[response] {
+func toListResponse(roomTypes []hmdmodel.HmdRoomTypeCentralized) common.ListResponse[response] {
 	list := make([]response, 0, len(roomTypes))
 	for i := range roomTypes {
 		item := toResponse(&roomTypes[i])

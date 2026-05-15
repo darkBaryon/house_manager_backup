@@ -2,7 +2,8 @@ package publish
 
 import (
 	hmddomain "house-manager/internal/domain/hmd"
-	hpddomain "house-manager/internal/domain/hpd"
+	"house-manager/internal/domain/listingprojection"
+	"house-manager/internal/domain/publishaccess"
 )
 
 // PublishService 是发房域的业务入口，handler 只依赖这一层。
@@ -15,14 +16,18 @@ type PublishService struct {
 	*decentralizedRoomService
 }
 
-func NewPublishService(hmd *hmddomain.Service, hpd *hpddomain.Service) *PublishService {
-	publisher := mutationPublisher{hpd: hpd}
+func NewPublishService(
+	hmd *hmddomain.Service,
+	listingProjection *listingprojection.Service,
+	publishAccess *publishaccess.Service,
+) *PublishService {
+	publisher := mutationPublisher{listingProjection: listingProjection}
 	return &PublishService{
-		centralizedProjectService:     newCentralizedProjectService(hmd, publisher),
-		buildingService:               newBuildingService(hmd, publisher),
-		roomTypeService:               newRoomTypeService(hmd, publisher),
-		centralizedRoomService:        newCentralizedRoomService(hmd, publisher),
-		decentralizedCommunityService: newDecentralizedCommunityService(hmd, publisher),
-		decentralizedRoomService:      newDecentralizedRoomService(hmd, publisher),
+		centralizedProjectService:     newCentralizedProjectService(hmd, publisher, publishAccess),
+		buildingService:               newBuildingService(hmd, publisher, publishAccess),
+		roomTypeService:               newRoomTypeService(hmd, publisher, publishAccess),
+		centralizedRoomService:        newCentralizedRoomService(hmd, publisher, publishAccess),
+		decentralizedCommunityService: newDecentralizedCommunityService(hmd, publisher, publishAccess),
+		decentralizedRoomService:      newDecentralizedRoomService(hmd, publisher, publishAccess),
 	}
 }

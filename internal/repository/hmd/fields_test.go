@@ -2,19 +2,18 @@ package hmd
 
 import (
 	"context"
-	"strings"
-	"testing"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	commonmodel "house-manager/internal/model/common"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
+	"testing"
 )
 
 func TestActiveFilter(t *testing.T) {
 	filter := activeFilter(bson.M{"city": "深圳"})
 
-	if got := filter["status"]; got != model.StatusActive {
+	if got := filter["status"]; got != commonmodel.StatusActive {
 		t.Fatalf("expected active status filter, got %v", got)
 	}
 	if got := filter["city"]; got != "深圳" {
@@ -23,9 +22,9 @@ func TestActiveFilter(t *testing.T) {
 }
 
 func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
-	filter := activeFilter(bson.M{"city": "深圳", "status": model.StatusDeleted})
+	filter := activeFilter(bson.M{"city": "深圳", "status": commonmodel.StatusDeleted})
 
-	if got := filter["status"]; got != model.StatusActive {
+	if got := filter["status"]; got != commonmodel.StatusActive {
 		t.Fatalf("expected active status filter to override incoming status, got %v", got)
 	}
 	if got := filter["city"]; got != "深圳" {
@@ -100,14 +99,14 @@ func TestRoomStatusUpdateFields(t *testing.T) {
 func TestIsValidRoomStatus(t *testing.T) {
 	validStatuses := []int{-1, 0, 1, 2, 3}
 	for _, status := range validStatuses {
-		if !model.IsValidRoomStatus(status) {
+		if !hmdmodel.IsValidRoomStatus(status) {
 			t.Fatalf("expected status %d to be valid", status)
 		}
 	}
 
 	invalidStatuses := []int{-2, 4, 99}
 	for _, status := range invalidStatuses {
-		if model.IsValidRoomStatus(status) {
+		if hmdmodel.IsValidRoomStatus(status) {
 			t.Fatalf("expected status %d to be invalid", status)
 		}
 	}
@@ -116,14 +115,14 @@ func TestIsValidRoomStatus(t *testing.T) {
 func TestIsValidRoomStatusUpdateTarget(t *testing.T) {
 	validStatuses := []int{-1, 1, 2, 3}
 	for _, status := range validStatuses {
-		if !model.IsValidRoomStatusUpdateTarget(status) {
+		if !hmdmodel.IsValidRoomStatusUpdateTarget(status) {
 			t.Fatalf("expected status %d to be a valid update target", status)
 		}
 	}
 
 	invalidStatuses := []int{-2, 0, 4, 99}
 	for _, status := range invalidStatuses {
-		if model.IsValidRoomStatusUpdateTarget(status) {
+		if hmdmodel.IsValidRoomStatusUpdateTarget(status) {
 			t.Fatalf("expected status %d to be an invalid update target", status)
 		}
 	}
@@ -139,7 +138,7 @@ func TestRoomCentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
 
 func TestRoomCentralizedUpdateStatusRejectsUnspecifiedRoomStatus(t *testing.T) {
 	repo := &RoomCentralizedRepository{}
-	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(model.RoomStatusUnspecified))
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(hmdmodel.RoomStatusUnspecified))
 	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
 		t.Fatalf("expected invalid roomStatus error, got %v", err)
 	}
@@ -155,7 +154,7 @@ func TestRoomDecentralizedUpdateStatusRejectsInvalidRoomStatus(t *testing.T) {
 
 func TestRoomDecentralizedUpdateStatusRejectsUnspecifiedRoomStatus(t *testing.T) {
 	repo := &RoomDecentralizedRepository{}
-	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(model.RoomStatusUnspecified))
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), int(hmdmodel.RoomStatusUnspecified))
 	if err == nil || !strings.Contains(err.Error(), "roomStatus is invalid") {
 		t.Fatalf("expected invalid roomStatus error, got %v", err)
 	}

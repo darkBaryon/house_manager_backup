@@ -3,13 +3,13 @@ package auth
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
-	"house-manager/internal/model"
-	repoaccount "house-manager/internal/repository/account"
+	authmodel "house-manager/internal/model/auth"
+	commonmodel "house-manager/internal/model/common"
+	publishauthrepo "house-manager/internal/repository/publish_auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
+	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -26,38 +26,38 @@ type Service struct {
 }
 
 type staffRepository interface {
-	FindActiveByPhone(ctx context.Context, phone string) (*model.AdmStaff, error)
-	FindByID(ctx context.Context, id bson.ObjectID) (*model.AdmStaff, error)
+	FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error)
+	FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error)
 	TouchLastLogin(ctx context.Context, staffID bson.ObjectID, lastLoginAt int64, lastLoginIP string) error
 }
 
 type roleRepository interface {
-	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]model.AdmRole, error)
+	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error)
 }
 
 type permissionRepository interface {
-	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]model.AdmPermission, error)
+	FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error)
 }
 
 type staffRoleRepository interface {
-	ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]model.AdmStaffRole, error)
+	ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]authmodel.AdmStaffRole, error)
 }
 
 type rolePermissionRepository interface {
-	ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]model.AdmRolePermission, error)
+	ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]authmodel.AdmRolePermission, error)
 }
 
 type loginLogRepository interface {
-	Create(ctx context.Context, log *model.AdmLoginLog) error
+	Create(ctx context.Context, log *authmodel.AdmLoginLog) error
 }
 
 func NewService(
-	staffRepo *repoaccount.StaffRepository,
-	roleRepo *repoaccount.RoleRepository,
-	permissionRepo *repoaccount.PermissionRepository,
-	staffRoleRepo *repoaccount.StaffRoleRepository,
-	rolePermissionRepo *repoaccount.RolePermissionRepository,
-	loginLogRepo *repoaccount.LoginLogRepository,
+	staffRepo *publishauthrepo.StaffRepository,
+	roleRepo *publishauthrepo.RoleRepository,
+	permissionRepo *publishauthrepo.PermissionRepository,
+	staffRoleRepo *publishauthrepo.StaffRoleRepository,
+	rolePermissionRepo *publishauthrepo.RolePermissionRepository,
+	loginLogRepo *publishauthrepo.LoginLogRepository,
 	sessionStore *session.Store,
 	env string,
 ) *Service {
@@ -126,16 +126,18 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, er
 
 	now := time.Now().Unix()
 	if err := s.staffRepo.TouchLastLogin(ctx, staff.ID, now, input.LoginIP); err != nil {
+		_ = s.sessionStore.Delete(ctx, token)
 		return nil, errcode.DatabaseError.WithError(err)
 	}
 	if s.loginLogRepo != nil {
-		if err := s.loginLogRepo.Create(ctx, &model.AdmLoginLog{
+		if err := s.loginLogRepo.Create(ctx, &authmodel.AdmLoginLog{
 			StaffID:     staff.ID,
 			LoginAt:     now,
 			LoginIP:     input.LoginIP,
 			UserAgent:   input.UserAgent,
 			LoginResult: 1,
 		}); err != nil {
+			_ = s.sessionStore.Delete(ctx, token)
 			return nil, errcode.DatabaseError.WithError(err)
 		}
 	}
@@ -158,7 +160,7 @@ func (s *Service) Session(ctx context.Context, principal session.Principal) (*Au
 	if err != nil {
 		return nil, errcode.DatabaseError.WithError(err)
 	}
-	if staff == nil || staff.Status != model.StatusActive {
+	if staff == nil || staff.Status != commonmodel.StatusActive {
 		return nil, errcode.Unauthorized.WithError(fmt.Errorf("staff not found"))
 	}
 	return s.buildSession(ctx, staff)
@@ -174,7 +176,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
-func (s *Service) buildSession(ctx context.Context, staff *model.AdmStaff) (*AuthSession, error) {
+func (s *Service) buildSession(ctx context.Context, staff *authmodel.AdmStaff) (*AuthSession, error) {
 	if staff == nil || staff.ID.IsZero() {
 		return nil, errcode.DatabaseError.WithError(fmt.Errorf("staff is required"))
 	}

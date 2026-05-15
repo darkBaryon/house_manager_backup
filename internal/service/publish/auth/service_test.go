@@ -2,12 +2,12 @@ package auth
 
 import (
 	"context"
-	"testing"
-	"time"
-
-	"house-manager/internal/model"
+	authmodel "house-manager/internal/model/auth"
+	commonmodel "house-manager/internal/model/common"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
+	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -55,24 +55,24 @@ func TestLoginBuildsStaffPrincipalWithRolesAndPermissions(t *testing.T) {
 	permissionID := bson.NewObjectID()
 	store := session.NewStore(newFakeCache(), 0)
 	staffRepo := &fakeStaffRepository{
-		activeByPhone: &model.AdmStaff{
-			CommonFields: model.CommonFields{ID: staffID, Status: model.StatusActive},
+		activeByPhone: &authmodel.AdmStaff{
+			CommonFields: commonmodel.CommonFields{ID: staffID, Status: commonmodel.StatusActive},
 			Name:         "管家",
 			Phone:        "13800000000",
 		},
 	}
 	svc := newService(
 		staffRepo,
-		&fakeRoleRepository{roles: []model.AdmRole{{
-			CommonFields: model.CommonFields{ID: roleID, Status: model.StatusActive},
+		&fakeRoleRepository{roles: []authmodel.AdmRole{{
+			CommonFields: commonmodel.CommonFields{ID: roleID, Status: commonmodel.StatusActive},
 			RoleCode:     "super_admin",
 		}}},
-		&fakePermissionRepository{permissions: []model.AdmPermission{{
-			CommonFields:   model.CommonFields{ID: permissionID, Status: model.StatusActive},
+		&fakePermissionRepository{permissions: []authmodel.AdmPermission{{
+			CommonFields:   commonmodel.CommonFields{ID: permissionID, Status: commonmodel.StatusActive},
 			PermissionCode: "house.manage",
 		}}},
-		&fakeStaffRoleRepository{staffRoles: []model.AdmStaffRole{{RoleID: roleID}}},
-		&fakeRolePermissionRepository{rolePermissions: []model.AdmRolePermission{{PermissionID: permissionID}}},
+		&fakeStaffRoleRepository{staffRoles: []authmodel.AdmStaffRole{{RoleID: roleID}}},
+		&fakeRolePermissionRepository{rolePermissions: []authmodel.AdmRolePermission{{PermissionID: permissionID}}},
 		&fakeLoginLogRepository{},
 		store,
 		"local",
@@ -103,16 +103,16 @@ func TestLoginBuildsStaffPrincipalWithRolesAndPermissions(t *testing.T) {
 }
 
 type fakeStaffRepository struct {
-	activeByPhone *model.AdmStaff
-	byID          *model.AdmStaff
+	activeByPhone *authmodel.AdmStaff
+	byID          *authmodel.AdmStaff
 	touched       bool
 }
 
-func (f *fakeStaffRepository) FindActiveByPhone(ctx context.Context, phone string) (*model.AdmStaff, error) {
+func (f *fakeStaffRepository) FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error) {
 	return f.activeByPhone, nil
 }
 
-func (f *fakeStaffRepository) FindByID(ctx context.Context, id bson.ObjectID) (*model.AdmStaff, error) {
+func (f *fakeStaffRepository) FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error) {
 	if f.byID != nil {
 		return f.byID, nil
 	}
@@ -125,40 +125,40 @@ func (f *fakeStaffRepository) TouchLastLogin(ctx context.Context, staffID bson.O
 }
 
 type fakeRoleRepository struct {
-	roles []model.AdmRole
+	roles []authmodel.AdmRole
 }
 
-func (f *fakeRoleRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]model.AdmRole, error) {
+func (f *fakeRoleRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error) {
 	return f.roles, nil
 }
 
 type fakePermissionRepository struct {
-	permissions []model.AdmPermission
+	permissions []authmodel.AdmPermission
 }
 
-func (f *fakePermissionRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]model.AdmPermission, error) {
+func (f *fakePermissionRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error) {
 	return f.permissions, nil
 }
 
 type fakeStaffRoleRepository struct {
-	staffRoles []model.AdmStaffRole
+	staffRoles []authmodel.AdmStaffRole
 }
 
-func (f *fakeStaffRoleRepository) ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]model.AdmStaffRole, error) {
+func (f *fakeStaffRoleRepository) ListActiveByStaffID(ctx context.Context, staffID bson.ObjectID) ([]authmodel.AdmStaffRole, error) {
 	return f.staffRoles, nil
 }
 
 type fakeRolePermissionRepository struct {
-	rolePermissions []model.AdmRolePermission
+	rolePermissions []authmodel.AdmRolePermission
 }
 
-func (f *fakeRolePermissionRepository) ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]model.AdmRolePermission, error) {
+func (f *fakeRolePermissionRepository) ListActiveByRoleIDs(ctx context.Context, roleIDs []bson.ObjectID) ([]authmodel.AdmRolePermission, error) {
 	return f.rolePermissions, nil
 }
 
 type fakeLoginLogRepository struct{}
 
-func (f *fakeLoginLogRepository) Create(ctx context.Context, log *model.AdmLoginLog) error {
+func (f *fakeLoginLogRepository) Create(ctx context.Context, log *authmodel.AdmLoginLog) error {
 	return nil
 }
 

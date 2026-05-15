@@ -2,8 +2,7 @@ package house
 
 import (
 	"context"
-
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
 	repohpd "house-manager/internal/repository/hpd"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -15,9 +14,9 @@ type HouseService struct {
 }
 
 type miniappListingRepository interface {
-	SearchMiniapp(ctx context.Context, search repohpd.MiniappListingSearchFilter) ([]model.HpdMiniappListing, error)
+	SearchMiniapp(ctx context.Context, search repohpd.MiniappListingSearchFilter) ([]hpdmodel.HpdMiniappListing, error)
 	CountMiniapp(ctx context.Context, search repohpd.MiniappListingSearchFilter) (int64, error)
-	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error)
+	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error)
 }
 
 type favoriteChecker interface {

@@ -1,11 +1,11 @@
 package house
 
 import (
-	"strings"
-
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
+	hpdmodel "house-manager/internal/model/hpd"
 	repohpd "house-manager/internal/repository/hpd"
 	"house-manager/pkg/errcode"
+	"strings"
 )
 
 const (
@@ -36,12 +36,12 @@ func searchFilter(input SearchInput) (repohpd.MiniappListingSearchFilter, int, i
 		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("min_price must be less than or equal to max_price")
 	}
 
-	rentMode := model.RentMode(strings.TrimSpace(input.RentMode))
+	rentMode := hmdmodel.RentMode(strings.TrimSpace(input.RentMode))
 	if rentMode != "" && !rentMode.Valid() {
 		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("rent_mode is invalid")
 	}
 
-	assetMode := model.HpdAssetMode(strings.TrimSpace(input.AssetMode))
+	assetMode := hpdmodel.HpdAssetMode(strings.TrimSpace(input.AssetMode))
 	if assetMode != "" && !assetMode.Valid() {
 		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("asset_mode is invalid")
 	}

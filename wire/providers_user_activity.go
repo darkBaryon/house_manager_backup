@@ -6,10 +6,10 @@ import (
 	favoritehandler "house-manager/internal/handler/v1/miniapp/favorite"
 	historyhandler "house-manager/internal/handler/v1/miniapp/history"
 	userhandler "house-manager/internal/handler/v1/miniapp/user"
-	repoauth "house-manager/internal/repository/auth"
 	repofavorite "house-manager/internal/repository/favorite"
 	repohistory "house-manager/internal/repository/history"
 	repohpd "house-manager/internal/repository/hpd"
+	miniappauthrepo "house-manager/internal/repository/miniapp_auth"
 	favoritesvc "house-manager/internal/service/miniapp/favorite"
 	historysvc "house-manager/internal/service/miniapp/history"
 	usersvc "house-manager/internal/service/miniapp/user"
@@ -43,8 +43,8 @@ func newMiniappHistoryService(history *repohistory.Repository, miniappListings *
 }
 
 func newMiniappUserService(
-	users *repoauth.UserRepository,
-	profiles *repoauth.UserProfileExtRepository,
+	users *miniappauthrepo.UserRepository,
+	profiles *miniappauthrepo.UserProfileExtRepository,
 	favorites *favoritesvc.Service,
 	history *historysvc.Service,
 ) *usersvc.Service {

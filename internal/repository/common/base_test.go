@@ -2,12 +2,11 @@ package common
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	authmodel "house-manager/internal/model/auth"
+	commonmodel "house-manager/internal/model/common"
 	"strings"
 	"testing"
-
-	"house-manager/internal/model"
-
-	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestCloneBsonM(t *testing.T) {
@@ -38,13 +37,13 @@ func TestNotDeletedByIDFilter(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected nested status filter, got %T", filter["status"])
 	}
-	if got := statusFilter["$ne"]; got != model.StatusDeleted {
-		t.Fatalf("expected status != %d, got %v", model.StatusDeleted, got)
+	if got := statusFilter["$ne"]; got != commonmodel.StatusDeleted {
+		t.Fatalf("expected status != %d, got %v", commonmodel.StatusDeleted, got)
 	}
 }
 
 func TestFindByIDRejectsZeroID(t *testing.T) {
-	repo := &Repository[model.User]{}
+	repo := &Repository[authmodel.User]{}
 	_, err := repo.FindByID(context.Background(), bson.ObjectID{})
 	if err == nil || !strings.Contains(err.Error(), "id is required") {
 		t.Fatalf("expected zero id error, got %v", err)
@@ -52,7 +51,7 @@ func TestFindByIDRejectsZeroID(t *testing.T) {
 }
 
 func TestFindByIDIncludingDeletedRejectsZeroID(t *testing.T) {
-	repo := &Repository[model.User]{}
+	repo := &Repository[authmodel.User]{}
 	_, err := repo.FindByIDIncludingDeleted(context.Background(), bson.ObjectID{})
 	if err == nil || !strings.Contains(err.Error(), "id is required") {
 		t.Fatalf("expected zero id error, got %v", err)
@@ -60,7 +59,7 @@ func TestFindByIDIncludingDeletedRejectsZeroID(t *testing.T) {
 }
 
 func TestUpdateFieldsByIDRejectsZeroID(t *testing.T) {
-	repo := &Repository[model.User]{}
+	repo := &Repository[authmodel.User]{}
 	err := repo.UpdateFieldsByID(context.Background(), bson.ObjectID{}, bson.M{"nickname": "x"})
 	if err == nil || !strings.Contains(err.Error(), "id is required") {
 		t.Fatalf("expected zero id error, got %v", err)
@@ -68,7 +67,7 @@ func TestUpdateFieldsByIDRejectsZeroID(t *testing.T) {
 }
 
 func TestSoftDeleteByIDRejectsZeroID(t *testing.T) {
-	repo := &Repository[model.User]{}
+	repo := &Repository[authmodel.User]{}
 	err := repo.SoftDeleteByID(context.Background(), bson.ObjectID{})
 	if err == nil || !strings.Contains(err.Error(), "id is required") {
 		t.Fatalf("expected zero id error, got %v", err)
@@ -110,7 +109,7 @@ func TestBuildUpsertFieldsDocDoesNotSetVersionOnInsert(t *testing.T) {
 }
 
 func TestUpsertFieldsRejectsEmptyFilter(t *testing.T) {
-	repo := &Repository[model.User]{}
+	repo := &Repository[authmodel.User]{}
 	_, err := repo.UpsertFields(context.Background(), bson.M{}, bson.M{"nickname": "x"})
 	if err == nil || !strings.Contains(err.Error(), "filter is required") {
 		t.Fatalf("expected empty filter error, got %v", err)

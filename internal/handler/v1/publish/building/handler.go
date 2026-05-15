@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"github.com/gin-gonic/gin"
@@ -12,10 +12,10 @@ import (
 )
 
 type Service interface {
-	CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*model.HmdBuilding, error)
-	GetBuilding(ctx context.Context, id bson.ObjectID) (*model.HmdBuilding, error)
-	ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error)
-	UpdateBuilding(ctx context.Context, input publishsvc.UpdateBuildingInput) (*model.HmdBuilding, error)
+	CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*hmdmodel.HmdBuilding, error)
+	GetBuilding(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdBuilding, error)
+	ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdBuilding, error)
+	UpdateBuilding(ctx context.Context, input publishsvc.UpdateBuildingInput) (*hmdmodel.HmdBuilding, error)
 }
 
 type Handler struct {

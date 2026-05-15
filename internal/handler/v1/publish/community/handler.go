@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"github.com/gin-gonic/gin"
@@ -12,10 +12,10 @@ import (
 )
 
 type Service interface {
-	CreateDecentralizedCommunity(ctx context.Context, input publishsvc.CreateDecentralizedCommunityInput) (*model.HmdDecentralized, error)
-	GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*model.HmdDecentralized, error)
-	ListDecentralizedCommunities(ctx context.Context, input publishsvc.ListDecentralizedCommunitiesInput) ([]model.HmdDecentralized, error)
-	UpdateDecentralizedCommunity(ctx context.Context, input publishsvc.UpdateDecentralizedCommunityInput) (*model.HmdDecentralized, error)
+	CreateDecentralizedCommunity(ctx context.Context, input publishsvc.CreateDecentralizedCommunityInput) (*hmdmodel.HmdDecentralized, error)
+	GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error)
+	ListDecentralizedCommunities(ctx context.Context, input publishsvc.ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error)
+	UpdateDecentralizedCommunity(ctx context.Context, input publishsvc.UpdateDecentralizedCommunityInput) (*hmdmodel.HmdDecentralized, error)
 }
 
 type Handler struct {

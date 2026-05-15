@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	commonmodel "house-manager/internal/model/common"
+	hmdmodel "house-manager/internal/model/hmd"
+	publishsvc "house-manager/internal/service/publish"
+	"house-manager/pkg/errcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"house-manager/internal/model"
-	publishsvc "house-manager/internal/service/publish"
-	"house-manager/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -59,8 +59,8 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 	projectID := bson.NewObjectID()
 	buildingID := bson.NewObjectID()
 	svc := &fakePublishService{
-		createBuildingResult: &model.HmdBuilding{
-			CommonFields:      model.CommonFields{ID: buildingID},
+		createBuildingResult: &hmdmodel.HmdBuilding{
+			CommonFields:      commonmodel.CommonFields{ID: buildingID},
 			ProjectID:         projectID,
 			BuildingName:      "A栋",
 			BuildingCode:      "B001",
@@ -68,7 +68,7 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 			ManagerName:       "测试管家",
 			ManagerPhone:      "18800000000",
 			Photos:            []string{"https://example.com/a.jpg"},
-			ListingFacilities: []model.ListingFacility{model.ListingFacilityElevator},
+			ListingFacilities: []hmdmodel.ListingFacility{hmdmodel.ListingFacilityElevator},
 		},
 	}
 
@@ -80,7 +80,7 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 		"manager_name":       "测试管家",
 		"manager_phone":      "18800000000",
 		"photos":             []string{"https://example.com/a.jpg"},
-		"listing_facilities": []string{string(model.ListingFacilityElevator)},
+		"listing_facilities": []string{string(hmdmodel.ListingFacilityElevator)},
 	})
 	resp := performPublishRequest(t, svc, "/api/v1/building/create", body)
 
@@ -158,27 +158,27 @@ func TestPublishHandlerCentralizedRoomStatusReturnsFullSnakeCaseDTO(t *testing.T
 	buildingID := bson.NewObjectID()
 	roomTypeID := bson.NewObjectID()
 	svc := &fakePublishService{
-		updateCentralizedRoomStatusResult: &model.HmdRoomCentralized{
-			CommonFields: model.CommonFields{ID: roomID, CreatedAt: 11, UpdatedAt: 22, Status: model.StatusActive, Version: 3},
+		updateCentralizedRoomStatusResult: &hmdmodel.HmdRoomCentralized{
+			CommonFields: commonmodel.CommonFields{ID: roomID, CreatedAt: 11, UpdatedAt: 22, Status: commonmodel.StatusActive, Version: 3},
 			ProjectID:    projectID,
 			BuildingID:   buildingID,
 			RoomTypeID:   roomTypeID,
 			RoomNo:       "1208",
-			RentMode:     model.RentModeWhole,
-			RoomStatus:   model.RoomStatusRented,
+			RentMode:     hmdmodel.RentModeWhole,
+			RoomStatus:   hmdmodel.RoomStatusRented,
 		},
 	}
 
 	resp := performPublishRequest(t, svc, "/api/v1/centralized_room/update_status", mustJSON(t, map[string]any{
 		"id":          roomID.Hex(),
-		"room_status": int(model.RoomStatusRented),
+		"room_status": int(hmdmodel.RoomStatusRented),
 	}))
 
 	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
 	if svc.updateCentralizedRoomStatusCalls != 1 {
 		t.Fatalf("expected UpdateCentralizedRoomStatus to be called once, got %d", svc.updateCentralizedRoomStatusCalls)
 	}
-	if svc.updateCentralizedRoomStatusInput.ID != roomID || svc.updateCentralizedRoomStatusInput.RoomStatus != int(model.RoomStatusRented) {
+	if svc.updateCentralizedRoomStatusInput.ID != roomID || svc.updateCentralizedRoomStatusInput.RoomStatus != int(hmdmodel.RoomStatusRented) {
 		t.Fatalf("unexpected room status input: %#v", svc.updateCentralizedRoomStatusInput)
 	}
 	var data map[string]any
@@ -188,7 +188,7 @@ func TestPublishHandlerCentralizedRoomStatusReturnsFullSnakeCaseDTO(t *testing.T
 	if data["id"] != roomID.Hex() || data["project_id"] != projectID.Hex() || data["building_id"] != buildingID.Hex() || data["room_type_id"] != roomTypeID.Hex() {
 		t.Fatalf("unexpected centralized room response: %#v", data)
 	}
-	if data["room_status"] != float64(model.RoomStatusRented) {
+	if data["room_status"] != float64(hmdmodel.RoomStatusRented) {
 		t.Fatalf("unexpected room status: %#v", data["room_status"])
 	}
 	assertJSONKeys(t, envelope.Data, []string{"room_no", "rent_mode", "room_status", "room_type_id", "created_at"}, []string{"roomNo", "rentMode", "roomStatus", "roomTypeId", "createdAt"})
@@ -206,7 +206,7 @@ func TestPublishHandlerRoomStatusRequiresExplicitAllowedTarget(t *testing.T) {
 		},
 		{
 			name: "zero room_status",
-			body: mustJSON(t, map[string]any{"id": roomID.Hex(), "room_status": int(model.RoomStatusUnspecified)}),
+			body: mustJSON(t, map[string]any{"id": roomID.Hex(), "room_status": int(hmdmodel.RoomStatusUnspecified)}),
 		},
 		{
 			name: "unknown room_status",
@@ -232,14 +232,14 @@ func TestPublishHandlerDecentralizedRoomDTOHasNoRoomTypeID(t *testing.T) {
 	decentralizedID := bson.NewObjectID()
 	ignoredRoomTypeID := bson.NewObjectID()
 	svc := &fakePublishService{
-		createDecentralizedRoomResult: &model.HmdRoomDecentralized{
-			CommonFields:      model.CommonFields{ID: roomID},
+		createDecentralizedRoomResult: &hmdmodel.HmdRoomDecentralized{
+			CommonFields:      commonmodel.CommonFields{ID: roomID},
 			DecentralizedID:   decentralizedID,
 			RoomNo:            "3-201",
-			RentMode:          model.RentModeShared,
-			RoomStatus:        model.RoomStatusAvailable,
-			RoomFacilities:    []model.RoomFacility{model.RoomFacilityBed},
-			ListingFacilities: []model.ListingFacility{model.ListingFacilitySubway},
+			RentMode:          hmdmodel.RentModeShared,
+			RoomStatus:        hmdmodel.RoomStatusAvailable,
+			RoomFacilities:    []hmdmodel.RoomFacility{hmdmodel.RoomFacilityBed},
+			ListingFacilities: []hmdmodel.ListingFacility{hmdmodel.ListingFacilitySubway},
 		},
 	}
 
@@ -247,7 +247,7 @@ func TestPublishHandlerDecentralizedRoomDTOHasNoRoomTypeID(t *testing.T) {
 		"decentralized_id": decentralizedID.Hex(),
 		"room_type_id":     ignoredRoomTypeID.Hex(),
 		"room_no":          "3-201",
-		"rent_mode":        string(model.RentModeShared),
+		"rent_mode":        string(hmdmodel.RentModeShared),
 	}))
 
 	envelope := assertPublishResponse(t, resp, http.StatusOK, 0)
@@ -381,55 +381,55 @@ type fakePublishService struct {
 	listCentralizedProjectsInput  publishsvc.ListCentralizedProjectsInput
 	createBuildingCalls           int
 	createBuildingInput           publishsvc.CreateBuildingInput
-	createBuildingResult          *model.HmdBuilding
+	createBuildingResult          *hmdmodel.HmdBuilding
 	createBuildingErr             error
 	getBuildingCalls              int
-	getBuildingResult             *model.HmdBuilding
+	getBuildingResult             *hmdmodel.HmdBuilding
 	getBuildingErr                error
-	listBuildingsByProjectResult  []model.HmdBuilding
+	listBuildingsByProjectResult  []hmdmodel.HmdBuilding
 
 	updateCentralizedRoomStatusCalls  int
-	updateCentralizedRoomStatusResult *model.HmdRoomCentralized
+	updateCentralizedRoomStatusResult *hmdmodel.HmdRoomCentralized
 	updateCentralizedRoomStatusInput  publishsvc.UpdateCentralizedRoomStatusInput
 
 	createDecentralizedRoomCalls  int
 	createDecentralizedRoomInput  publishsvc.CreateDecentralizedRoomInput
-	createDecentralizedRoomResult *model.HmdRoomDecentralized
+	createDecentralizedRoomResult *hmdmodel.HmdRoomDecentralized
 }
 
-func (f *fakePublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*model.HmdCentralized, error) {
+func (f *fakePublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
 	f.createCentralizedProjectCalls++
 	return nil, nil
 }
 
-func (f *fakePublishService) ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
+func (f *fakePublishService) ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error) {
 	f.listCentralizedProjectsCalls++
 	f.listCentralizedProjectsInput = input
 	return nil, nil
 }
 
-func (f *fakePublishService) CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*model.HmdBuilding, error) {
+func (f *fakePublishService) CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*hmdmodel.HmdBuilding, error) {
 	f.createBuildingCalls++
 	f.createBuildingInput = input
 	return f.createBuildingResult, f.createBuildingErr
 }
 
-func (f *fakePublishService) GetBuilding(ctx context.Context, id bson.ObjectID) (*model.HmdBuilding, error) {
+func (f *fakePublishService) GetBuilding(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdBuilding, error) {
 	f.getBuildingCalls++
 	return f.getBuildingResult, f.getBuildingErr
 }
 
-func (f *fakePublishService) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error) {
+func (f *fakePublishService) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdBuilding, error) {
 	return f.listBuildingsByProjectResult, nil
 }
 
-func (f *fakePublishService) UpdateCentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateCentralizedRoomStatusInput) (*model.HmdRoomCentralized, error) {
+func (f *fakePublishService) UpdateCentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateCentralizedRoomStatusInput) (*hmdmodel.HmdRoomCentralized, error) {
 	f.updateCentralizedRoomStatusCalls++
 	f.updateCentralizedRoomStatusInput = input
 	return f.updateCentralizedRoomStatusResult, nil
 }
 
-func (f *fakePublishService) CreateDecentralizedRoom(ctx context.Context, input publishsvc.CreateDecentralizedRoomInput) (*model.HmdRoomDecentralized, error) {
+func (f *fakePublishService) CreateDecentralizedRoom(ctx context.Context, input publishsvc.CreateDecentralizedRoomInput) (*hmdmodel.HmdRoomDecentralized, error) {
 	f.createDecentralizedRoomCalls++
 	f.createDecentralizedRoomInput = input
 	return f.createDecentralizedRoomResult, nil
@@ -437,114 +437,114 @@ func (f *fakePublishService) CreateDecentralizedRoom(ctx context.Context, input 
 
 type unimplementedPublishService struct{}
 
-func (unimplementedPublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*model.HmdCentralized, error) {
+func (unimplementedPublishService) CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
 	panic("unexpected CreateCentralizedProject call")
 }
 
-func (unimplementedPublishService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*model.HmdCentralized, error) {
+func (unimplementedPublishService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
 	panic("unexpected GetCentralizedProject call")
 }
 
-func (unimplementedPublishService) ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
+func (unimplementedPublishService) ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error) {
 	panic("unexpected ListCentralizedProjects call")
 }
 
-func (unimplementedPublishService) UpdateCentralizedProject(ctx context.Context, input publishsvc.UpdateCentralizedProjectInput) (*model.HmdCentralized, error) {
+func (unimplementedPublishService) UpdateCentralizedProject(ctx context.Context, input publishsvc.UpdateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
 	panic("unexpected UpdateCentralizedProject call")
 }
 
-func (unimplementedPublishService) CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*model.HmdBuilding, error) {
+func (unimplementedPublishService) CreateBuilding(ctx context.Context, input publishsvc.CreateBuildingInput) (*hmdmodel.HmdBuilding, error) {
 	panic("unexpected CreateBuilding call")
 }
 
-func (unimplementedPublishService) GetBuilding(ctx context.Context, id bson.ObjectID) (*model.HmdBuilding, error) {
+func (unimplementedPublishService) GetBuilding(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdBuilding, error) {
 	panic("unexpected GetBuilding call")
 }
 
-func (unimplementedPublishService) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error) {
+func (unimplementedPublishService) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdBuilding, error) {
 	panic("unexpected ListBuildingsByProject call")
 }
 
-func (unimplementedPublishService) UpdateBuilding(ctx context.Context, input publishsvc.UpdateBuildingInput) (*model.HmdBuilding, error) {
+func (unimplementedPublishService) UpdateBuilding(ctx context.Context, input publishsvc.UpdateBuildingInput) (*hmdmodel.HmdBuilding, error) {
 	panic("unexpected UpdateBuilding call")
 }
 
-func (unimplementedPublishService) CreateRoomType(ctx context.Context, input publishsvc.CreateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
+func (unimplementedPublishService) CreateRoomType(ctx context.Context, input publishsvc.CreateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error) {
 	panic("unexpected CreateRoomType call")
 }
 
-func (unimplementedPublishService) GetRoomType(ctx context.Context, id bson.ObjectID) (*model.HmdRoomTypeCentralized, error) {
+func (unimplementedPublishService) GetRoomType(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomTypeCentralized, error) {
 	panic("unexpected GetRoomType call")
 }
 
-func (unimplementedPublishService) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+func (unimplementedPublishService) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
 	panic("unexpected ListRoomTypesByProject call")
 }
 
-func (unimplementedPublishService) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+func (unimplementedPublishService) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
 	panic("unexpected ListRoomTypesByBuilding call")
 }
 
-func (unimplementedPublishService) UpdateRoomType(ctx context.Context, input publishsvc.UpdateRoomTypeInput) (*model.HmdRoomTypeCentralized, error) {
+func (unimplementedPublishService) UpdateRoomType(ctx context.Context, input publishsvc.UpdateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error) {
 	panic("unexpected UpdateRoomType call")
 }
 
-func (unimplementedPublishService) CreateCentralizedRoom(ctx context.Context, input publishsvc.CreateCentralizedRoomInput) (*model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) CreateCentralizedRoom(ctx context.Context, input publishsvc.CreateCentralizedRoomInput) (*hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected CreateCentralizedRoom call")
 }
 
-func (unimplementedPublishService) GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected GetCentralizedRoom call")
 }
 
-func (unimplementedPublishService) ListCentralizedRoomsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) ListCentralizedRoomsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected ListCentralizedRoomsByProject call")
 }
 
-func (unimplementedPublishService) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected ListCentralizedRoomsByBuilding call")
 }
 
-func (unimplementedPublishService) UpdateCentralizedRoom(ctx context.Context, input publishsvc.UpdateCentralizedRoomInput) (*model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) UpdateCentralizedRoom(ctx context.Context, input publishsvc.UpdateCentralizedRoomInput) (*hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected UpdateCentralizedRoom call")
 }
 
-func (unimplementedPublishService) UpdateCentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateCentralizedRoomStatusInput) (*model.HmdRoomCentralized, error) {
+func (unimplementedPublishService) UpdateCentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateCentralizedRoomStatusInput) (*hmdmodel.HmdRoomCentralized, error) {
 	panic("unexpected UpdateCentralizedRoomStatus call")
 }
 
-func (unimplementedPublishService) CreateDecentralizedCommunity(ctx context.Context, input publishsvc.CreateDecentralizedCommunityInput) (*model.HmdDecentralized, error) {
+func (unimplementedPublishService) CreateDecentralizedCommunity(ctx context.Context, input publishsvc.CreateDecentralizedCommunityInput) (*hmdmodel.HmdDecentralized, error) {
 	panic("unexpected CreateDecentralizedCommunity call")
 }
 
-func (unimplementedPublishService) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*model.HmdDecentralized, error) {
+func (unimplementedPublishService) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error) {
 	panic("unexpected GetDecentralizedCommunity call")
 }
 
-func (unimplementedPublishService) ListDecentralizedCommunities(ctx context.Context, input publishsvc.ListDecentralizedCommunitiesInput) ([]model.HmdDecentralized, error) {
+func (unimplementedPublishService) ListDecentralizedCommunities(ctx context.Context, input publishsvc.ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error) {
 	panic("unexpected ListDecentralizedCommunities call")
 }
 
-func (unimplementedPublishService) UpdateDecentralizedCommunity(ctx context.Context, input publishsvc.UpdateDecentralizedCommunityInput) (*model.HmdDecentralized, error) {
+func (unimplementedPublishService) UpdateDecentralizedCommunity(ctx context.Context, input publishsvc.UpdateDecentralizedCommunityInput) (*hmdmodel.HmdDecentralized, error) {
 	panic("unexpected UpdateDecentralizedCommunity call")
 }
 
-func (unimplementedPublishService) CreateDecentralizedRoom(ctx context.Context, input publishsvc.CreateDecentralizedRoomInput) (*model.HmdRoomDecentralized, error) {
+func (unimplementedPublishService) CreateDecentralizedRoom(ctx context.Context, input publishsvc.CreateDecentralizedRoomInput) (*hmdmodel.HmdRoomDecentralized, error) {
 	panic("unexpected CreateDecentralizedRoom call")
 }
 
-func (unimplementedPublishService) GetDecentralizedRoom(ctx context.Context, id bson.ObjectID) (*model.HmdRoomDecentralized, error) {
+func (unimplementedPublishService) GetDecentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomDecentralized, error) {
 	panic("unexpected GetDecentralizedRoom call")
 }
 
-func (unimplementedPublishService) ListDecentralizedRoomsByCommunity(ctx context.Context, decentralizedID bson.ObjectID) ([]model.HmdRoomDecentralized, error) {
+func (unimplementedPublishService) ListDecentralizedRoomsByCommunity(ctx context.Context, decentralizedID bson.ObjectID) ([]hmdmodel.HmdRoomDecentralized, error) {
 	panic("unexpected ListDecentralizedRoomsByCommunity call")
 }
 
-func (unimplementedPublishService) UpdateDecentralizedRoom(ctx context.Context, input publishsvc.UpdateDecentralizedRoomInput) (*model.HmdRoomDecentralized, error) {
+func (unimplementedPublishService) UpdateDecentralizedRoom(ctx context.Context, input publishsvc.UpdateDecentralizedRoomInput) (*hmdmodel.HmdRoomDecentralized, error) {
 	panic("unexpected UpdateDecentralizedRoom call")
 }
 
-func (unimplementedPublishService) UpdateDecentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateDecentralizedRoomStatusInput) (*model.HmdRoomDecentralized, error) {
+func (unimplementedPublishService) UpdateDecentralizedRoomStatus(ctx context.Context, input publishsvc.UpdateDecentralizedRoomStatusInput) (*hmdmodel.HmdRoomDecentralized, error) {
 	panic("unexpected UpdateDecentralizedRoomStatus call")
 }

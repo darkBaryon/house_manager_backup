@@ -2,19 +2,21 @@ package publish
 
 import (
 	"context"
+	"fmt"
 
 	hmddomain "house-manager/internal/domain/hmd"
+	"house-manager/pkg/errcode"
 )
 
 type mutationPublisher struct {
-	hpd hpdApplier
+	listingProjection listingProjectionApplier
 }
 
 func (p mutationPublisher) Apply(ctx context.Context, changes []hmddomain.HmdChange) error {
-	if p.hpd == nil {
-		return nil
+	if p.listingProjection == nil {
+		return errcode.InternalError.WithError(fmt.Errorf("listing projection service is required"))
 	}
-	return p.hpd.Apply(ctx, changes)
+	return p.listingProjection.Apply(ctx, changes)
 }
 
 func resolveHmdMutation[T any](ctx context.Context, publisher mutationPublisher, result *hmddomain.HmdMutationResult[T], err error) (*T, error) {

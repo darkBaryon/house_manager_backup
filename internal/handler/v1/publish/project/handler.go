@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"github.com/gin-gonic/gin"
@@ -12,10 +12,10 @@ import (
 )
 
 type Service interface {
-	CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*model.HmdCentralized, error)
-	GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*model.HmdCentralized, error)
-	ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]model.HmdCentralized, error)
-	UpdateCentralizedProject(ctx context.Context, input publishsvc.UpdateCentralizedProjectInput) (*model.HmdCentralized, error)
+	CreateCentralizedProject(ctx context.Context, input publishsvc.CreateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error)
+	GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error)
+	ListCentralizedProjects(ctx context.Context, input publishsvc.ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error)
+	UpdateCentralizedProject(ctx context.Context, input publishsvc.UpdateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error)
 }
 
 type Handler struct {

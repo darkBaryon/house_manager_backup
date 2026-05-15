@@ -2,7 +2,7 @@ package building
 
 import (
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
 type createRequest struct {
@@ -39,7 +39,7 @@ type response struct {
 	ListingFacilities []string `json:"listing_facilities"`
 }
 
-func toResponse(building *model.HmdBuilding) *response {
+func toResponse(building *hmdmodel.HmdBuilding) *response {
 	if building == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func toResponse(building *model.HmdBuilding) *response {
 	}
 }
 
-func toListResponse(buildings []model.HmdBuilding) common.ListResponse[response] {
+func toListResponse(buildings []hmdmodel.HmdBuilding) common.ListResponse[response] {
 	list := make([]response, 0, len(buildings))
 	for i := range buildings {
 		item := toResponse(&buildings[i])

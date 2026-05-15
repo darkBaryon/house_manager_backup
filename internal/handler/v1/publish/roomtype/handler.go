@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +12,11 @@ import (
 )
 
 type Service interface {
-	CreateRoomType(ctx context.Context, input publishsvc.CreateRoomTypeInput) (*model.HmdRoomTypeCentralized, error)
-	GetRoomType(ctx context.Context, id bson.ObjectID) (*model.HmdRoomTypeCentralized, error)
-	ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error)
-	ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error)
-	UpdateRoomType(ctx context.Context, input publishsvc.UpdateRoomTypeInput) (*model.HmdRoomTypeCentralized, error)
+	CreateRoomType(ctx context.Context, input publishsvc.CreateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error)
+	GetRoomType(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomTypeCentralized, error)
+	ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error)
+	ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error)
+	UpdateRoomType(ctx context.Context, input publishsvc.UpdateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error)
 }
 
 type Handler struct {

@@ -2,15 +2,13 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateDecentralizedCommunity(ctx context.Context, input CreateDecentralizedCommunityInput) (*HmdMutationResult[model.HmdDecentralized], error) {
-	entity := &model.HmdDecentralized{
+func (s *Service) CreateDecentralizedCommunity(ctx context.Context, input CreateDecentralizedCommunityInput) (*HmdMutationResult[hmdmodel.HmdDecentralized], error) {
+	entity := &hmdmodel.HmdDecentralized{
 		CommunityName: strings.TrimSpace(input.CommunityName),
 		City:          strings.TrimSpace(input.City),
 		District:      strings.TrimSpace(input.District),
@@ -43,32 +41,21 @@ func (s *Service) CreateDecentralizedCommunity(ctx context.Context, input Create
 	}), nil
 }
 
-func (s *Service) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*model.HmdDecentralized, error) {
+func (s *Service) GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error) {
 	return s.requireDecentralized(ctx, id, "get decentralized community")
 }
 
-func (s *Service) ListDecentralizedCommunities(ctx context.Context, input ListDecentralizedCommunitiesInput) ([]model.HmdDecentralized, error) {
+func (s *Service) ListDecentralizedCommunities(ctx context.Context, input ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error) {
 	city := strings.TrimSpace(input.City)
 	district := strings.TrimSpace(input.District)
-	if city == "" {
-		return nil, invalidParamf("list decentralized communities: city is required")
-	}
-	var (
-		communities []model.HmdDecentralized
-		err         error
-	)
-	if district != "" {
-		communities, err = s.decentralizedRepo.ListByDistrict(ctx, city, district)
-	} else {
-		communities, err = s.decentralizedRepo.ListByCity(ctx, city)
-	}
+	communities, err := s.decentralizedRepo.List(ctx, city, district)
 	if err != nil {
 		return nil, databasef("list decentralized communities: %w", err)
 	}
 	return communities, nil
 }
 
-func (s *Service) UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*HmdMutationResult[model.HmdDecentralized], error) {
+func (s *Service) UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*HmdMutationResult[hmdmodel.HmdDecentralized], error) {
 	community, err := s.requireDecentralized(ctx, input.ID, "update decentralized community")
 	if err != nil {
 		return nil, err

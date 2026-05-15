@@ -1,8 +1,11 @@
 package wire
 
 import (
+	"context"
+
 	hmddomain "house-manager/internal/domain/hmd"
-	hpddomain "house-manager/internal/domain/hpd"
+	"house-manager/internal/domain/listingprojection"
+	"house-manager/internal/domain/publishaccess"
 	repohmd "house-manager/internal/repository/hmd"
 	repohpd "house-manager/internal/repository/hpd"
 	dbmongo "house-manager/pkg/database/mongo"
@@ -42,6 +45,36 @@ func newHpdMiniappListingRepository(client *dbmongo.Client) *repohpd.MiniappList
 	return repohpd.NewMiniappListingRepository(client)
 }
 
+func newHpdEntrustRelationRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.EntrustRelationRepository, error) {
+	repo := repohpd.NewEntrustRelationRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
+func newHpdMiniappProjector(
+	hpdListingRepo *repohpd.ListingRepository,
+	hpdMiniappListingRepo *repohpd.MiniappListingRepository,
+	hmdCentralizedRepo *repohmd.CentralizedRepository,
+	hmdBuildingRepo *repohmd.BuildingRepository,
+	hmdDecentralizedRepo *repohmd.DecentralizedRepository,
+	hmdRoomTypeCentralizedRepo *repohmd.RoomTypeCentralizedRepository,
+	hmdRoomCentralizedRepo *repohmd.RoomCentralizedRepository,
+	hmdRoomDecentralizedRepo *repohmd.RoomDecentralizedRepository,
+) *listingprojection.MiniappProjector {
+	return listingprojection.NewMiniappProjector(
+		hpdListingRepo,
+		hpdMiniappListingRepo,
+		hmdCentralizedRepo,
+		hmdBuildingRepo,
+		hmdDecentralizedRepo,
+		hmdRoomTypeCentralizedRepo,
+		hmdRoomCentralizedRepo,
+		hmdRoomDecentralizedRepo,
+	)
+}
+
 var DomainHmdSet = wire.NewSet(
 	newHmdCentralizedRepository,
 	newHmdBuildingRepository,
@@ -52,8 +85,17 @@ var DomainHmdSet = wire.NewSet(
 	hmddomain.NewService,
 )
 
-var DomainHpdSet = wire.NewSet(
+var HpdStorageSet = wire.NewSet(
 	newHpdListingRepository,
 	newHpdMiniappListingRepository,
-	hpddomain.NewService,
+	newHpdEntrustRelationRepository,
+)
+
+var ListingProjectionSet = wire.NewSet(
+	newHpdMiniappProjector,
+	listingprojection.NewService,
+)
+
+var PublishAccessSet = wire.NewSet(
+	publishaccess.NewService,
 )

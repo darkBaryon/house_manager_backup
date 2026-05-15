@@ -2,36 +2,34 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateDecentralizedRoom(ctx context.Context, input CreateDecentralizedRoomInput) (*HmdMutationResult[model.HmdRoomDecentralized], error) {
+func (s *Service) CreateDecentralizedRoom(ctx context.Context, input CreateDecentralizedRoomInput) (*HmdMutationResult[hmdmodel.HmdRoomDecentralized], error) {
 	community, err := s.requireDecentralized(ctx, input.DecentralizedID, "create decentralized room")
 	if err != nil {
 		return nil, err
 	}
 
-	entity := &model.HmdRoomDecentralized{
+	entity := &hmdmodel.HmdRoomDecentralized{
 		DecentralizedID:   community.ID,
 		RoomNo:            strings.TrimSpace(input.RoomNo),
 		FloorNo:           input.FloorNo,
-		RentMode:          model.RentMode(strings.TrimSpace(input.RentMode)),
+		RentMode:          hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		LayoutText:        strings.TrimSpace(input.LayoutText),
 		AreaSize:          input.AreaSize,
-		Orientation:       model.Orientation(strings.TrimSpace(input.Orientation)),
-		DecorationLevel:   model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		PaymentCycle:      model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		Orientation:       hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		DecorationLevel:   hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		PaymentCycle:      hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		Rent:              input.Rent,
 		Deposit:           input.Deposit,
 		ServiceFee:        input.ServiceFee,
-		AgencyFeeMode:     model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		AgencyFeeMode:     hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		AgencyFeeValue:    input.AgencyFeeValue,
-		ViewingTimeRule:   model.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
-		StartRentRule:     model.StartRentRule(strings.TrimSpace(input.StartRentRule)),
+		ViewingTimeRule:   hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
+		StartRentRule:     hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
 		Images:            toTaggedImages(input.Images),
 		RoomFacilities:    toRoomFacilities(input.RoomFacilities),
 		ListingFacilities: toListingFacilities(input.ListingFacilities),
@@ -54,11 +52,11 @@ func (s *Service) CreateDecentralizedRoom(ctx context.Context, input CreateDecen
 	return hmdMutationResult(entity, decentralizedRoomChange(HmdChangeCreated, entity)), nil
 }
 
-func (s *Service) GetDecentralizedRoom(ctx context.Context, id bson.ObjectID) (*model.HmdRoomDecentralized, error) {
+func (s *Service) GetDecentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomDecentralized, error) {
 	return s.requireDecentralizedRoom(ctx, id, "get decentralized room")
 }
 
-func (s *Service) ListDecentralizedRoomsByCommunity(ctx context.Context, decentralizedID bson.ObjectID) ([]model.HmdRoomDecentralized, error) {
+func (s *Service) ListDecentralizedRoomsByCommunity(ctx context.Context, decentralizedID bson.ObjectID) ([]hmdmodel.HmdRoomDecentralized, error) {
 	if _, err := s.requireDecentralized(ctx, decentralizedID, "list decentralized rooms by community"); err != nil {
 		return nil, err
 	}
@@ -69,7 +67,7 @@ func (s *Service) ListDecentralizedRoomsByCommunity(ctx context.Context, decentr
 	return rooms, nil
 }
 
-func (s *Service) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecentralizedRoomInput) (*HmdMutationResult[model.HmdRoomDecentralized], error) {
+func (s *Service) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecentralizedRoomInput) (*HmdMutationResult[hmdmodel.HmdRoomDecentralized], error) {
 	room, err := s.requireDecentralizedRoom(ctx, input.ID, "update decentralized room")
 	if err != nil {
 		return nil, err
@@ -87,19 +85,19 @@ func (s *Service) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecen
 	fields := bsonFields(
 		"room_no", roomNo,
 		"floor_no", input.FloorNo,
-		"rent_mode", model.RentMode(strings.TrimSpace(input.RentMode)),
+		"rent_mode", hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		"layout_text", strings.TrimSpace(input.LayoutText),
 		"area_size", input.AreaSize,
-		"orientation", model.Orientation(strings.TrimSpace(input.Orientation)),
-		"decoration_level", model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		"payment_cycle", model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		"payment_cycle", hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		"rent", input.Rent,
 		"deposit", input.Deposit,
 		"service_fee", input.ServiceFee,
-		"agency_fee_mode", model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		"agency_fee_mode", hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		"agency_fee_value", input.AgencyFeeValue,
-		"viewing_time_rule", model.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
-		"start_rent_rule", model.StartRentRule(strings.TrimSpace(input.StartRentRule)),
+		"viewing_time_rule", hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
+		"start_rent_rule", hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
 		"images", toTaggedImages(input.Images),
 		"room_facilities", toRoomFacilities(input.RoomFacilities),
 		"listing_facilities", toListingFacilities(input.ListingFacilities),
@@ -114,7 +112,7 @@ func (s *Service) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecen
 	return hmdMutationResult(updated, decentralizedRoomChange(HmdChangeUpdated, updated)), nil
 }
 
-func (s *Service) UpdateDecentralizedRoomStatus(ctx context.Context, input UpdateDecentralizedRoomStatusInput) (*HmdMutationResult[model.HmdRoomDecentralized], error) {
+func (s *Service) UpdateDecentralizedRoomStatus(ctx context.Context, input UpdateDecentralizedRoomStatusInput) (*HmdMutationResult[hmdmodel.HmdRoomDecentralized], error) {
 	room, err := s.requireDecentralizedRoom(ctx, input.ID, "update decentralized room status")
 	if err != nil {
 		return nil, err
@@ -129,7 +127,7 @@ func (s *Service) UpdateDecentralizedRoomStatus(ctx context.Context, input Updat
 	return hmdMutationResult(updated, decentralizedRoomChange(HmdChangeStatusUpdated, updated)), nil
 }
 
-func decentralizedRoomChange(action HmdChangeAction, room *model.HmdRoomDecentralized) HmdChange {
+func decentralizedRoomChange(action HmdChangeAction, room *hmdmodel.HmdRoomDecentralized) HmdChange {
 	return HmdChange{
 		Action:          action,
 		EntityType:      HmdEntityRoomDecentralized,

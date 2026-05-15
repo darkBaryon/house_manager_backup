@@ -2,7 +2,7 @@ package room
 
 import (
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -208,7 +208,7 @@ type decentralizedResponse struct {
 	ListingFacilities []string                     `json:"listing_facilities"`
 }
 
-func toCentralizedResponse(room *model.HmdRoomCentralized) *centralizedResponse {
+func toCentralizedResponse(room *hmdmodel.HmdRoomCentralized) *centralizedResponse {
 	if room == nil {
 		return nil
 	}
@@ -239,7 +239,7 @@ func toCentralizedResponse(room *model.HmdRoomCentralized) *centralizedResponse 
 	}
 }
 
-func toCentralizedListResponse(rooms []model.HmdRoomCentralized) common.ListResponse[centralizedResponse] {
+func toCentralizedListResponse(rooms []hmdmodel.HmdRoomCentralized) common.ListResponse[centralizedResponse] {
 	list := make([]centralizedResponse, 0, len(rooms))
 	for i := range rooms {
 		item := toCentralizedResponse(&rooms[i])
@@ -250,7 +250,7 @@ func toCentralizedListResponse(rooms []model.HmdRoomCentralized) common.ListResp
 	return common.ListResponse[centralizedResponse]{List: list}
 }
 
-func toDecentralizedResponse(room *model.HmdRoomDecentralized) *decentralizedResponse {
+func toDecentralizedResponse(room *hmdmodel.HmdRoomDecentralized) *decentralizedResponse {
 	if room == nil {
 		return nil
 	}
@@ -279,7 +279,7 @@ func toDecentralizedResponse(room *model.HmdRoomDecentralized) *decentralizedRes
 	}
 }
 
-func toDecentralizedListResponse(rooms []model.HmdRoomDecentralized) common.ListResponse[decentralizedResponse] {
+func toDecentralizedListResponse(rooms []hmdmodel.HmdRoomDecentralized) common.ListResponse[decentralizedResponse] {
 	list := make([]decentralizedResponse, 0, len(rooms))
 	for i := range rooms {
 		item := toDecentralizedResponse(&rooms[i])

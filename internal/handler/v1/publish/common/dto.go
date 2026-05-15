@@ -1,9 +1,9 @@
 package common
 
 import (
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	commonmodel "house-manager/internal/model/common"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
 type ListResponse[T any] struct {
@@ -28,7 +28,7 @@ type TaggedImageResponse struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-func EntityMeta(fields model.CommonFields) EntityMetaResponse {
+func EntityMeta(fields commonmodel.CommonFields) EntityMetaResponse {
 	return EntityMetaResponse{
 		ID:        ObjectIDHex(fields.ID),
 		CreatedAt: fields.CreatedAt,
@@ -38,14 +38,14 @@ func EntityMeta(fields model.CommonFields) EntityMetaResponse {
 	}
 }
 
-func GeoPoint(point *model.GeoPoint) *GeoPointResponse {
+func GeoPoint(point *hmdmodel.GeoPoint) *GeoPointResponse {
 	if point == nil {
 		return nil
 	}
 	return &GeoPointResponse{Lng: point.Lng, Lat: point.Lat}
 }
 
-func TaggedImages(images []model.TaggedImage) []TaggedImageResponse {
+func TaggedImages(images []hmdmodel.TaggedImage) []TaggedImageResponse {
 	if len(images) == 0 {
 		return []TaggedImageResponse{}
 	}
@@ -56,7 +56,7 @@ func TaggedImages(images []model.TaggedImage) []TaggedImageResponse {
 	return out
 }
 
-func ListingFacilities(items []model.ListingFacility) []string {
+func ListingFacilities(items []hmdmodel.ListingFacility) []string {
 	if len(items) == 0 {
 		return []string{}
 	}
@@ -67,7 +67,7 @@ func ListingFacilities(items []model.ListingFacility) []string {
 	return out
 }
 
-func RoomFacilities(items []model.RoomFacility) []string {
+func RoomFacilities(items []hmdmodel.RoomFacility) []string {
 	if len(items) == 0 {
 		return []string{}
 	}

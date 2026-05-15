@@ -26,7 +26,7 @@ AI 找房与发房项目的 Go 后端服务。
 handler/v1/{terminal}/{module}
   -> service/{terminal}/{module}
     -> domain/{capability}
-      -> repository/{data-module}
+      -> repository/{module-or-terminal_module}
         -> MongoDB / Redis
 ```
 
@@ -35,17 +35,38 @@ handler/v1/{terminal}/{module}
 ```text
 handler/v1/miniapp/auth
   -> service/miniapp/auth
-    -> domain/auth
+    -> repository/miniapp_auth.UserAuthRepository / UserRepository / UserProfileExtRepository
 
 handler/v1/miniapp/house
   -> service/miniapp/house
-    -> repository/hpd
+    -> repository/hpd.MiniappListingRepository
 
 handler/v1/publish
   -> service/publish
     -> domain/hmd
-    -> domain/hpd
+    -> domain/listingprojection.Service
+    -> domain/publishaccess.Service
 ```
+
+三端边界：
+
+- `miniapp`：小程序端，只走 `handler/v1/miniapp/* -> service/miniapp/*`，接口契约见 `shared-docs/api/miniapp-api.md`。
+- `publish`：发房 Web，只走 `handler/v1/publish/* -> service/publish` 和 `service/publish/auth`，接口契约见 `shared-docs/api/publish.md`。
+- `admin`：后台管理端后续独立走 `handler/v1/admin/* -> service/admin/*`，可以复用 `domain/*` 和 `repository/*`，但不复用 miniapp 或 publish 的端侧 service。
+
+四层命名规则：
+
+- `model`：表达当前 Mongo 数据结构和枚举，不放 HTTP DTO。按数据库模块分包；每个模块目录固定 `model.go` 放集合常量和结构，`enum.go` 放枚举和值域方法，`validation.go` 放落库结构不变量。
+- `repository`：按上层接口模块命名，不按纯数据库模块命名；模块名冲突时必须加 terminal 前缀，例如 `miniapp_auth`、`publish_auth`。
+- `service`：按端侧入口命名，是三个前端的业务边界；跨端共享逻辑下沉到 `domain`。
+- `handler`：按端侧和 API 模块命名，只做 HTTP binding / DTO mapping / response，不直接编排 repository。
+
+Validation 边界：
+
+- `handler`：校验 HTTP DTO 形状、必填字段、ObjectID 字符串等传输层问题。
+- `service/domain`：校验业务规则、权限、数据作用域、状态流转和跨集合一致性。
+- `model/{module}/validation.go`：校验单个 Mongo model 的落库结构不变量，例如枚举取值、必填字段、非负数。
+- `repository`：只负责落库前调用对应 model validation，不承载业务判断。
 
 ## 当前接口状态
 
@@ -58,12 +79,24 @@ handler/v1/publish
 - 小程序找房：
   - `POST /api/v1/house/search`
   - `POST /api/v1/house/public_detail`
+- 小程序用户资料、收藏、足迹：
+  - `POST /api/v1/user/profile`
+  - `POST /api/v1/user/update_profile`
+  - `POST /api/v1/user/dashboard`
+  - `POST /api/v1/favorite/add`
+  - `POST /api/v1/favorite/remove`
+  - `POST /api/v1/favorite/list`
+  - `POST /api/v1/history/add`
+  - `POST /api/v1/history/list`
+- 发房端认证：
+  - `POST /api/v1/publish_auth/login`
+  - `POST /api/v1/publish_auth/session`
+  - `POST /api/v1/publish_auth/logout`
 - 发房端第一阶段 HMD 接口：
   - `POST /api/v1/{业务module}/{action}`
 
 待接入：
 
-- 小程序用户资料、收藏、足迹。
 - 管理端 API。
 
 ## 目录结构
@@ -75,20 +108,48 @@ internal/
   app/                      Gin 应用与 RouteGroup 注册
   config/                   配置读取
   domain/                   内部领域能力
-    auth/                   微信身份、用户初始化
     hmd/                    房源主数据领域能力
-    hpd/                    HPD 展示层投影
+    listingprojection/      HMD 变更到 HPD read model 的投影
+    publishaccess/          发房端 listing 归属与数据作用域基础
   handler/                  HTTP handler
     v1/miniapp/auth/        小程序认证接口
     v1/miniapp/house/       小程序找房接口
     v1/publish/             发房端接口
   middleware/               Auth / Logger / Recovery / RateLimit
-  model/                    结构、枚举、字段校验
+  model/                    数据库模型分包
+    common/                 通用落库字段与状态
+      model.go
+    auth/                   账号与身份：hs_usr_* / hs_adm_*
+      model.go
+      enum.go
+      validation.go
+    hmd/                    HMD 主数据模型
+      model.go
+      enum.go
+      validation.go
+    hpd/                    HPD 展示与归属模型
+      model.go
+      enum.go
+      validation.go
+    useractivity/           用户行为：收藏、足迹等
+      model.go
+      enum.go
+      validation.go
   repository/               Mongo repository
+    miniapp_auth/           小程序认证：用户、微信绑定、资料扩展
+    publish_auth/           发房端认证：员工、角色、权限、登录日志
+    favorite/               小程序收藏
+    history/                小程序足迹
+    hmd/                    HMD 主数据读写
+    hpd/                    HPD listing / miniapp read model / entrust relation
   service/                  端侧应用服务
     miniapp/auth/
     miniapp/house/
+    miniapp/favorite/
+    miniapp/history/
+    miniapp/user/
     publish/
+    publish/auth/
 pkg/                        基础设施与通用包
 wire/                       Wire provider
 shared-docs/                共享文档 submodule

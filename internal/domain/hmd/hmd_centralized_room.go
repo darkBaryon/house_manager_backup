@@ -2,38 +2,36 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentralizedRoomInput) (*HmdMutationResult[model.HmdRoomCentralized], error) {
+func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentralizedRoomInput) (*HmdMutationResult[hmdmodel.HmdRoomCentralized], error) {
 	project, building, roomType, err := s.validateCentralizedRoomDependencies(ctx, input.ProjectID, input.BuildingID, input.RoomTypeID, "create centralized room")
 	if err != nil {
 		return nil, err
 	}
 
-	entity := &model.HmdRoomCentralized{
+	entity := &hmdmodel.HmdRoomCentralized{
 		ProjectID:         project.ID,
 		BuildingID:        building.ID,
 		RoomTypeID:        roomTypeID(roomType),
 		RoomNo:            strings.TrimSpace(input.RoomNo),
 		FloorNo:           input.FloorNo,
-		RentMode:          model.RentMode(strings.TrimSpace(input.RentMode)),
+		RentMode:          hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		LayoutText:        strings.TrimSpace(input.LayoutText),
 		AreaSize:          input.AreaSize,
-		Orientation:       model.Orientation(strings.TrimSpace(input.Orientation)),
-		DecorationLevel:   model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		PaymentCycle:      model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		Orientation:       hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		DecorationLevel:   hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		PaymentCycle:      hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		Rent:              input.Rent,
 		Deposit:           input.Deposit,
 		ServiceFee:        input.ServiceFee,
-		AgencyFeeMode:     model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		AgencyFeeMode:     hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		AgencyFeeValue:    input.AgencyFeeValue,
-		ViewingTimeRule:   model.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
-		StartRentRule:     model.StartRentRule(strings.TrimSpace(input.StartRentRule)),
+		ViewingTimeRule:   hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
+		StartRentRule:     hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
 		Images:            toTaggedImages(input.Images),
 		RoomFacilities:    toRoomFacilities(input.RoomFacilities),
 		ListingFacilities: toListingFacilities(input.ListingFacilities),
@@ -56,11 +54,11 @@ func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentral
 	return hmdMutationResult(entity, centralizedRoomChange(HmdChangeCreated, entity)), nil
 }
 
-func (s *Service) GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*model.HmdRoomCentralized, error) {
+func (s *Service) GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomCentralized, error) {
 	return s.requireCentralizedRoom(ctx, id, "get centralized room")
 }
 
-func (s *Service) ListCentralizedRoomsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
+func (s *Service) ListCentralizedRoomsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
 	if _, err := s.requireCentralizedProject(ctx, projectID, "list centralized rooms by project"); err != nil {
 		return nil, err
 	}
@@ -71,7 +69,7 @@ func (s *Service) ListCentralizedRoomsByProject(ctx context.Context, projectID b
 	return rooms, nil
 }
 
-func (s *Service) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomCentralized, error) {
+func (s *Service) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomCentralized, error) {
 	if _, err := s.requireBuilding(ctx, buildingID, "list centralized rooms by building"); err != nil {
 		return nil, err
 	}
@@ -82,7 +80,7 @@ func (s *Service) ListCentralizedRoomsByBuilding(ctx context.Context, buildingID
 	return rooms, nil
 }
 
-func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentralizedRoomInput) (*HmdMutationResult[model.HmdRoomCentralized], error) {
+func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentralizedRoomInput) (*HmdMutationResult[hmdmodel.HmdRoomCentralized], error) {
 	room, err := s.requireCentralizedRoom(ctx, input.ID, "update centralized room")
 	if err != nil {
 		return nil, err
@@ -100,19 +98,19 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 	fields := bsonFields(
 		"room_no", roomNo,
 		"floor_no", input.FloorNo,
-		"rent_mode", model.RentMode(strings.TrimSpace(input.RentMode)),
+		"rent_mode", hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		"layout_text", strings.TrimSpace(input.LayoutText),
 		"area_size", input.AreaSize,
-		"orientation", model.Orientation(strings.TrimSpace(input.Orientation)),
-		"decoration_level", model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		"payment_cycle", model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		"payment_cycle", hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		"rent", input.Rent,
 		"deposit", input.Deposit,
 		"service_fee", input.ServiceFee,
-		"agency_fee_mode", model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		"agency_fee_mode", hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		"agency_fee_value", input.AgencyFeeValue,
-		"viewing_time_rule", model.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
-		"start_rent_rule", model.StartRentRule(strings.TrimSpace(input.StartRentRule)),
+		"viewing_time_rule", hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
+		"start_rent_rule", hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
 		"images", toTaggedImages(input.Images),
 		"room_facilities", toRoomFacilities(input.RoomFacilities),
 		"listing_facilities", toListingFacilities(input.ListingFacilities),
@@ -127,7 +125,7 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 	return hmdMutationResult(updated, centralizedRoomChange(HmdChangeUpdated, updated)), nil
 }
 
-func (s *Service) UpdateCentralizedRoomStatus(ctx context.Context, input UpdateCentralizedRoomStatusInput) (*HmdMutationResult[model.HmdRoomCentralized], error) {
+func (s *Service) UpdateCentralizedRoomStatus(ctx context.Context, input UpdateCentralizedRoomStatusInput) (*HmdMutationResult[hmdmodel.HmdRoomCentralized], error) {
 	room, err := s.requireCentralizedRoom(ctx, input.ID, "update centralized room status")
 	if err != nil {
 		return nil, err
@@ -142,7 +140,7 @@ func (s *Service) UpdateCentralizedRoomStatus(ctx context.Context, input UpdateC
 	return hmdMutationResult(updated, centralizedRoomChange(HmdChangeStatusUpdated, updated)), nil
 }
 
-func centralizedRoomChange(action HmdChangeAction, room *model.HmdRoomCentralized) HmdChange {
+func centralizedRoomChange(action HmdChangeAction, room *hmdmodel.HmdRoomCentralized) HmdChange {
 	return HmdChange{
 		Action:     action,
 		EntityType: HmdEntityRoomCentralized,

@@ -2,20 +2,18 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateBuilding(ctx context.Context, input CreateBuildingInput) (*HmdMutationResult[model.HmdBuilding], error) {
+func (s *Service) CreateBuilding(ctx context.Context, input CreateBuildingInput) (*HmdMutationResult[hmdmodel.HmdBuilding], error) {
 	project, err := s.requireCentralizedProject(ctx, input.ProjectID, "create building")
 	if err != nil {
 		return nil, err
 	}
 
-	entity := &model.HmdBuilding{
+	entity := &hmdmodel.HmdBuilding{
 		ProjectID:         project.ID,
 		BuildingName:      strings.TrimSpace(input.BuildingName),
 		BuildingCode:      strings.TrimSpace(input.BuildingCode),
@@ -52,11 +50,11 @@ func (s *Service) CreateBuilding(ctx context.Context, input CreateBuildingInput)
 	}), nil
 }
 
-func (s *Service) GetBuilding(ctx context.Context, id bson.ObjectID) (*model.HmdBuilding, error) {
+func (s *Service) GetBuilding(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdBuilding, error) {
 	return s.requireBuilding(ctx, id, "get building")
 }
 
-func (s *Service) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdBuilding, error) {
+func (s *Service) ListBuildingsByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdBuilding, error) {
 	if _, err := s.requireCentralizedProject(ctx, projectID, "list buildings by project"); err != nil {
 		return nil, err
 	}
@@ -67,7 +65,7 @@ func (s *Service) ListBuildingsByProject(ctx context.Context, projectID bson.Obj
 	return buildings, nil
 }
 
-func (s *Service) UpdateBuilding(ctx context.Context, input UpdateBuildingInput) (*HmdMutationResult[model.HmdBuilding], error) {
+func (s *Service) UpdateBuilding(ctx context.Context, input UpdateBuildingInput) (*HmdMutationResult[hmdmodel.HmdBuilding], error) {
 	building, err := s.requireBuilding(ctx, input.ID, "update building")
 	if err != nil {
 		return nil, err

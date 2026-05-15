@@ -2,13 +2,13 @@ package history
 
 import (
 	"context"
-	"strings"
-	"time"
-
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
+	useractivitymodel "house-manager/internal/model/useractivity"
 	"house-manager/internal/service/miniapp/listingview"
 	"house-manager/internal/service/miniapp/paging"
 	"house-manager/pkg/errcode"
+	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -19,14 +19,14 @@ type Service struct {
 }
 
 type historyRepository interface {
-	Upsert(ctx context.Context, entity *model.History) error
-	List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]model.History, error)
+	Upsert(ctx context.Context, entity *useractivitymodel.History) error
+	List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]useractivitymodel.History, error)
 	Count(ctx context.Context, userID bson.ObjectID) (int64, error)
 }
 
 type miniappListingRepository interface {
-	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error)
-	FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error)
+	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error)
+	FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]hpdmodel.HpdMiniappListing, error)
 }
 
 func NewService(history historyRepository, miniappListings miniappListingRepository) *Service {
@@ -41,14 +41,14 @@ func (s *Service) Add(ctx context.Context, input AddInput) (*AddResult, error) {
 		return nil, errcode.InvalidParam.WithErrorf("listing_id is required")
 	}
 	source := strings.TrimSpace(input.Source)
-	if !model.ValidHistorySource(source) {
+	if !useractivitymodel.ValidHistorySource(source) {
 		return nil, errcode.InvalidParam.WithErrorf("source is invalid")
 	}
 	if err := s.requireOnlineListing(ctx, input.ListingID); err != nil {
 		return nil, err
 	}
 	viewedAt := time.Now().Unix()
-	if err := s.history.Upsert(ctx, &model.History{
+	if err := s.history.Upsert(ctx, &useractivitymodel.History{
 		UserID:    input.UserID,
 		ListingID: input.ListingID,
 		Source:    source,
@@ -125,7 +125,7 @@ func (s *Service) requireOnlineListing(ctx context.Context, listingID bson.Objec
 	return nil
 }
 
-func historyListingIDs(items []model.History) []bson.ObjectID {
+func historyListingIDs(items []useractivitymodel.History) []bson.ObjectID {
 	if len(items) == 0 {
 		return nil
 	}
@@ -138,11 +138,11 @@ func historyListingIDs(items []model.History) []bson.ObjectID {
 	return ids
 }
 
-func orderHistoryItems(historyItems []model.History, listings []model.HpdMiniappListing) []ListItem {
+func orderHistoryItems(historyItems []useractivitymodel.History, listings []hpdmodel.HpdMiniappListing) []ListItem {
 	if len(historyItems) == 0 || len(listings) == 0 {
 		return []ListItem{}
 	}
-	byID := make(map[bson.ObjectID]model.HpdMiniappListing, len(listings))
+	byID := make(map[bson.ObjectID]hpdmodel.HpdMiniappListing, len(listings))
 	for _, listing := range listings {
 		byID[listing.ListingID] = listing
 	}

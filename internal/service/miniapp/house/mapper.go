@@ -1,19 +1,19 @@
 package house
 
 import (
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
 	"house-manager/internal/service/miniapp/listingview"
 )
 
-func ListingItems(listings []model.HpdMiniappListing) []ListItem {
+func ListingItems(listings []hpdmodel.HpdMiniappListing) []ListItem {
 	return listingview.Items(listings)
 }
 
-func ListingItem(listing model.HpdMiniappListing) ListItem {
+func ListingItem(listing hpdmodel.HpdMiniappListing) ListItem {
 	return listingview.FromListing(listing)
 }
 
-func listingDetail(listing model.HpdMiniappListing) Detail {
+func listingDetail(listing hpdmodel.HpdMiniappListing) Detail {
 	detail := Detail{
 		ListItem:      ListingItem(listing),
 		AddressText:   listing.AddressText,
@@ -29,7 +29,7 @@ func listingDetail(listing model.HpdMiniappListing) Detail {
 	return detail
 }
 
-func costItems(items []model.HpdCostItem) []CostItem {
+func costItems(items []hpdmodel.HpdCostItem) []CostItem {
 	if len(items) == 0 {
 		return []CostItem{}
 	}

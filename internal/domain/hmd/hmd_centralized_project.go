@@ -2,15 +2,13 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*HmdMutationResult[model.HmdCentralized], error) {
-	entity := &model.HmdCentralized{
+func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*HmdMutationResult[hmdmodel.HmdCentralized], error) {
+	entity := &hmdmodel.HmdCentralized{
 		ProjectName: strings.TrimSpace(input.ProjectName),
 		ProjectCode: strings.TrimSpace(input.ProjectCode),
 		City:        strings.TrimSpace(input.City),
@@ -43,11 +41,11 @@ func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCent
 	}), nil
 }
 
-func (s *Service) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*model.HmdCentralized, error) {
+func (s *Service) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
 	return s.requireCentralizedProject(ctx, id, "get centralized project")
 }
 
-func (s *Service) ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
+func (s *Service) ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error) {
 	city := strings.TrimSpace(input.City)
 	district := strings.TrimSpace(input.District)
 	projects, err := s.centralizedRepo.List(ctx, city, district)
@@ -57,7 +55,7 @@ func (s *Service) ListCentralizedProjects(ctx context.Context, input ListCentral
 	return projects, nil
 }
 
-func (s *Service) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*HmdMutationResult[model.HmdCentralized], error) {
+func (s *Service) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*HmdMutationResult[hmdmodel.HmdCentralized], error) {
 	project, err := s.requireCentralizedProject(ctx, input.ID, "update centralized project")
 	if err != nil {
 		return nil, err

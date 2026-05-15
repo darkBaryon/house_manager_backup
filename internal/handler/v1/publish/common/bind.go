@@ -2,12 +2,11 @@ package common
 
 import (
 	"fmt"
-	"log/slog"
-
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/response"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -111,7 +110,7 @@ func BindRoomStatus(c *gin.Context) (bson.ObjectID, int, bool) {
 	if !ok {
 		return bson.NilObjectID, 0, false
 	}
-	if req.RoomStatus == nil || !model.IsValidRoomStatusUpdateTarget(*req.RoomStatus) {
+	if req.RoomStatus == nil || !hmdmodel.IsValidRoomStatusUpdateTarget(*req.RoomStatus) {
 		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("room_status must be one of -1, 1, 2, 3")))
 		return bson.NilObjectID, 0, false
 	}

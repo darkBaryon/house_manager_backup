@@ -2,10 +2,10 @@ package history
 
 import (
 	"context"
-	"testing"
-
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
+	useractivitymodel "house-manager/internal/model/useractivity"
 	"house-manager/pkg/errcode"
+	"testing"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -14,23 +14,23 @@ func TestHistoryAddValidatesSourceAndUpserts(t *testing.T) {
 	userID := bson.NewObjectID()
 	listingID := bson.NewObjectID()
 	repo := &fakeHistoryRepository{}
-	listings := &fakeMiniappListingRepository{detail: &model.HpdMiniappListing{ListingID: listingID, City: "深圳", Title: "测试房源"}}
+	listings := &fakeMiniappListingRepository{detail: &hpdmodel.HpdMiniappListing{ListingID: listingID, City: "深圳", Title: "测试房源"}}
 	svc := NewService(repo, listings)
 
-	result, err := svc.Add(context.Background(), AddInput{UserID: userID, ListingID: listingID, Source: model.HistorySourceDiscover})
+	result, err := svc.Add(context.Background(), AddInput{UserID: userID, ListingID: listingID, Source: useractivitymodel.HistorySourceDiscover})
 	if err != nil {
 		t.Fatalf("Add returned error: %v", err)
 	}
 	if result.ListingID != listingID.Hex() || result.ViewedAt <= 0 {
 		t.Fatalf("unexpected add result: %#v", result)
 	}
-	if repo.upsert == nil || repo.upsert.Source != model.HistorySourceDiscover {
+	if repo.upsert == nil || repo.upsert.Source != useractivitymodel.HistorySourceDiscover {
 		t.Fatalf("unexpected upsert entity: %#v", repo.upsert)
 	}
 }
 
 func TestHistoryAddRejectsInvalidSource(t *testing.T) {
-	svc := NewService(&fakeHistoryRepository{}, &fakeMiniappListingRepository{detail: &model.HpdMiniappListing{ListingID: bson.NewObjectID()}})
+	svc := NewService(&fakeHistoryRepository{}, &fakeMiniappListingRepository{detail: &hpdmodel.HpdMiniappListing{ListingID: bson.NewObjectID()}})
 
 	_, err := svc.Add(context.Background(), AddInput{UserID: bson.NewObjectID(), ListingID: bson.NewObjectID(), Source: "feed"})
 	assertHistoryErrCode(t, err, errcode.InvalidParam.Code)
@@ -41,13 +41,13 @@ func TestHistoryListFiltersOfflineBeforePaging(t *testing.T) {
 	id1 := bson.NewObjectID()
 	id2 := bson.NewObjectID()
 	repo := &fakeHistoryRepository{
-		list: []model.History{
+		list: []useractivitymodel.History{
 			{UserID: userID, ListingID: id1, ViewedAt: 20},
 			{UserID: userID, ListingID: id2, ViewedAt: 10},
 		},
 	}
 	listings := &fakeMiniappListingRepository{
-		online: []model.HpdMiniappListing{{ListingID: id2, City: "深圳", Title: "二号", Price: 2000}},
+		online: []hpdmodel.HpdMiniappListing{{ListingID: id2, City: "深圳", Title: "二号", Price: 2000}},
 	}
 	svc := NewService(repo, listings)
 
@@ -65,14 +65,14 @@ func TestHistoryCountMatchesOnlineFilteredListTotal(t *testing.T) {
 	id1 := bson.NewObjectID()
 	id2 := bson.NewObjectID()
 	repo := &fakeHistoryRepository{
-		list: []model.History{
+		list: []useractivitymodel.History{
 			{UserID: userID, ListingID: id1, ViewedAt: 20},
 			{UserID: userID, ListingID: id2, ViewedAt: 10},
 		},
 		count: 99,
 	}
 	listings := &fakeMiniappListingRepository{
-		online: []model.HpdMiniappListing{{ListingID: id1, City: "深圳", Title: "一号"}},
+		online: []hpdmodel.HpdMiniappListing{{ListingID: id1, City: "深圳", Title: "一号"}},
 	}
 	svc := NewService(repo, listings)
 
@@ -94,17 +94,17 @@ func assertHistoryErrCode(t *testing.T, err error, code int) {
 }
 
 type fakeHistoryRepository struct {
-	upsert *model.History
-	list   []model.History
+	upsert *useractivitymodel.History
+	list   []useractivitymodel.History
 	count  int64
 }
 
-func (f *fakeHistoryRepository) Upsert(ctx context.Context, entity *model.History) error {
+func (f *fakeHistoryRepository) Upsert(ctx context.Context, entity *useractivitymodel.History) error {
 	f.upsert = entity
 	return nil
 }
 
-func (f *fakeHistoryRepository) List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]model.History, error) {
+func (f *fakeHistoryRepository) List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]useractivitymodel.History, error) {
 	return f.list, nil
 }
 
@@ -113,14 +113,14 @@ func (f *fakeHistoryRepository) Count(ctx context.Context, userID bson.ObjectID)
 }
 
 type fakeMiniappListingRepository struct {
-	detail *model.HpdMiniappListing
-	online []model.HpdMiniappListing
+	detail *hpdmodel.HpdMiniappListing
+	online []hpdmodel.HpdMiniappListing
 }
 
-func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	return f.detail, nil
 }
 
-func (f *fakeMiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]hpdmodel.HpdMiniappListing, error) {
 	return f.online, nil
 }

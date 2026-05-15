@@ -2,35 +2,65 @@ package publish
 
 import (
 	"context"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
 type centralizedProjectService struct {
-	hmd       centralizedProjectDomain
+	hmd       centralizedProjectScopeDomain
 	publisher mutationPublisher
+	access    publishAccessService
 }
 
-func newCentralizedProjectService(hmd centralizedProjectDomain, publisher mutationPublisher) *centralizedProjectService {
-	return &centralizedProjectService{hmd: hmd, publisher: publisher}
+func newCentralizedProjectService(hmd centralizedProjectScopeDomain, publisher mutationPublisher, access publishAccessService) *centralizedProjectService {
+	return &centralizedProjectService{hmd: hmd, publisher: publisher, access: access}
 }
 
-func (s *centralizedProjectService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*model.HmdCentralized, error) {
+func (s *centralizedProjectService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
+	if _, err := newPublishScope(ctx, s.access); err != nil {
+		return nil, err
+	}
 	result, err := s.hmd.CreateCentralizedProject(ctx, input)
 	return resolveHmdMutation(ctx, s.publisher, result, err)
 }
 
-func (s *centralizedProjectService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*model.HmdCentralized, error) {
-	return s.hmd.GetCentralizedProject(ctx, id)
+func (s *centralizedProjectService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
+	scope, err := newPublishScope(ctx, s.access)
+	if err != nil {
+		return nil, err
+	}
+	project, err := s.hmd.GetCentralizedProject(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if project != nil {
+		if err := requireCentralizedProjectAccess(ctx, scope, s.hmd, project.ID, "get centralized project"); err != nil {
+			return nil, err
+		}
+	}
+	return project, nil
 }
 
-func (s *centralizedProjectService) ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]model.HmdCentralized, error) {
-	return s.hmd.ListCentralizedProjects(ctx, input)
+func (s *centralizedProjectService) ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error) {
+	scope, err := newPublishScope(ctx, s.access)
+	if err != nil {
+		return nil, err
+	}
+	projects, err := s.hmd.ListCentralizedProjects(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return filterCentralizedProjectsByScope(ctx, scope, s.hmd, projects)
 }
 
-func (s *centralizedProjectService) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*model.HmdCentralized, error) {
+func (s *centralizedProjectService) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
+	scope, err := newPublishScope(ctx, s.access)
+	if err != nil {
+		return nil, err
+	}
+	if err := scope.requireGlobal("update centralized project"); err != nil {
+		return nil, err
+	}
 	result, err := s.hmd.UpdateCentralizedProject(ctx, input)
 	return resolveHmdMutation(ctx, s.publisher, result, err)
 }

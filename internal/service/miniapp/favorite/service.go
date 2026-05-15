@@ -2,8 +2,8 @@ package favorite
 
 import (
 	"context"
-
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
+	useractivitymodel "house-manager/internal/model/useractivity"
 	"house-manager/internal/service/miniapp/listingview"
 	"house-manager/internal/service/miniapp/paging"
 	"house-manager/pkg/errcode"
@@ -20,13 +20,13 @@ type favoriteRepository interface {
 	Upsert(ctx context.Context, userID, listingID bson.ObjectID) error
 	SoftRemove(ctx context.Context, userID, listingID bson.ObjectID) error
 	Exists(ctx context.Context, userID, listingID bson.ObjectID) (bool, error)
-	List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]model.Favorite, error)
+	List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]useractivitymodel.Favorite, error)
 	Count(ctx context.Context, userID bson.ObjectID) (int64, error)
 }
 
 type miniappListingRepository interface {
-	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error)
-	FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error)
+	FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error)
+	FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]hpdmodel.HpdMiniappListing, error)
 }
 
 func NewService(favorites favoriteRepository, miniappListings miniappListingRepository) *Service {
@@ -147,7 +147,7 @@ func validateUserListing(userID, listingID bson.ObjectID) error {
 	return nil
 }
 
-func favoriteListingIDs(favorites []model.Favorite) []bson.ObjectID {
+func favoriteListingIDs(favorites []useractivitymodel.Favorite) []bson.ObjectID {
 	if len(favorites) == 0 {
 		return nil
 	}
@@ -160,11 +160,11 @@ func favoriteListingIDs(favorites []model.Favorite) []bson.ObjectID {
 	return ids
 }
 
-func orderListingItems(ids []bson.ObjectID, listings []model.HpdMiniappListing) []listingview.Item {
+func orderListingItems(ids []bson.ObjectID, listings []hpdmodel.HpdMiniappListing) []listingview.Item {
 	if len(ids) == 0 || len(listings) == 0 {
 		return []listingview.Item{}
 	}
-	byID := make(map[bson.ObjectID]model.HpdMiniappListing, len(listings))
+	byID := make(map[bson.ObjectID]hpdmodel.HpdMiniappListing, len(listings))
 	for _, listing := range listings {
 		byID[listing.ListingID] = listing
 	}

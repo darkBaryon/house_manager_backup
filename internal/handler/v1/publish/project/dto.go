@@ -2,7 +2,7 @@ package project
 
 import (
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
 type createRequest struct {
@@ -42,7 +42,7 @@ type response struct {
 	BrandName   string                   `json:"brand_name"`
 }
 
-func toResponse(project *model.HmdCentralized) *response {
+func toResponse(project *hmdmodel.HmdCentralized) *response {
 	if project == nil {
 		return nil
 	}
@@ -58,7 +58,7 @@ func toResponse(project *model.HmdCentralized) *response {
 	}
 }
 
-func toListResponse(projects []model.HmdCentralized) common.ListResponse[response] {
+func toListResponse(projects []hmdmodel.HmdCentralized) common.ListResponse[response] {
 	list := make([]response, 0, len(projects))
 	for i := range projects {
 		item := toResponse(&projects[i])

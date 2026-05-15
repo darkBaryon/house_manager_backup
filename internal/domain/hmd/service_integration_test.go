@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"house-manager/internal/config"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 	repohmd "house-manager/internal/repository/hmd"
 	dbmongo "house-manager/pkg/database/mongo"
 	"house-manager/pkg/errcode"
@@ -105,7 +105,7 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 		FloorTotal:        18,
 		ManagerName:       "测试管家",
 		ManagerPhone:      "18800000000",
-		ListingFacilities: []string{string(model.ListingFacilityElevator)},
+		ListingFacilities: []string{string(hmdmodel.ListingFacilityElevator)},
 	})
 	requireNoError(t, err)
 	if updatedBuilding.Entity.FloorTotal != 18 {
@@ -139,7 +139,7 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 
 	centralizedRoom := mustCreateCentralizedRoom(t, f, project.Entity.ID, building.Entity.ID, roomType.Entity.ID, f.prefix+"_room_1201")
 	assertChange(t, centralizedRoom.Changes, HmdChangeCreated, HmdEntityRoomCentralized, HmdScopeCentralizedRoom)
-	if centralizedRoom.Entity.RoomStatus != model.RoomStatusAvailable {
+	if centralizedRoom.Entity.RoomStatus != hmdmodel.RoomStatusAvailable {
 		t.Fatalf("expected default available room status, got %d", centralizedRoom.Entity.RoomStatus)
 	}
 
@@ -148,7 +148,7 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 		BuildingID: building.Entity.ID,
 		RoomTypeID: roomType.Entity.ID,
 		RoomNo:     centralizedRoom.Entity.RoomNo,
-		RentMode:   string(model.RentModeWhole),
+		RentMode:   string(hmdmodel.RentModeWhole),
 	})
 	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
@@ -157,7 +157,7 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 		BuildingID: building.Entity.ID,
 		RoomTypeID: otherRoomType.Entity.ID,
 		RoomNo:     f.prefix + "_room_bad_type",
-		RentMode:   string(model.RentModeWhole),
+		RentMode:   string(hmdmodel.RentModeWhole),
 	})
 	assertErrCode(t, err, errcode.InvalidParam.Code)
 
@@ -170,10 +170,10 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 
 	updatedRoom, err := f.svc.UpdateCentralizedRoomStatus(f.ctx, UpdateCentralizedRoomStatusInput{
 		ID:         centralizedRoom.Entity.ID,
-		RoomStatus: int(model.RoomStatusRented),
+		RoomStatus: int(hmdmodel.RoomStatusRented),
 	})
 	requireNoError(t, err)
-	if updatedRoom.Entity.RoomStatus != model.RoomStatusRented {
+	if updatedRoom.Entity.RoomStatus != hmdmodel.RoomStatusRented {
 		t.Fatalf("expected rented room status, got %d", updatedRoom.Entity.RoomStatus)
 	}
 
@@ -226,7 +226,7 @@ func TestServiceIntegrationDecentralizedFlow(t *testing.T) {
 	_, err = f.svc.CreateDecentralizedRoom(f.ctx, CreateDecentralizedRoomInput{
 		DecentralizedID: bson.NewObjectID(),
 		RoomNo:          f.prefix + "_de_room_missing_community",
-		RentMode:        string(model.RentModeWhole),
+		RentMode:        string(hmdmodel.RentModeWhole),
 	})
 	assertErrCode(t, err, errcode.NotFound.Code)
 
@@ -237,24 +237,24 @@ func TestServiceIntegrationDecentralizedFlow(t *testing.T) {
 	_, err = f.svc.CreateDecentralizedRoom(f.ctx, CreateDecentralizedRoomInput{
 		DecentralizedID: community.Entity.ID,
 		RoomNo:          room.Entity.RoomNo,
-		RentMode:        string(model.RentModeWhole),
+		RentMode:        string(hmdmodel.RentModeWhole),
 	})
 	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
 	_, err = f.svc.UpdateDecentralizedRoom(f.ctx, UpdateDecentralizedRoomInput{
 		ID:       room.Entity.ID,
 		RoomNo:   room.Entity.RoomNo,
-		RentMode: string(model.RentModeWhole),
+		RentMode: string(hmdmodel.RentModeWhole),
 		Rent:     -1,
 	})
 	assertErrCode(t, err, errcode.InvalidParam.Code)
 
 	updatedRoom, err := f.svc.UpdateDecentralizedRoomStatus(f.ctx, UpdateDecentralizedRoomStatusInput{
 		ID:         room.Entity.ID,
-		RoomStatus: int(model.RoomStatusOffline),
+		RoomStatus: int(hmdmodel.RoomStatusOffline),
 	})
 	requireNoError(t, err)
-	if updatedRoom.Entity.RoomStatus != model.RoomStatusOffline {
+	if updatedRoom.Entity.RoomStatus != hmdmodel.RoomStatusOffline {
 		t.Fatalf("expected offline room status, got %d", updatedRoom.Entity.RoomStatus)
 	}
 }
@@ -388,12 +388,12 @@ func cleanupIntegrationData(t *testing.T, f *integrationFixture) {
 		collection string
 		filter     bson.M
 	}{
-		{model.CollectionHmdRoomCentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
-		{model.CollectionHmdRoomDecentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
-		{model.CollectionHmdRoomTypeCentralized, bson.M{"room_type_name": bson.M{"$regex": pattern}}},
-		{model.CollectionHmdBuilding, bson.M{"building_code": bson.M{"$regex": pattern}}},
-		{model.CollectionHmdDecentralized, bson.M{"community_name": bson.M{"$regex": pattern}}},
-		{model.CollectionHmdCentralized, bson.M{"project_code": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdRoomCentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdRoomDecentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdRoomTypeCentralized, bson.M{"room_type_name": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdBuilding, bson.M{"building_code": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdDecentralized, bson.M{"community_name": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdCentralized, bson.M{"project_code": bson.M{"$regex": pattern}}},
 	}
 	for _, tc := range cases {
 		if _, err := f.client.Collection(tc.collection).DeleteMany(f.ctx, tc.filter); err != nil {
@@ -402,7 +402,7 @@ func cleanupIntegrationData(t *testing.T, f *integrationFixture) {
 	}
 }
 
-func mustCreateCentralizedProject(t *testing.T, f *integrationFixture, code string) *HmdMutationResult[model.HmdCentralized] {
+func mustCreateCentralizedProject(t *testing.T, f *integrationFixture, code string) *HmdMutationResult[hmdmodel.HmdCentralized] {
 	t.Helper()
 	result, err := f.svc.CreateCentralizedProject(f.ctx, CreateCentralizedProjectInput{
 		ProjectName: code,
@@ -419,7 +419,7 @@ func mustCreateCentralizedProject(t *testing.T, f *integrationFixture, code stri
 	return result
 }
 
-func mustCreateBuilding(t *testing.T, f *integrationFixture, projectID bson.ObjectID, code string) *HmdMutationResult[model.HmdBuilding] {
+func mustCreateBuilding(t *testing.T, f *integrationFixture, projectID bson.ObjectID, code string) *HmdMutationResult[hmdmodel.HmdBuilding] {
 	t.Helper()
 	result, err := f.svc.CreateBuilding(f.ctx, CreateBuildingInput{
 		ProjectID:         projectID,
@@ -428,7 +428,7 @@ func mustCreateBuilding(t *testing.T, f *integrationFixture, projectID bson.Obje
 		FloorTotal:        12,
 		ManagerName:       "测试管家",
 		ManagerPhone:      "18800000000",
-		ListingFacilities: []string{string(model.ListingFacilityElevator)},
+		ListingFacilities: []string{string(hmdmodel.ListingFacilityElevator)},
 	})
 	requireNoError(t, err)
 	if result == nil || result.Entity == nil || result.Entity.ID.IsZero() {
@@ -437,7 +437,7 @@ func mustCreateBuilding(t *testing.T, f *integrationFixture, projectID bson.Obje
 	return result
 }
 
-func mustCreateRoomType(t *testing.T, f *integrationFixture, projectID, buildingID bson.ObjectID, name string) *HmdMutationResult[model.HmdRoomTypeCentralized] {
+func mustCreateRoomType(t *testing.T, f *integrationFixture, projectID, buildingID bson.ObjectID, name string) *HmdMutationResult[hmdmodel.HmdRoomTypeCentralized] {
 	t.Helper()
 	result, err := f.svc.CreateRoomType(f.ctx, CreateRoomTypeInput{
 		ProjectID:       projectID,
@@ -447,14 +447,14 @@ func mustCreateRoomType(t *testing.T, f *integrationFixture, projectID, building
 		HallCount:       1,
 		BathroomCount:   1,
 		AreaSize:        35,
-		Orientation:     string(model.OrientationSouth),
-		DecorationLevel: string(model.DecorationLevelFine),
-		PaymentCycle:    string(model.PaymentCycleMonthly),
+		Orientation:     string(hmdmodel.OrientationSouth),
+		DecorationLevel: string(hmdmodel.DecorationLevelFine),
+		PaymentCycle:    string(hmdmodel.PaymentCycleMonthly),
 		Rent:            5800,
 		Deposit:         5800,
-		AgencyFeeMode:   string(model.AgencyFeeModeNone),
-		Images:          []TaggedImageInput{{URL: "https://example.com/room-type.jpg", Tag: string(model.ImageTagBedroom)}},
-		RoomFacilities:  []string{string(model.RoomFacilityBed)},
+		AgencyFeeMode:   string(hmdmodel.AgencyFeeModeNone),
+		Images:          []TaggedImageInput{{URL: "https://example.com/room-type.jpg", Tag: string(hmdmodel.ImageTagBedroom)}},
+		RoomFacilities:  []string{string(hmdmodel.RoomFacilityBed)},
 	})
 	requireNoError(t, err)
 	if result == nil || result.Entity == nil || result.Entity.ID.IsZero() {
@@ -463,7 +463,7 @@ func mustCreateRoomType(t *testing.T, f *integrationFixture, projectID, building
 	return result
 }
 
-func mustCreateCentralizedRoom(t *testing.T, f *integrationFixture, projectID, buildingID, roomTypeID bson.ObjectID, roomNo string) *HmdMutationResult[model.HmdRoomCentralized] {
+func mustCreateCentralizedRoom(t *testing.T, f *integrationFixture, projectID, buildingID, roomTypeID bson.ObjectID, roomNo string) *HmdMutationResult[hmdmodel.HmdRoomCentralized] {
 	t.Helper()
 	result, err := f.svc.CreateCentralizedRoom(f.ctx, CreateCentralizedRoomInput{
 		ProjectID:         projectID,
@@ -471,20 +471,20 @@ func mustCreateCentralizedRoom(t *testing.T, f *integrationFixture, projectID, b
 		RoomTypeID:        roomTypeID,
 		RoomNo:            roomNo,
 		FloorNo:           12,
-		RentMode:          string(model.RentModeWhole),
+		RentMode:          string(hmdmodel.RentModeWhole),
 		LayoutText:        "一室一厅",
 		AreaSize:          35,
-		Orientation:       string(model.OrientationSouth),
-		DecorationLevel:   string(model.DecorationLevelFine),
-		PaymentCycle:      string(model.PaymentCycleMonthly),
+		Orientation:       string(hmdmodel.OrientationSouth),
+		DecorationLevel:   string(hmdmodel.DecorationLevelFine),
+		PaymentCycle:      string(hmdmodel.PaymentCycleMonthly),
 		Rent:              5800,
 		Deposit:           5800,
-		AgencyFeeMode:     string(model.AgencyFeeModeNone),
-		ViewingTimeRule:   string(model.ViewingTimeRuleAnytime),
-		StartRentRule:     string(model.StartRentRuleLongOneYear),
-		Images:            []TaggedImageInput{{URL: "https://example.com/room.jpg", Tag: string(model.ImageTagBedroom)}},
-		RoomFacilities:    []string{string(model.RoomFacilityBed)},
-		ListingFacilities: []string{string(model.ListingFacilityElevator)},
+		AgencyFeeMode:     string(hmdmodel.AgencyFeeModeNone),
+		ViewingTimeRule:   string(hmdmodel.ViewingTimeRuleAnytime),
+		StartRentRule:     string(hmdmodel.StartRentRuleLongOneYear),
+		Images:            []TaggedImageInput{{URL: "https://example.com/room.jpg", Tag: string(hmdmodel.ImageTagBedroom)}},
+		RoomFacilities:    []string{string(hmdmodel.RoomFacilityBed)},
+		ListingFacilities: []string{string(hmdmodel.ListingFacilityElevator)},
 	})
 	requireNoError(t, err)
 	if result == nil || result.Entity == nil || result.Entity.ID.IsZero() {
@@ -493,7 +493,7 @@ func mustCreateCentralizedRoom(t *testing.T, f *integrationFixture, projectID, b
 	return result
 }
 
-func mustCreateDecentralizedCommunity(t *testing.T, f *integrationFixture, name, district string) *HmdMutationResult[model.HmdDecentralized] {
+func mustCreateDecentralizedCommunity(t *testing.T, f *integrationFixture, name, district string) *HmdMutationResult[hmdmodel.HmdDecentralized] {
 	t.Helper()
 	result, err := f.svc.CreateDecentralizedCommunity(f.ctx, CreateDecentralizedCommunityInput{
 		CommunityName: name,
@@ -510,26 +510,26 @@ func mustCreateDecentralizedCommunity(t *testing.T, f *integrationFixture, name,
 	return result
 }
 
-func mustCreateDecentralizedRoom(t *testing.T, f *integrationFixture, communityID bson.ObjectID, roomNo string) *HmdMutationResult[model.HmdRoomDecentralized] {
+func mustCreateDecentralizedRoom(t *testing.T, f *integrationFixture, communityID bson.ObjectID, roomNo string) *HmdMutationResult[hmdmodel.HmdRoomDecentralized] {
 	t.Helper()
 	result, err := f.svc.CreateDecentralizedRoom(f.ctx, CreateDecentralizedRoomInput{
 		DecentralizedID:   communityID,
 		RoomNo:            roomNo,
 		FloorNo:           8,
-		RentMode:          string(model.RentModeWhole),
+		RentMode:          string(hmdmodel.RentModeWhole),
 		LayoutText:        "两室一厅",
 		AreaSize:          72,
-		Orientation:       string(model.OrientationSouth),
-		DecorationLevel:   string(model.DecorationLevelFine),
-		PaymentCycle:      string(model.PaymentCycleMonthly),
+		Orientation:       string(hmdmodel.OrientationSouth),
+		DecorationLevel:   string(hmdmodel.DecorationLevelFine),
+		PaymentCycle:      string(hmdmodel.PaymentCycleMonthly),
 		Rent:              7600,
 		Deposit:           7600,
-		AgencyFeeMode:     string(model.AgencyFeeModeNone),
-		ViewingTimeRule:   string(model.ViewingTimeRuleAnytime),
-		StartRentRule:     string(model.StartRentRuleLongOneYear),
-		Images:            []TaggedImageInput{{URL: "https://example.com/de-room.jpg", Tag: string(model.ImageTagBedroom)}},
-		RoomFacilities:    []string{string(model.RoomFacilityBed)},
-		ListingFacilities: []string{string(model.ListingFacilitySubway)},
+		AgencyFeeMode:     string(hmdmodel.AgencyFeeModeNone),
+		ViewingTimeRule:   string(hmdmodel.ViewingTimeRuleAnytime),
+		StartRentRule:     string(hmdmodel.StartRentRuleLongOneYear),
+		Images:            []TaggedImageInput{{URL: "https://example.com/de-room.jpg", Tag: string(hmdmodel.ImageTagBedroom)}},
+		RoomFacilities:    []string{string(hmdmodel.RoomFacilityBed)},
+		ListingFacilities: []string{string(hmdmodel.ListingFacilitySubway)},
 	})
 	requireNoError(t, err)
 	if result == nil || result.Entity == nil || result.Entity.ID.IsZero() {
@@ -541,7 +541,7 @@ func mustCreateDecentralizedRoom(t *testing.T, f *integrationFixture, communityI
 func assertDecentralizedRoomHasNoRoomTypeID(t *testing.T, f *integrationFixture, roomID bson.ObjectID) {
 	t.Helper()
 	var doc bson.M
-	err := f.client.Collection(model.CollectionHmdRoomDecentralized).FindOne(f.ctx, bson.M{"_id": roomID}).Decode(&doc)
+	err := f.client.Collection(hmdmodel.CollectionHmdRoomDecentralized).FindOne(f.ctx, bson.M{"_id": roomID}).Decode(&doc)
 	requireNoError(t, err)
 	if _, ok := doc["room_type_id"]; ok {
 		t.Fatalf("expected decentralized room document not to contain room_type_id, got %#v", doc)
@@ -559,7 +559,7 @@ func assertChange(t *testing.T, changes []HmdChange, action HmdChangeAction, ent
 	}
 }
 
-func assertContainsCentralizedProject(t *testing.T, items []model.HmdCentralized, id bson.ObjectID) {
+func assertContainsCentralizedProject(t *testing.T, items []hmdmodel.HmdCentralized, id bson.ObjectID) {
 	t.Helper()
 	for _, item := range items {
 		if item.ID == id {
@@ -569,7 +569,7 @@ func assertContainsCentralizedProject(t *testing.T, items []model.HmdCentralized
 	t.Fatalf("expected centralized project %s in list", id.Hex())
 }
 
-func assertContainsBuilding(t *testing.T, items []model.HmdBuilding, id bson.ObjectID) {
+func assertContainsBuilding(t *testing.T, items []hmdmodel.HmdBuilding, id bson.ObjectID) {
 	t.Helper()
 	for _, item := range items {
 		if item.ID == id {
@@ -579,7 +579,7 @@ func assertContainsBuilding(t *testing.T, items []model.HmdBuilding, id bson.Obj
 	t.Fatalf("expected building %s in list", id.Hex())
 }
 
-func assertContainsRoomType(t *testing.T, items []model.HmdRoomTypeCentralized, id bson.ObjectID) {
+func assertContainsRoomType(t *testing.T, items []hmdmodel.HmdRoomTypeCentralized, id bson.ObjectID) {
 	t.Helper()
 	for _, item := range items {
 		if item.ID == id {
@@ -589,7 +589,7 @@ func assertContainsRoomType(t *testing.T, items []model.HmdRoomTypeCentralized, 
 	t.Fatalf("expected room type %s in list", id.Hex())
 }
 
-func assertContainsDecentralizedCommunity(t *testing.T, items []model.HmdDecentralized, id bson.ObjectID) {
+func assertContainsDecentralizedCommunity(t *testing.T, items []hmdmodel.HmdDecentralized, id bson.ObjectID) {
 	t.Helper()
 	for _, item := range items {
 		if item.ID == id {

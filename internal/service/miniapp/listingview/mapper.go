@@ -1,8 +1,11 @@
 package listingview
 
-import "house-manager/internal/model"
+import (
+	hmdmodel "house-manager/internal/model/hmd"
+	hpdmodel "house-manager/internal/model/hpd"
+)
 
-func Items(listings []model.HpdMiniappListing) []Item {
+func Items(listings []hpdmodel.HpdMiniappListing) []Item {
 	if len(listings) == 0 {
 		return []Item{}
 	}
@@ -13,7 +16,7 @@ func Items(listings []model.HpdMiniappListing) []Item {
 	return items
 }
 
-func FromListing(listing model.HpdMiniappListing) Item {
+func FromListing(listing hpdmodel.HpdMiniappListing) Item {
 	return Item{
 		ListingID:               listing.ListingID.Hex(),
 		AssetMode:               string(listing.AssetMode),
@@ -41,7 +44,7 @@ func FromListing(listing model.HpdMiniappListing) Item {
 	}
 }
 
-func taggedImages(images []model.TaggedImage) []TaggedImage {
+func taggedImages(images []hmdmodel.TaggedImage) []TaggedImage {
 	if len(images) == 0 {
 		return []TaggedImage{}
 	}
@@ -52,7 +55,7 @@ func taggedImages(images []model.TaggedImage) []TaggedImage {
 	return out
 }
 
-func listingFacilityStrings(items []model.ListingFacility) []string {
+func listingFacilityStrings(items []hmdmodel.ListingFacility) []string {
 	if len(items) == 0 {
 		return []string{}
 	}

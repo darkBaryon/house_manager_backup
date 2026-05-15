@@ -2,10 +2,10 @@ package user
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
+	authmodel "house-manager/internal/model/auth"
+	hmdmodel "house-manager/internal/model/hmd"
 	"house-manager/pkg/errcode"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -18,12 +18,12 @@ type Service struct {
 }
 
 type userRepository interface {
-	FindByID(ctx context.Context, id bson.ObjectID) (*model.User, error)
+	FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.User, error)
 	UpdateProfileFields(ctx context.Context, userID bson.ObjectID, fields bson.M) error
 }
 
 type profileRepository interface {
-	FindByUserID(ctx context.Context, userID bson.ObjectID) (*model.UserProfileExt, error)
+	FindByUserID(ctx context.Context, userID bson.ObjectID) (*authmodel.UserProfileExt, error)
 	UpsertByUserID(ctx context.Context, userID bson.ObjectID, fields bson.M) (bool, error)
 }
 
@@ -60,7 +60,7 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	if (input.BudgetMin != nil && *input.BudgetMin < 0) || (input.BudgetMax != nil && *input.BudgetMax < 0) {
 		return nil, errcode.InvalidParam.WithErrorf("budget must be non-negative")
 	}
-	if rentMode := trimStringPtr(input.PreferredRentMode); rentMode != "" && !model.RentMode(rentMode).Valid() {
+	if rentMode := trimStringPtr(input.PreferredRentMode); rentMode != "" && !hmdmodel.RentMode(rentMode).Valid() {
 		return nil, errcode.InvalidParam.WithErrorf("preferred_rent_mode is invalid")
 	}
 
@@ -124,7 +124,7 @@ func (s *Service) Dashboard(ctx context.Context, input DashboardInput) (*Dashboa
 	}, nil
 }
 
-func mapProfile(user *model.User, ext *model.UserProfileExt) *Profile {
+func mapProfile(user *authmodel.User, ext *authmodel.UserProfileExt) *Profile {
 	out := &Profile{
 		UserID:         user.ID.Hex(),
 		Nickname:       user.Nickname,
@@ -171,7 +171,7 @@ func setTrimmedString(fields bson.M, key string, value *string) {
 	}
 }
 
-func effectiveBudgetRange(profile *model.UserProfileExt, input UpdateProfileInput) (int, int) {
+func effectiveBudgetRange(profile *authmodel.UserProfileExt, input UpdateProfileInput) (int, int) {
 	minValue, maxValue := 0, 0
 	if profile != nil {
 		minValue = profile.BudgetMin

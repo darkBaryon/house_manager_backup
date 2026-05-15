@@ -2,21 +2,19 @@ package hmd
 
 import (
 	"context"
-	"strings"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
+	"strings"
 )
 
-func (s *Service) CreateRoomType(ctx context.Context, input CreateRoomTypeInput) (*HmdMutationResult[model.HmdRoomTypeCentralized], error) {
+func (s *Service) CreateRoomType(ctx context.Context, input CreateRoomTypeInput) (*HmdMutationResult[hmdmodel.HmdRoomTypeCentralized], error) {
 	projectID, buildingID, err := s.validateRoomTypeOwnership(ctx, input.ProjectID, input.BuildingID, "create room type")
 	if err != nil {
 		return nil, err
 	}
 
 	roomTypeName := strings.TrimSpace(input.RoomTypeName)
-	entity := &model.HmdRoomTypeCentralized{
+	entity := &hmdmodel.HmdRoomTypeCentralized{
 		ProjectID:       projectID,
 		BuildingID:      buildingID,
 		RoomTypeName:    roomTypeName,
@@ -25,13 +23,13 @@ func (s *Service) CreateRoomType(ctx context.Context, input CreateRoomTypeInput)
 		BathroomCount:   input.BathroomCount,
 		KitchenCount:    input.KitchenCount,
 		AreaSize:        input.AreaSize,
-		Orientation:     model.Orientation(strings.TrimSpace(input.Orientation)),
-		DecorationLevel: model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		PaymentCycle:    model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		Orientation:     hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		DecorationLevel: hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		PaymentCycle:    hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		Rent:            input.Rent,
 		Deposit:         input.Deposit,
 		ServiceFee:      input.ServiceFee,
-		AgencyFeeMode:   model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		AgencyFeeMode:   hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		AgencyFeeValue:  input.AgencyFeeValue,
 		Images:          toTaggedImages(input.Images),
 		RoomFacilities:  toRoomFacilities(input.RoomFacilities),
@@ -58,11 +56,11 @@ func (s *Service) CreateRoomType(ctx context.Context, input CreateRoomTypeInput)
 	}), nil
 }
 
-func (s *Service) GetRoomType(ctx context.Context, id bson.ObjectID) (*model.HmdRoomTypeCentralized, error) {
+func (s *Service) GetRoomType(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomTypeCentralized, error) {
 	return s.requireRoomType(ctx, id, "get room type")
 }
 
-func (s *Service) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+func (s *Service) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
 	if _, err := s.requireCentralizedProject(ctx, projectID, "list room types by project"); err != nil {
 		return nil, err
 	}
@@ -73,7 +71,7 @@ func (s *Service) ListRoomTypesByProject(ctx context.Context, projectID bson.Obj
 	return roomTypes, nil
 }
 
-func (s *Service) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]model.HmdRoomTypeCentralized, error) {
+func (s *Service) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
 	if _, err := s.requireBuilding(ctx, buildingID, "list room types by building"); err != nil {
 		return nil, err
 	}
@@ -84,7 +82,7 @@ func (s *Service) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.O
 	return roomTypes, nil
 }
 
-func (s *Service) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput) (*HmdMutationResult[model.HmdRoomTypeCentralized], error) {
+func (s *Service) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput) (*HmdMutationResult[hmdmodel.HmdRoomTypeCentralized], error) {
 	roomType, err := s.requireRoomType(ctx, input.ID, "update room type")
 	if err != nil {
 		return nil, err
@@ -102,13 +100,13 @@ func (s *Service) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput)
 		"bathroom_count", input.BathroomCount,
 		"kitchen_count", input.KitchenCount,
 		"area_size", input.AreaSize,
-		"orientation", model.Orientation(strings.TrimSpace(input.Orientation)),
-		"decoration_level", model.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		"payment_cycle", model.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		"payment_cycle", hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
 		"rent", input.Rent,
 		"deposit", input.Deposit,
 		"service_fee", input.ServiceFee,
-		"agency_fee_mode", model.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		"agency_fee_mode", hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
 		"agency_fee_value", input.AgencyFeeValue,
 		"images", toTaggedImages(input.Images),
 		"room_facilities", toRoomFacilities(input.RoomFacilities),

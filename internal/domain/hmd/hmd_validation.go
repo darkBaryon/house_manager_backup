@@ -2,13 +2,11 @@ package hmd
 
 import (
 	"context"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
-func (s *Service) requireCentralizedProject(ctx context.Context, id bson.ObjectID, action string) (*model.HmdCentralized, error) {
+func (s *Service) requireCentralizedProject(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdCentralized, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: projectID is required", action)
 	}
@@ -22,7 +20,7 @@ func (s *Service) requireCentralizedProject(ctx context.Context, id bson.ObjectI
 	return project, nil
 }
 
-func (s *Service) requireBuilding(ctx context.Context, id bson.ObjectID, action string) (*model.HmdBuilding, error) {
+func (s *Service) requireBuilding(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdBuilding, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: buildingID is required", action)
 	}
@@ -36,7 +34,7 @@ func (s *Service) requireBuilding(ctx context.Context, id bson.ObjectID, action 
 	return building, nil
 }
 
-func (s *Service) requireRoomType(ctx context.Context, id bson.ObjectID, action string) (*model.HmdRoomTypeCentralized, error) {
+func (s *Service) requireRoomType(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdRoomTypeCentralized, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: roomTypeID is required", action)
 	}
@@ -50,7 +48,7 @@ func (s *Service) requireRoomType(ctx context.Context, id bson.ObjectID, action 
 	return roomType, nil
 }
 
-func (s *Service) requireCentralizedRoom(ctx context.Context, id bson.ObjectID, action string) (*model.HmdRoomCentralized, error) {
+func (s *Service) requireCentralizedRoom(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdRoomCentralized, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: roomID is required", action)
 	}
@@ -64,7 +62,7 @@ func (s *Service) requireCentralizedRoom(ctx context.Context, id bson.ObjectID, 
 	return room, nil
 }
 
-func (s *Service) requireDecentralized(ctx context.Context, id bson.ObjectID, action string) (*model.HmdDecentralized, error) {
+func (s *Service) requireDecentralized(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdDecentralized, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: decentralizedID is required", action)
 	}
@@ -78,7 +76,7 @@ func (s *Service) requireDecentralized(ctx context.Context, id bson.ObjectID, ac
 	return community, nil
 }
 
-func (s *Service) requireDecentralizedRoom(ctx context.Context, id bson.ObjectID, action string) (*model.HmdRoomDecentralized, error) {
+func (s *Service) requireDecentralizedRoom(ctx context.Context, id bson.ObjectID, action string) (*hmdmodel.HmdRoomDecentralized, error) {
 	if id.IsZero() {
 		return nil, invalidParamf("%s: roomID is required", action)
 	}
@@ -119,7 +117,7 @@ func (s *Service) validateRoomTypeOwnership(ctx context.Context, projectID, buil
 	return projectID, buildingID, nil
 }
 
-func (s *Service) validateCentralizedRoomDependencies(ctx context.Context, projectID, buildingID, roomTypeID bson.ObjectID, action string) (*model.HmdCentralized, *model.HmdBuilding, *model.HmdRoomTypeCentralized, error) {
+func (s *Service) validateCentralizedRoomDependencies(ctx context.Context, projectID, buildingID, roomTypeID bson.ObjectID, action string) (*hmdmodel.HmdCentralized, *hmdmodel.HmdBuilding, *hmdmodel.HmdRoomTypeCentralized, error) {
 	project, err := s.requireCentralizedProject(ctx, projectID, action)
 	if err != nil {
 		return nil, nil, nil, err

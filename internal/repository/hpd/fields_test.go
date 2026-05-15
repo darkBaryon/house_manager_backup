@@ -2,18 +2,18 @@ package hpd
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	commonmodel "house-manager/internal/model/common"
+	hmdmodel "house-manager/internal/model/hmd"
+	hpdmodel "house-manager/internal/model/hpd"
 	"strings"
 	"testing"
-
-	"house-manager/internal/model"
-
-	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
-	filter := activeFilter(bson.M{"city": "深圳", "status": model.StatusDeleted})
+	filter := activeFilter(bson.M{"city": "深圳", "status": commonmodel.StatusDeleted})
 
-	if got := filter["status"]; got != model.StatusActive {
+	if got := filter["status"]; got != commonmodel.StatusActive {
 		t.Fatalf("expected active status filter, got %v", got)
 	}
 	if got := filter["city"]; got != "深圳" {
@@ -31,18 +31,18 @@ func TestListingUpdateLifecycleRejectsIdentityField(t *testing.T) {
 
 func TestListingUpdateStatusRejectsUnspecified(t *testing.T) {
 	repo := &ListingRepository{}
-	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), model.HpdListingStatusUnspecified)
+	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), hpdmodel.HpdListingStatusUnspecified)
 	if err == nil || !strings.Contains(err.Error(), "listingStatus is invalid") {
 		t.Fatalf("expected invalid listingStatus error, got %v", err)
 	}
 }
 
 func TestListingFieldsDoNotIncludeLifecycleFields(t *testing.T) {
-	fields := listingFields(&model.HpdListing{
-		SourceType:    model.HpdSourceTypeCentralizedRoom,
+	fields := listingFields(&hpdmodel.HpdListing{
+		SourceType:    hpdmodel.HpdSourceTypeCentralizedRoom,
 		SourceID:      bson.NewObjectID(),
-		AssetMode:     model.HpdAssetModeCentralized,
-		ListingStatus: model.HpdListingStatusPublished,
+		AssetMode:     hpdmodel.HpdAssetModeCentralized,
+		ListingStatus: hpdmodel.HpdListingStatusPublished,
 		PublishedAt:   100,
 		OfflineAt:     200,
 	})
@@ -65,23 +65,23 @@ func TestMiniappUpdateProjectionRejectsIdentityField(t *testing.T) {
 func TestMiniappSearchFilterBuildsOnlinePriceRange(t *testing.T) {
 	filter, err := miniappSearchFilter(MiniappListingSearchFilter{
 		City:     "深圳",
-		RentMode: model.RentModeWhole,
+		RentMode: hmdmodel.RentModeWhole,
 		PriceMin: 3000,
 		PriceMax: 6000,
 	})
 	if err != nil {
 		t.Fatalf("expected search filter to build, got %v", err)
 	}
-	if got := filter["status"]; got != model.StatusActive {
+	if got := filter["status"]; got != commonmodel.StatusActive {
 		t.Fatalf("expected active status filter, got %v", got)
 	}
-	if got := filter["is_online"]; got != model.HpdOnlineStatusYes {
+	if got := filter["is_online"]; got != hpdmodel.HpdOnlineStatusYes {
 		t.Fatalf("expected online filter, got %v", got)
 	}
 	if got := filter["city"]; got != "深圳" {
 		t.Fatalf("expected city filter, got %v", got)
 	}
-	if got := filter["rent_mode"]; got != model.RentModeWhole {
+	if got := filter["rent_mode"]; got != hmdmodel.RentModeWhole {
 		t.Fatalf("expected rent mode filter, got %v", got)
 	}
 
@@ -98,7 +98,7 @@ func TestMiniappSearchFilterBuildsOnlinePriceRange(t *testing.T) {
 }
 
 func TestMiniappSearchFilterRejectsInvalidRentMode(t *testing.T) {
-	_, err := miniappSearchFilter(MiniappListingSearchFilter{RentMode: model.RentMode("daily")})
+	_, err := miniappSearchFilter(MiniappListingSearchFilter{RentMode: hmdmodel.RentMode("daily")})
 	if err == nil || !strings.Contains(err.Error(), "rentMode is invalid") {
 		t.Fatalf("expected invalid rentMode error, got %v", err)
 	}
@@ -106,14 +106,14 @@ func TestMiniappSearchFilterRejectsInvalidRentMode(t *testing.T) {
 
 func TestMiniappSearchFilterBuildsApiContractFields(t *testing.T) {
 	filter, err := miniappSearchFilter(MiniappListingSearchFilter{
-		AssetMode:    model.HpdAssetModeCentralized,
+		AssetMode:    hpdmodel.HpdAssetModeCentralized,
 		Keyword:      "南山.*",
 		FeatureFlags: []string{"near_subway", "balcony"},
 	})
 	if err != nil {
 		t.Fatalf("expected search filter to build, got %v", err)
 	}
-	if got := filter["asset_mode"]; got != model.HpdAssetModeCentralized {
+	if got := filter["asset_mode"]; got != hpdmodel.HpdAssetModeCentralized {
 		t.Fatalf("expected asset mode filter, got %v", got)
 	}
 
@@ -147,7 +147,7 @@ func TestMiniappSearchFilterBuildsApiContractFields(t *testing.T) {
 }
 
 func TestMiniappSearchFilterRejectsInvalidAssetMode(t *testing.T) {
-	_, err := miniappSearchFilter(MiniappListingSearchFilter{AssetMode: model.HpdAssetMode("villa")})
+	_, err := miniappSearchFilter(MiniappListingSearchFilter{AssetMode: hpdmodel.HpdAssetMode("villa")})
 	if err == nil || !strings.Contains(err.Error(), "assetMode is invalid") {
 		t.Fatalf("expected invalid assetMode error, got %v", err)
 	}
@@ -165,5 +165,64 @@ func TestMiniappCountUsesSearchValidation(t *testing.T) {
 	_, err := repo.CountMiniapp(context.Background(), MiniappListingSearchFilter{PriceMin: -1})
 	if err == nil || !strings.Contains(err.Error(), "price range must be non-negative") {
 		t.Fatalf("expected invalid price range error, got %v", err)
+	}
+}
+
+func TestEntrustRelationFieldsOverwriteEmptyPrincipals(t *testing.T) {
+	listingID := bson.NewObjectID()
+	staffID := bson.NewObjectID()
+	fields := entrustRelationFields(&hpdmodel.HpdEntrustRelation{
+		ListingID:         listingID,
+		MaintainerStaffID: staffID,
+		ServiceStaffID:    staffID,
+		RelationStatus:    hpdmodel.HpdRelationStatusActive,
+	})
+
+	if got := fields["listing_id"]; got != listingID {
+		t.Fatalf("expected listing id, got %v", got)
+	}
+	if got := fields["relation_status"]; got != hpdmodel.HpdRelationStatusActive {
+		t.Fatalf("expected active relation status, got %v", got)
+	}
+	if got, ok := fields["owner_phone"]; !ok || got != "" {
+		t.Fatalf("expected empty owner_phone to overwrite stale values, got %v", got)
+	}
+	if got := fields["maintainer_staff_id"]; got != staffID {
+		t.Fatalf("expected maintainer staff id, got %v", got)
+	}
+}
+
+func TestActiveEntrustAccessFilterBuildsStaffOrOwnerScope(t *testing.T) {
+	listingID := bson.NewObjectID()
+	staffID := bson.NewObjectID()
+	filter, err := activeEntrustAccessFilter(listingID, staffID, " 13800000000 ")
+	if err != nil {
+		t.Fatalf("expected access filter, got %v", err)
+	}
+	if got := filter["status"]; got != commonmodel.StatusActive {
+		t.Fatalf("expected active status, got %v", got)
+	}
+	if got := filter["relation_status"]; got != hpdmodel.HpdRelationStatusActive {
+		t.Fatalf("expected active relation status, got %v", got)
+	}
+	if got := filter["listing_id"]; got != listingID {
+		t.Fatalf("expected listing id, got %v", got)
+	}
+	clauses, ok := filter["$or"].(bson.A)
+	if !ok || len(clauses) != 3 {
+		t.Fatalf("expected staff + owner access clauses, got %#v", filter["$or"])
+	}
+}
+
+func TestEntrustRepositoryRejectsEmptyScopeInputs(t *testing.T) {
+	repo := &EntrustRelationRepository{}
+	if _, err := repo.FindActiveByListingID(context.Background(), bson.ObjectID{}); err == nil || !strings.Contains(err.Error(), "listingID is required") {
+		t.Fatalf("expected listing id error, got %v", err)
+	}
+	if _, err := repo.ListActiveListingIDsByStaff(context.Background(), bson.ObjectID{}); err == nil || !strings.Contains(err.Error(), "staffID is required") {
+		t.Fatalf("expected staff id error, got %v", err)
+	}
+	if _, err := repo.ListActiveListingIDsByOwnerPhone(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "ownerPhone is required") {
+		t.Fatalf("expected owner phone error, got %v", err)
 	}
 }

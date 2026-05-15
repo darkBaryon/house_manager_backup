@@ -6,7 +6,7 @@ import (
 	"house-manager/internal/config"
 	publishhandler "house-manager/internal/handler/v1/publish"
 	publishauthhandler "house-manager/internal/handler/v1/publish/auth"
-	repoaccount "house-manager/internal/repository/account"
+	publishauthrepo "house-manager/internal/repository/publish_auth"
 	publishsvc "house-manager/internal/service/publish"
 	publishauthsvc "house-manager/internal/service/publish/auth"
 	dbmongo "house-manager/pkg/database/mongo"
@@ -14,48 +14,48 @@ import (
 	"github.com/google/wire"
 )
 
-func newAdmStaffRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.StaffRepository, error) {
-	repo := repoaccount.NewStaffRepository(client)
+func newAdmStaffRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.StaffRepository, error) {
+	repo := publishauthrepo.NewStaffRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newAdmRoleRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.RoleRepository, error) {
-	repo := repoaccount.NewRoleRepository(client)
+func newAdmRoleRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.RoleRepository, error) {
+	repo := publishauthrepo.NewRoleRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newAdmPermissionRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.PermissionRepository, error) {
-	repo := repoaccount.NewPermissionRepository(client)
+func newAdmPermissionRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.PermissionRepository, error) {
+	repo := publishauthrepo.NewPermissionRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newAdmStaffRoleRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.StaffRoleRepository, error) {
-	repo := repoaccount.NewStaffRoleRepository(client)
+func newAdmStaffRoleRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.StaffRoleRepository, error) {
+	repo := publishauthrepo.NewStaffRoleRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newAdmRolePermissionRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.RolePermissionRepository, error) {
-	repo := repoaccount.NewRolePermissionRepository(client)
+func newAdmRolePermissionRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.RolePermissionRepository, error) {
+	repo := publishauthrepo.NewRolePermissionRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newAdmLoginLogRepository(ctx context.Context, client *dbmongo.Client) (*repoaccount.LoginLogRepository, error) {
-	repo := repoaccount.NewLoginLogRepository(client)
+func newAdmLoginLogRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.LoginLogRepository, error) {
+	repo := publishauthrepo.NewLoginLogRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}

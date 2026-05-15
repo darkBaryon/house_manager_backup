@@ -2,10 +2,10 @@ package favorite
 
 import (
 	"context"
-	"testing"
-
-	"house-manager/internal/model"
+	hpdmodel "house-manager/internal/model/hpd"
+	useractivitymodel "house-manager/internal/model/useractivity"
 	"house-manager/pkg/errcode"
+	"testing"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -15,7 +15,7 @@ func TestFavoriteAddIsIdempotentAndRequiresOnlineListing(t *testing.T) {
 	listingID := bson.NewObjectID()
 	favorites := &fakeFavoriteRepository{}
 	listings := &fakeMiniappListingRepository{
-		detail: &model.HpdMiniappListing{ListingID: listingID, City: "深圳", Title: "测试房源"},
+		detail: &hpdmodel.HpdMiniappListing{ListingID: listingID, City: "深圳", Title: "测试房源"},
 	}
 	svc := NewService(favorites, listings)
 
@@ -44,14 +44,14 @@ func TestFavoriteListFiltersOfflineBeforePaging(t *testing.T) {
 	id2 := bson.NewObjectID()
 	id3 := bson.NewObjectID()
 	favorites := &fakeFavoriteRepository{
-		list: []model.Favorite{
+		list: []useractivitymodel.Favorite{
 			{UserID: userID, ListingID: id1},
 			{UserID: userID, ListingID: id2},
 			{UserID: userID, ListingID: id3},
 		},
 	}
 	listings := &fakeMiniappListingRepository{
-		online: []model.HpdMiniappListing{
+		online: []hpdmodel.HpdMiniappListing{
 			{ListingID: id1, City: "深圳", Title: "一号", Price: 1000},
 			{ListingID: id3, City: "深圳", Title: "三号", Price: 3000},
 		},
@@ -72,14 +72,14 @@ func TestFavoriteCountMatchesOnlineFilteredListTotal(t *testing.T) {
 	id1 := bson.NewObjectID()
 	id2 := bson.NewObjectID()
 	favorites := &fakeFavoriteRepository{
-		list: []model.Favorite{
+		list: []useractivitymodel.Favorite{
 			{UserID: userID, ListingID: id1},
 			{UserID: userID, ListingID: id2},
 		},
 		count: 99,
 	}
 	listings := &fakeMiniappListingRepository{
-		online: []model.HpdMiniappListing{{ListingID: id2, City: "深圳", Title: "二号"}},
+		online: []hpdmodel.HpdMiniappListing{{ListingID: id2, City: "深圳", Title: "二号"}},
 	}
 	svc := NewService(favorites, listings)
 
@@ -103,7 +103,7 @@ func assertFavoriteErrCode(t *testing.T, err error, code int) {
 type fakeFavoriteRepository struct {
 	upsertUserID    bson.ObjectID
 	upsertListingID bson.ObjectID
-	list            []model.Favorite
+	list            []useractivitymodel.Favorite
 	count           int64
 	exists          bool
 }
@@ -122,7 +122,7 @@ func (f *fakeFavoriteRepository) Exists(ctx context.Context, userID, listingID b
 	return f.exists, nil
 }
 
-func (f *fakeFavoriteRepository) List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]model.Favorite, error) {
+func (f *fakeFavoriteRepository) List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]useractivitymodel.Favorite, error) {
 	return f.list, nil
 }
 
@@ -131,14 +131,14 @@ func (f *fakeFavoriteRepository) Count(ctx context.Context, userID bson.ObjectID
 }
 
 type fakeMiniappListingRepository struct {
-	detail *model.HpdMiniappListing
-	online []model.HpdMiniappListing
+	detail *hpdmodel.HpdMiniappListing
+	online []hpdmodel.HpdMiniappListing
 }
 
-func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	return f.detail, nil
 }
 
-func (f *fakeMiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]hpdmodel.HpdMiniappListing, error) {
 	return f.online, nil
 }

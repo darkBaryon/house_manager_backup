@@ -2,11 +2,9 @@ package hmd
 
 import (
 	"fmt"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	commonmodel "house-manager/internal/model/common"
 )
 
 var (
@@ -98,7 +96,7 @@ func activeFilter(fields bson.M) bson.M {
 		}
 		filter[k] = v
 	}
-	filter["status"] = model.StatusActive
+	filter["status"] = commonmodel.StatusActive
 	return filter
 }
 

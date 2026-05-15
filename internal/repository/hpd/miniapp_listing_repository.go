@@ -3,13 +3,13 @@ package hpd
 import (
 	"context"
 	"fmt"
+	hmdmodel "house-manager/internal/model/hmd"
+	hpdmodel "house-manager/internal/model/hpd"
+	"house-manager/internal/repository/common"
+	dbmongo "house-manager/pkg/database/mongo"
 	"regexp"
 	"strings"
 	"time"
-
-	"house-manager/internal/model"
-	"house-manager/internal/repository/common"
-	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -20,8 +20,8 @@ type MiniappListingSearchFilter struct {
 	City         string
 	District     string
 	BizArea      string
-	RentMode     model.RentMode
-	AssetMode    model.HpdAssetMode
+	RentMode     hmdmodel.RentMode
+	AssetMode    hpdmodel.HpdAssetMode
 	Keyword      string
 	FeatureFlags []string
 	PriceMin     int
@@ -31,56 +31,56 @@ type MiniappListingSearchFilter struct {
 }
 
 type MiniappListingRepository struct {
-	*common.Repository[model.HpdMiniappListing]
+	*common.Repository[hpdmodel.HpdMiniappListing]
 }
 
 func NewMiniappListingRepository(client *dbmongo.Client) *MiniappListingRepository {
 	return &MiniappListingRepository{
-		Repository: common.NewRepository[model.HpdMiniappListing](client.Collection(model.CollectionHpdMiniappListing)),
+		Repository: common.NewRepository[hpdmodel.HpdMiniappListing](client.Collection(hpdmodel.CollectionHpdMiniappListing)),
 	}
 }
 
-func (r *MiniappListingRepository) Create(ctx context.Context, entity *model.HpdMiniappListing) error {
+func (r *MiniappListingRepository) Create(ctx context.Context, entity *hpdmodel.HpdMiniappListing) error {
 	if err := entity.ValidateForCreate(); err != nil {
 		return fmt.Errorf("create hpd miniapp listing: %w", err)
 	}
 	return r.Insert(ctx, entity)
 }
 
-func (r *MiniappListingRepository) FindByID(ctx context.Context, id bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) FindByID(ctx context.Context, id bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hpd miniapp listing by id: id is required")
 	}
 	return r.Repository.FindByID(ctx, id)
 }
 
-func (r *MiniappListingRepository) FindByListingID(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) FindByListingID(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	if listingID.IsZero() {
 		return nil, fmt.Errorf("find hpd miniapp listing by listingID: listingID is required")
 	}
 	return r.FindOne(ctx, activeFilter(bson.M{"listing_id": listingID}))
 }
 
-func (r *MiniappListingRepository) FindBySource(ctx context.Context, sourceType model.HpdSourceType, sourceID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) FindBySource(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	if !sourceType.Valid() || sourceID.IsZero() {
 		return nil, fmt.Errorf("find hpd miniapp listing by source: sourceType and sourceID are required")
 	}
 	return r.FindOne(ctx, activeFilter(bson.M{"source_type": sourceType, "source_id": sourceID}))
 }
 
-func (r *MiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	if listingID.IsZero() {
 		return nil, fmt.Errorf("find hpd miniapp online detail: listingID is required")
 	}
 	return r.FindOne(ctx, activeFilter(bson.M{
 		"listing_id": listingID,
-		"is_online":  model.HpdOnlineStatusYes,
+		"is_online":  hpdmodel.HpdOnlineStatusYes,
 	}))
 }
 
-func (r *MiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, listingIDs []bson.ObjectID) ([]hpdmodel.HpdMiniappListing, error) {
 	if len(listingIDs) == 0 {
-		return []model.HpdMiniappListing{}, nil
+		return []hpdmodel.HpdMiniappListing{}, nil
 	}
 	ids := make([]bson.ObjectID, 0, len(listingIDs))
 	for _, id := range listingIDs {
@@ -89,15 +89,15 @@ func (r *MiniappListingRepository) FindOnlineByListingIDs(ctx context.Context, l
 		}
 	}
 	if len(ids) == 0 {
-		return []model.HpdMiniappListing{}, nil
+		return []hpdmodel.HpdMiniappListing{}, nil
 	}
 	return r.FindMany(ctx, activeFilter(bson.M{
 		"listing_id": bson.M{"$in": ids},
-		"is_online":  model.HpdOnlineStatusYes,
+		"is_online":  hpdmodel.HpdOnlineStatusYes,
 	}))
 }
 
-func (r *MiniappListingRepository) UpsertByListingID(ctx context.Context, entity *model.HpdMiniappListing) (*model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) UpsertByListingID(ctx context.Context, entity *hpdmodel.HpdMiniappListing) (*hpdmodel.HpdMiniappListing, error) {
 	if err := entity.ValidateForCreate(); err != nil {
 		return nil, fmt.Errorf("upsert hpd miniapp listing by listingID: %w", err)
 	}
@@ -116,7 +116,7 @@ func (r *MiniappListingRepository) UpdateProjectionFields(ctx context.Context, l
 	if err != nil {
 		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
 	}
-	if err := model.ValidateHpdUpdateFields(safeFields); err != nil {
+	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
 		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
 	}
 
@@ -136,7 +136,7 @@ func (r *MiniappListingRepository) UpdateProjectionFields(ctx context.Context, l
 	return nil
 }
 
-func (r *MiniappListingRepository) SearchMiniapp(ctx context.Context, search MiniappListingSearchFilter) ([]model.HpdMiniappListing, error) {
+func (r *MiniappListingRepository) SearchMiniapp(ctx context.Context, search MiniappListingSearchFilter) ([]hpdmodel.HpdMiniappListing, error) {
 	filter, err := miniappSearchFilter(search)
 	if err != nil {
 		return nil, fmt.Errorf("search hpd miniapp listings: %w", err)
@@ -182,7 +182,7 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 		return nil, fmt.Errorf("assetMode is invalid")
 	}
 
-	fields := bson.M{"is_online": model.HpdOnlineStatusYes}
+	fields := bson.M{"is_online": hpdmodel.HpdOnlineStatusYes}
 	if search.City != "" {
 		fields["city"] = search.City
 	}

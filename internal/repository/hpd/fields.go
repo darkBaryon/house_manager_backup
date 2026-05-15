@@ -2,10 +2,10 @@ package hpd
 
 import (
 	"fmt"
-
-	"house-manager/internal/model"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
+	commonmodel "house-manager/internal/model/common"
+	hpdmodel "house-manager/internal/model/hpd"
+	"strings"
 )
 
 var (
@@ -65,7 +65,7 @@ func activeFilter(fields bson.M) bson.M {
 		}
 		filter[k] = v
 	}
-	filter["status"] = model.StatusActive
+	filter["status"] = commonmodel.StatusActive
 	return filter
 }
 
@@ -95,7 +95,7 @@ func cloneBsonM(src bson.M) bson.M {
 	return cloned
 }
 
-func listingFields(entity *model.HpdListing) bson.M {
+func listingFields(entity *hpdmodel.HpdListing) bson.M {
 	return bson.M{
 		"source_type": entity.SourceType,
 		"source_id":   entity.SourceID,
@@ -103,7 +103,7 @@ func listingFields(entity *model.HpdListing) bson.M {
 	}
 }
 
-func miniappListingFields(entity *model.HpdMiniappListing) bson.M {
+func miniappListingFields(entity *hpdmodel.HpdMiniappListing) bson.M {
 	return bson.M{
 		"listing_id":                 entity.ListingID,
 		"source_type":                entity.SourceType,
@@ -142,6 +142,49 @@ func miniappListingFields(entity *model.HpdMiniappListing) bson.M {
 	}
 }
 
-func listingStatusUpdateFields(listingStatus model.HpdListingStatus) bson.M {
+func listingStatusUpdateFields(listingStatus hpdmodel.HpdListingStatus) bson.M {
 	return bson.M{"listing_status": listingStatus}
+}
+
+func entrustRelationFields(entity *hpdmodel.HpdEntrustRelation) bson.M {
+	return bson.M{
+		"listing_id":          entity.ListingID,
+		"owner_name":          entity.OwnerName,
+		"owner_phone":         entity.OwnerPhone,
+		"maintainer_staff_id": entity.MaintainerStaffID,
+		"service_staff_id":    entity.ServiceStaffID,
+		"relation_status":     entity.RelationStatus,
+		"effective_from":      entity.EffectiveFrom,
+		"effective_to":        entity.EffectiveTo,
+	}
+}
+
+func activeEntrustRelationFilter(fields bson.M) bson.M {
+	filter := activeFilter(fields)
+	filter["relation_status"] = hpdmodel.HpdRelationStatusActive
+	return filter
+}
+
+func activeEntrustAccessFilter(listingID bson.ObjectID, staffID bson.ObjectID, ownerPhone string) (bson.M, error) {
+	if listingID.IsZero() {
+		return nil, fmt.Errorf("listingID is required")
+	}
+	ownerPhone = strings.TrimSpace(ownerPhone)
+	clauses := make(bson.A, 0, 3)
+	if !staffID.IsZero() {
+		clauses = append(clauses,
+			bson.M{"maintainer_staff_id": staffID},
+			bson.M{"service_staff_id": staffID},
+		)
+	}
+	if ownerPhone != "" {
+		clauses = append(clauses, bson.M{"owner_phone": ownerPhone})
+	}
+	if len(clauses) == 0 {
+		return nil, fmt.Errorf("staffID or ownerPhone is required")
+	}
+	return activeEntrustRelationFilter(bson.M{
+		"listing_id": listingID,
+		"$or":        clauses,
+	}), nil
 }

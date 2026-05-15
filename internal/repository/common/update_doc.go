@@ -1,7 +1,7 @@
 package common
 
 import (
-	"house-manager/internal/model"
+	commonmodel "house-manager/internal/model/common"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -35,7 +35,7 @@ func buildUpsertFieldsDoc(fields bson.M, now int64) bson.M {
 		"$inc": bson.M{"version": 1},
 		"$setOnInsert": bson.M{
 			"created_at": now,
-			"status":     model.StatusActive,
+			"status":     commonmodel.StatusActive,
 		},
 	}
 }

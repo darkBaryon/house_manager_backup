@@ -3,11 +3,11 @@ package house
 import (
 	"context"
 	"errors"
-	"testing"
-
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
+	hpdmodel "house-manager/internal/model/hpd"
 	repohpd "house-manager/internal/repository/hpd"
 	"house-manager/pkg/errcode"
+	"testing"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -15,10 +15,10 @@ import (
 func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 	listingID := bson.NewObjectID()
 	repo := &fakeMiniappListingRepository{
-		searchResult: []model.HpdMiniappListing{{
+		searchResult: []hpdmodel.HpdMiniappListing{{
 			ListingID:               listingID,
-			AssetMode:               model.HpdAssetModeCentralized,
-			RentMode:                model.RentModeWhole,
+			AssetMode:               hpdmodel.HpdAssetModeCentralized,
+			RentMode:                hmdmodel.RentModeWhole,
 			City:                    "深圳",
 			District:                "南山区",
 			BizArea:                 "科技园",
@@ -26,11 +26,11 @@ func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 			Title:                   "整租一房",
 			Price:                   5200,
 			PriceText:               "5200元/月",
-			PaymentCycle:            model.PaymentCycleMonthly,
+			PaymentCycle:            hmdmodel.PaymentCycleMonthly,
 			FeatureFlags:            []string{"near_subway"},
-			ListingFacilities:       []model.ListingFacility{model.ListingFacilityElevator},
+			ListingFacilities:       []hmdmodel.ListingFacility{hmdmodel.ListingFacilityElevator},
 			PlatformTags:            []string{"精选"},
-			Images:                  []model.TaggedImage{{URL: "https://example.com/a.jpg"}},
+			Images:                  []hmdmodel.TaggedImage{{URL: "https://example.com/a.jpg"}},
 		}},
 		countResult: 12,
 	}
@@ -40,8 +40,8 @@ func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 		City:         " 深圳 ",
 		District:     "南山区",
 		BizArea:      "科技园",
-		RentMode:     string(model.RentModeWhole),
-		AssetMode:    string(model.HpdAssetModeCentralized),
+		RentMode:     string(hmdmodel.RentModeWhole),
+		AssetMode:    string(hpdmodel.HpdAssetModeCentralized),
 		MinPrice:     3000,
 		MaxPrice:     8000,
 		Keyword:      " 公寓 ",
@@ -70,7 +70,7 @@ func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 	if len(result.List) != 1 || result.List[0].ListingID != listingID.Hex() {
 		t.Fatalf("unexpected list result: %#v", result.List)
 	}
-	if len(result.List[0].ListingFacilities) != 1 || result.List[0].ListingFacilities[0] != string(model.ListingFacilityElevator) {
+	if len(result.List[0].ListingFacilities) != 1 || result.List[0].ListingFacilities[0] != string(hmdmodel.ListingFacilityElevator) {
 		t.Fatalf("unexpected mapped facilities: %#v", result.List[0].ListingFacilities)
 	}
 }
@@ -115,17 +115,17 @@ func TestHouseSearchWrapsRepositoryError(t *testing.T) {
 
 func TestHousePublicDetailMapsResult(t *testing.T) {
 	listingID := bson.NewObjectID()
-	repo := &fakeMiniappListingRepository{detailResult: &model.HpdMiniappListing{
+	repo := &fakeMiniappListingRepository{detailResult: &hpdmodel.HpdMiniappListing{
 		ListingID:     listingID,
-		AssetMode:     model.HpdAssetModeDecentralized,
-		RentMode:      model.RentModeShared,
+		AssetMode:     hpdmodel.HpdAssetModeDecentralized,
+		RentMode:      hmdmodel.RentModeShared,
 		City:          "深圳",
 		Title:         "合租单间",
 		Price:         2600,
 		AddressText:   "南山区测试路",
-		Geo:           &model.GeoPoint{Lng: 113.1, Lat: 22.2},
-		StartRentRule: model.StartRentRuleLongOneYear,
-		CostItems:     []model.HpdCostItem{{Name: "押金", Amount: 2600, Unit: "元"}},
+		Geo:           &hmdmodel.GeoPoint{Lng: 113.1, Lat: 22.2},
+		StartRentRule: hmdmodel.StartRentRuleLongOneYear,
+		CostItems:     []hpdmodel.HpdCostItem{{Name: "押金", Amount: 2600, Unit: "元"}},
 		ContactPhone:  "18800000000",
 	}}
 	svc := &HouseService{miniappListings: repo}
@@ -151,10 +151,10 @@ func TestHousePublicDetailMapsResult(t *testing.T) {
 func TestHousePublicDetailReturnsFavoriteStatusForUser(t *testing.T) {
 	listingID := bson.NewObjectID()
 	userID := bson.NewObjectID()
-	repo := &fakeMiniappListingRepository{detailResult: &model.HpdMiniappListing{
+	repo := &fakeMiniappListingRepository{detailResult: &hpdmodel.HpdMiniappListing{
 		ListingID: listingID,
-		AssetMode: model.HpdAssetModeDecentralized,
-		RentMode:  model.RentModeShared,
+		AssetMode: hpdmodel.HpdAssetModeDecentralized,
+		RentMode:  hmdmodel.RentModeShared,
 		City:      "深圳",
 		Title:     "合租单间",
 		Price:     2600,
@@ -196,7 +196,7 @@ func assertErrCode(t *testing.T, err error, code int) {
 type fakeMiniappListingRepository struct {
 	searchCalls  int
 	searchFilter repohpd.MiniappListingSearchFilter
-	searchResult []model.HpdMiniappListing
+	searchResult []hpdmodel.HpdMiniappListing
 	searchErr    error
 
 	countCalls  int
@@ -206,11 +206,11 @@ type fakeMiniappListingRepository struct {
 
 	detailCalls  int
 	detailID     bson.ObjectID
-	detailResult *model.HpdMiniappListing
+	detailResult *hpdmodel.HpdMiniappListing
 	detailErr    error
 }
 
-func (f *fakeMiniappListingRepository) SearchMiniapp(ctx context.Context, search repohpd.MiniappListingSearchFilter) ([]model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) SearchMiniapp(ctx context.Context, search repohpd.MiniappListingSearchFilter) ([]hpdmodel.HpdMiniappListing, error) {
 	f.searchCalls++
 	f.searchFilter = search
 	return f.searchResult, f.searchErr
@@ -222,7 +222,7 @@ func (f *fakeMiniappListingRepository) CountMiniapp(ctx context.Context, search 
 	return f.countResult, f.countErr
 }
 
-func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*model.HpdMiniappListing, error) {
+func (f *fakeMiniappListingRepository) FindOnlineDetail(ctx context.Context, listingID bson.ObjectID) (*hpdmodel.HpdMiniappListing, error) {
 	f.detailCalls++
 	f.detailID = listingID
 	return f.detailResult, f.detailErr

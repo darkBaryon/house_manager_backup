@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"house-manager/internal/model"
+	commonmodel "house-manager/internal/model/common"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -19,7 +19,9 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 	}
 
 	now := time.Now().Unix()
-	commonAware, ok := any(entity).(interface{ Common() *model.CommonFields })
+	commonAware, ok := any(entity).(interface {
+		Common() *commonmodel.CommonFields
+	})
 	if !ok {
 		return fmt.Errorf("insert: entity does not expose common fields")
 	}
@@ -28,8 +30,8 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 		common.CreatedAt = now
 	}
 	common.UpdatedAt = now
-	if common.Status == model.StatusUnspecified {
-		common.Status = model.StatusActive
+	if common.Status == commonmodel.StatusUnspecified {
+		common.Status = commonmodel.StatusActive
 	}
 	if common.Version == 0 {
 		common.Version = 1
@@ -99,7 +101,7 @@ func (r *Repository[T]) SoftDeleteByID(ctx context.Context, id bson.ObjectID) er
 	now := time.Now().Unix()
 	update := bson.M{
 		"$set": bson.M{
-			"status":     model.StatusDeleted,
+			"status":     commonmodel.StatusDeleted,
 			"updated_at": now,
 		},
 		"$inc": bson.M{"version": 1},

@@ -2,7 +2,7 @@ package community
 
 import (
 	"house-manager/internal/handler/v1/publish/common"
-	"house-manager/internal/model"
+	hmdmodel "house-manager/internal/model/hmd"
 )
 
 type request struct {
@@ -28,7 +28,7 @@ type response struct {
 	SubwayStation string                   `json:"subway_station"`
 }
 
-func toResponse(community *model.HmdDecentralized) *response {
+func toResponse(community *hmdmodel.HmdDecentralized) *response {
 	if community == nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func toResponse(community *model.HmdDecentralized) *response {
 	}
 }
 
-func toListResponse(communities []model.HmdDecentralized) common.ListResponse[response] {
+func toListResponse(communities []hmdmodel.HmdDecentralized) common.ListResponse[response] {
 	list := make([]response, 0, len(communities))
 	for i := range communities {
 		item := toResponse(&communities[i])

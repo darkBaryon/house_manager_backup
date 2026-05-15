@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 
-	authdomain "house-manager/internal/domain/auth"
-	repoauth "house-manager/internal/repository/auth"
+	miniappauthrepo "house-manager/internal/repository/miniapp_auth"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
 
@@ -14,16 +13,16 @@ import (
 
 // Service 是小程序端认证应用服务入口。
 type Service struct {
-	identity     *authdomain.IdentityService
-	userProfile  *authdomain.UserProfileService
-	userRepo     *repoauth.UserRepository
+	identity     *IdentityService
+	userProfile  *UserProfileService
+	userRepo     *miniappauthrepo.UserRepository
 	sessionStore *session.Store
 }
 
 func NewService(
-	identity *authdomain.IdentityService,
-	userProfile *authdomain.UserProfileService,
-	userRepo *repoauth.UserRepository,
+	identity *IdentityService,
+	userProfile *UserProfileService,
+	userRepo *miniappauthrepo.UserRepository,
 	sessionStore *session.Store,
 ) *Service {
 	return &Service{
