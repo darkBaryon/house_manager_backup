@@ -4,7 +4,9 @@ import (
 	"context"
 	authmodel "house-manager/internal/model/auth"
 	hmdmodel "house-manager/internal/model/hmd"
+	miniapplog "house-manager/internal/service/miniapp/logging"
 	"house-manager/pkg/errcode"
+	"log/slog"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -36,41 +38,105 @@ func NewService(users userRepository, profiles profileRepository, favorites coun
 }
 
 func (s *Service) Profile(ctx context.Context, input ProfileInput) (*Profile, error) {
+	slog.InfoContext(ctx, "miniapp.user.profile.start", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+	)...)
 	if input.UserID.IsZero() {
-		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
+		err := errcode.InvalidParam.WithErrorf("user_id is required")
+		slog.WarnContext(ctx, "miniapp.user.profile.failed", miniapplog.Attrs(ctx,
+			"error", err,
+		)...)
+		return nil, err
 	}
 	user, err := s.users.FindByID(ctx, input.UserID)
 	if err != nil {
-		return nil, errcode.DatabaseError.WithErrorf("find user profile: %w", err)
+		wrapped := errcode.DatabaseError.WithErrorf("find user profile: %w", err)
+		slog.ErrorContext(ctx, "miniapp.user.profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "find_user",
+			"error", wrapped,
+		)...)
+		return nil, wrapped
 	}
 	if user == nil {
-		return nil, errcode.NotFound.WithErrorf("user not found")
+		err := errcode.NotFound.WithErrorf("user not found")
+		slog.WarnContext(ctx, "miniapp.user.profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "find_user",
+			"error", err,
+		)...)
+		return nil, err
 	}
 	profile, err := s.profiles.FindByUserID(ctx, input.UserID)
 	if err != nil {
-		return nil, errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
+		wrapped := errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
+		slog.ErrorContext(ctx, "miniapp.user.profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "find_profile_ext",
+			"error", wrapped,
+		)...)
+		return nil, wrapped
 	}
-	return mapProfile(user, profile), nil
+	result := mapProfile(user, profile)
+	slog.InfoContext(ctx, "miniapp.user.profile.success", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+		"city", result.City,
+	)...)
+	return result, nil
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (*Profile, error) {
+	slog.InfoContext(ctx, "miniapp.user.update_profile.start", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+		"has_nickname", input.Nickname != nil,
+		"has_city", input.City != nil,
+		"has_budget_min", input.BudgetMin != nil,
+		"has_budget_max", input.BudgetMax != nil,
+		"has_preferred_areas", input.PreferredAreas != nil,
+	)...)
 	if input.UserID.IsZero() {
-		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
+		err := errcode.InvalidParam.WithErrorf("user_id is required")
+		slog.WarnContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"error", err,
+		)...)
+		return nil, err
 	}
 	if (input.BudgetMin != nil && *input.BudgetMin < 0) || (input.BudgetMax != nil && *input.BudgetMax < 0) {
-		return nil, errcode.InvalidParam.WithErrorf("budget must be non-negative")
+		err := errcode.InvalidParam.WithErrorf("budget must be non-negative")
+		slog.WarnContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"error", err,
+		)...)
+		return nil, err
 	}
 	if rentMode := trimStringPtr(input.PreferredRentMode); rentMode != "" && !hmdmodel.RentMode(rentMode).Valid() {
-		return nil, errcode.InvalidParam.WithErrorf("preferred_rent_mode is invalid")
+		err := errcode.InvalidParam.WithErrorf("preferred_rent_mode is invalid")
+		slog.WarnContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"preferred_rent_mode", rentMode,
+			"error", err,
+		)...)
+		return nil, err
 	}
 
 	profile, err := s.profiles.FindByUserID(ctx, input.UserID)
 	if err != nil {
-		return nil, errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
+		wrapped := errcode.DatabaseError.WithErrorf("find user profile ext: %w", err)
+		slog.ErrorContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "find_profile_ext",
+			"error", wrapped,
+		)...)
+		return nil, wrapped
 	}
 	effectiveBudgetMin, effectiveBudgetMax := effectiveBudgetRange(profile, input)
 	if effectiveBudgetMax > 0 && effectiveBudgetMin > effectiveBudgetMax {
-		return nil, errcode.InvalidParam.WithErrorf("budget_min must be less than or equal to budget_max")
+		err := errcode.InvalidParam.WithErrorf("budget_min must be less than or equal to budget_max")
+		slog.WarnContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"error", err,
+		)...)
+		return nil, err
 	}
 
 	userFields := bson.M{}
@@ -79,7 +145,13 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	setTrimmedString(userFields, "city", input.City)
 	if len(userFields) > 0 {
 		if err := s.users.UpdateProfileFields(ctx, input.UserID, userFields); err != nil {
-			return nil, errcode.DatabaseError.WithErrorf("update user profile: %w", err)
+			wrapped := errcode.DatabaseError.WithErrorf("update user profile: %w", err)
+			slog.ErrorContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+				"user_id", input.UserID.Hex(),
+				"step", "update_user_profile",
+				"error", wrapped,
+			)...)
+			return nil, wrapped
 		}
 	}
 
@@ -98,30 +170,74 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 	setTrimmedString(profileFields, "remark", input.Remark)
 	if len(profileFields) > 0 {
 		if _, err := s.profiles.UpsertByUserID(ctx, input.UserID, profileFields); err != nil {
-			return nil, errcode.DatabaseError.WithErrorf("update user profile ext: %w", err)
+			wrapped := errcode.DatabaseError.WithErrorf("update user profile ext: %w", err)
+			slog.ErrorContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+				"user_id", input.UserID.Hex(),
+				"step", "upsert_profile_ext",
+				"error", wrapped,
+			)...)
+			return nil, wrapped
 		}
 	}
-	return s.Profile(ctx, ProfileInput{UserID: input.UserID})
+	result, err := s.Profile(ctx, ProfileInput{UserID: input.UserID})
+	if err != nil {
+		slog.WarnContext(ctx, "miniapp.user.update_profile.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "reload_profile",
+			"error", err,
+		)...)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "miniapp.user.update_profile.success", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+		"city", result.City,
+	)...)
+	return result, nil
 }
 
 func (s *Service) Dashboard(ctx context.Context, input DashboardInput) (*Dashboard, error) {
+	slog.InfoContext(ctx, "miniapp.user.dashboard.start", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+	)...)
 	if input.UserID.IsZero() {
-		return nil, errcode.InvalidParam.WithErrorf("user_id is required")
+		err := errcode.InvalidParam.WithErrorf("user_id is required")
+		slog.WarnContext(ctx, "miniapp.user.dashboard.failed", miniapplog.Attrs(ctx,
+			"error", err,
+		)...)
+		return nil, err
 	}
 	favoriteCount, err := s.favorites.Count(ctx, input.UserID)
 	if err != nil {
-		return nil, errcode.DatabaseError.WithErrorf("count favorites: %w", err)
+		wrapped := errcode.DatabaseError.WithErrorf("count favorites: %w", err)
+		slog.WarnContext(ctx, "miniapp.user.dashboard.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "count_favorites",
+			"error", wrapped,
+		)...)
+		return nil, wrapped
 	}
 	historyCount, err := s.history.Count(ctx, input.UserID)
 	if err != nil {
-		return nil, errcode.DatabaseError.WithErrorf("count history: %w", err)
+		wrapped := errcode.DatabaseError.WithErrorf("count history: %w", err)
+		slog.WarnContext(ctx, "miniapp.user.dashboard.failed", miniapplog.Attrs(ctx,
+			"user_id", input.UserID.Hex(),
+			"step", "count_history",
+			"error", wrapped,
+		)...)
+		return nil, wrapped
 	}
-	return &Dashboard{
+	result := &Dashboard{
 		FavoriteCount:           favoriteCount,
 		HistoryCount:            historyCount,
 		PlanCount:               0,
 		UnreadNotificationCount: 0,
-	}, nil
+	}
+	slog.InfoContext(ctx, "miniapp.user.dashboard.success", miniapplog.Attrs(ctx,
+		"user_id", input.UserID.Hex(),
+		"favorite_count", favoriteCount,
+		"history_count", historyCount,
+	)...)
+	return result, nil
 }
 
 func mapProfile(user *authmodel.User, ext *authmodel.UserProfileExt) *Profile {

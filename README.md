@@ -110,7 +110,7 @@ internal/
   domain/                   内部领域能力
     hmd/                    房源主数据领域能力
     listingprojection/      HMD 变更到 HPD read model 的投影
-    publishaccess/          发房端 listing 归属与数据作用域基础
+    publishaccess/          发房端 root owner scope 与数据作用域
   handler/                  HTTP handler
     v1/miniapp/auth/        小程序认证接口
     v1/miniapp/house/       小程序找房接口
@@ -199,3 +199,23 @@ go test ./internal/domain/hmd -run Integration -count=1 -v
 ```
 
 普通 `go test ./...` 不访问 Mongo。
+
+## 日志约定
+
+当前后端日志分两层：
+
+- `access log`：统一由 [internal/middleware/logger.go](/Users/xinyue/VSCode/ws_2026/house-manager/internal/middleware/logger.go) 输出，请求成功时保持短格式，请求失败时展开 `app_code / error_detail / handler / req_*`。
+- `business flow log`：由具体 service / domain 文件输出，成功和失败都打，用来表达业务过程，而不只是报错。
+
+`request_id` 会通过 [pkg/requestlog/context.go](/Users/xinyue/VSCode/ws_2026/house-manager/pkg/requestlog/context.go) 贯穿 middleware 和业务日志，排障时先看 access log，再按同一个 `request_id` 串业务流。
+
+当前已经补齐的主链：
+
+- `publish_auth` 与 `service/publish/*`
+- `domain/publishaccess`
+- `domain/listingprojection`
+- `service/miniapp/auth`
+- `service/miniapp/house`
+- `service/miniapp/favorite`
+- `service/miniapp/history`
+- `service/miniapp/user`
