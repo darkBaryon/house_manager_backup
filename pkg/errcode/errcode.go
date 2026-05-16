@@ -3,6 +3,7 @@ package errcode
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Error 业务错误码
@@ -31,6 +32,22 @@ func (e *Error) WithError(err error) *Error {
 
 func (e *Error) WithErrorf(format string, args ...any) *Error {
 	return e.WithError(fmt.Errorf(format, args...))
+}
+
+func (e *Error) PublicMessage() string {
+	if e == nil {
+		return ""
+	}
+	if e.cause == nil {
+		return e.Message
+	}
+	switch e.Code {
+	case InvalidParam.Code, Unauthorized.Code, Forbidden.Code, AlreadyExists.Code:
+		if text := strings.TrimSpace(e.cause.Error()); text != "" {
+			return text
+		}
+	}
+	return e.Message
 }
 
 func FromError(err error) *Error {

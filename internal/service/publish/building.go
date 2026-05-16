@@ -17,7 +17,7 @@ func newBuildingService(hmd buildingScopeDomain, publisher mutationPublisher, ac
 }
 
 func (s *buildingService) CreateBuilding(ctx context.Context, input CreateBuildingInput) (*hmdmodel.HmdBuilding, error) {
-	logPublishInfo(ctx, "publish.building.create.start", "project_id", input.ProjectID.Hex(), "building_code", input.BuildingCode)
+	logPublishInfo(ctx, "publish.building.create.start", "project_id", input.ProjectID.Hex(), "building_name", input.BuildingName)
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
 		logPublishResult(ctx, "publish.building.create.success", "publish.building.create.failed", err, "project_id", input.ProjectID.Hex())

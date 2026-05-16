@@ -40,7 +40,6 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 	result, err := h.service.CreateCentralizedProject(c.Request.Context(), publishsvc.CreateCentralizedProjectInput{
 		ProjectName: req.ProjectName,
-		ProjectCode: req.ProjectCode,
 		City:        req.City,
 		District:    req.District,
 		AddressText: req.AddressText,

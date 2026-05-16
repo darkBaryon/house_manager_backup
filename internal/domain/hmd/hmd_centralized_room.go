@@ -45,7 +45,7 @@ func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentral
 		return nil, databasef("create centralized room: find existing room: %w", err)
 	}
 	if existing != nil {
-		return nil, alreadyExistsf("create centralized room: roomNo already exists under building")
+		return nil, alreadyExistsf("当前楼栋下已存在相同房间号")
 	}
 
 	if err := s.roomCentralizedRepo.Create(ctx, entity); err != nil {
@@ -86,16 +86,28 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 		return nil, err
 	}
 
+	roomTypeID := room.RoomTypeID
+	if input.RoomTypeID != nil {
+		_, _, roomType, err := s.validateCentralizedRoomDependencies(ctx, room.ProjectID, room.BuildingID, *input.RoomTypeID, "update centralized room")
+		if err != nil {
+			return nil, err
+		}
+		if roomType != nil {
+			roomTypeID = roomType.ID
+		}
+	}
+
 	roomNo := strings.TrimSpace(input.RoomNo)
 	existing, err := s.roomCentralizedRepo.FindByBuildingAndRoomNo(ctx, room.BuildingID, roomNo)
 	if err != nil {
 		return nil, databasef("update centralized room: find existing room: %w", err)
 	}
 	if existing != nil && existing.ID != room.ID {
-		return nil, alreadyExistsf("update centralized room: roomNo already exists under building")
+		return nil, alreadyExistsf("当前楼栋下已存在相同房间号")
 	}
 
 	fields := bsonFields(
+		"room_type_id", roomTypeID,
 		"room_no", roomNo,
 		"floor_no", input.FloorNo,
 		"rent_mode", hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),

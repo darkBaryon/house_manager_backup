@@ -6,6 +6,7 @@ import (
 	hmdmodel "house-manager/internal/model/hmd"
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -34,11 +35,15 @@ func (r *BuildingRepository) FindByID(ctx context.Context, id bson.ObjectID) (*h
 	return r.Repository.FindByID(ctx, id)
 }
 
-func (r *BuildingRepository) FindByBuildingCode(ctx context.Context, buildingCode string) (*hmdmodel.HmdBuilding, error) {
-	if buildingCode == "" {
-		return nil, fmt.Errorf("find hmd building by buildingCode: buildingCode is required")
+func (r *BuildingRepository) FindByProjectAndName(ctx context.Context, projectID bson.ObjectID, buildingName string) (*hmdmodel.HmdBuilding, error) {
+	if projectID.IsZero() {
+		return nil, fmt.Errorf("find hmd building by project and name: projectID is required")
 	}
-	return r.FindOne(ctx, activeFilter(bson.M{"building_code": buildingCode}))
+	buildingName = strings.TrimSpace(buildingName)
+	if buildingName == "" {
+		return nil, fmt.Errorf("find hmd building by project and name: buildingName is required")
+	}
+	return r.FindOne(ctx, activeFilter(bson.M{"project_id": projectID, "building_name": buildingName}))
 }
 
 func (r *BuildingRepository) ListByProjectID(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdBuilding, error) {

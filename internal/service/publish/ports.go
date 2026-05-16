@@ -16,6 +16,7 @@ type centralizedProjectDomain interface {
 	RollbackCentralizedProjectCreate(ctx context.Context, id bson.ObjectID) error
 	GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error)
 	ListCentralizedProjects(ctx context.Context, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error)
+	ListCentralizedProjectsByIDs(ctx context.Context, ids []bson.ObjectID, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error)
 	UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdCentralized], error)
 }
 
@@ -63,6 +64,7 @@ type centralizedRoomScopeDomain interface {
 	centralizedRoomDomain
 	GetBuilding(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdBuilding, error)
 	GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomCentralized, error)
+	GetRoomType(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomTypeCentralized, error)
 }
 
 type decentralizedCommunityDomain interface {
@@ -70,6 +72,7 @@ type decentralizedCommunityDomain interface {
 	RollbackDecentralizedCommunityCreate(ctx context.Context, id bson.ObjectID) error
 	GetDecentralizedCommunity(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdDecentralized, error)
 	ListDecentralizedCommunities(ctx context.Context, input ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error)
+	ListDecentralizedCommunitiesByIDs(ctx context.Context, ids []bson.ObjectID, input ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error)
 	UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*hmddomain.HmdMutationResult[hmdmodel.HmdDecentralized], error)
 }
 

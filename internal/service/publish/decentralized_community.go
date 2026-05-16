@@ -75,18 +75,18 @@ func (s *decentralizedCommunityService) ListDecentralizedCommunities(ctx context
 		logPublishResult(ctx, "publish.community.list.success", "publish.community.list.failed", err, "city", input.City, "district", input.District)
 		return nil, err
 	}
-	communities, err := s.hmd.ListDecentralizedCommunities(ctx, input)
+	communityIDs, err := scope.accessibleCommunityIDs(ctx)
 	if err != nil {
-		logPublishResult(ctx, "publish.community.list.success", "publish.community.list.failed", err, "city", input.City, "district", input.District)
+		logPublishResult(ctx, "publish.community.list.success", "publish.community.list.failed", err, "city", input.City, "district", input.District, "step", "resolve_scope")
 		return nil, err
 	}
-	filtered, err := filterDecentralizedCommunitiesByScope(ctx, scope, communities)
+	communities, err := s.hmd.ListDecentralizedCommunitiesByIDs(ctx, communityIDs, input)
 	if err != nil {
-		logPublishResult(ctx, "publish.community.list.success", "publish.community.list.failed", err, "input_count", len(communities))
+		logPublishResult(ctx, "publish.community.list.success", "publish.community.list.failed", err, "city", input.City, "district", input.District, "community_scope_count", len(communityIDs))
 		return nil, err
 	}
-	logPublishInfo(ctx, "publish.community.list.success", "input_count", len(communities), "result_count", len(filtered))
-	return filtered, nil
+	logPublishInfo(ctx, "publish.community.list.success", "community_scope_count", len(communityIDs), "result_count", len(communities))
+	return communities, nil
 }
 
 func (s *decentralizedCommunityService) UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*hmdmodel.HmdDecentralized, error) {

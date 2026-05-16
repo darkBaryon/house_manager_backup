@@ -142,10 +142,11 @@ func TestMiniappAuthAcceptsMiniappSessionAndSetsUserID(t *testing.T) {
 
 type middlewareFakeCache struct {
 	values map[string]string
+	ttls   map[string]time.Duration
 }
 
 func newMiddlewareFakeCache() *middlewareFakeCache {
-	return &middlewareFakeCache{values: map[string]string{}}
+	return &middlewareFakeCache{values: map[string]string{}, ttls: map[string]time.Duration{}}
 }
 
 func (f *middlewareFakeCache) Get(ctx context.Context, key string) (string, error) {
@@ -154,12 +155,48 @@ func (f *middlewareFakeCache) Get(ctx context.Context, key string) (string, erro
 
 func (f *middlewareFakeCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
 	f.values[key] = value
+	f.ttls[key] = ttl
 	return nil
 }
 
 func (f *middlewareFakeCache) Del(ctx context.Context, keys ...string) error {
 	for _, key := range keys {
 		delete(f.values, key)
+		delete(f.ttls, key)
 	}
 	return nil
+}
+
+func TestPublishAuthRefreshesSessionTTL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cache := newMiddlewareFakeCache()
+	store := session.NewStore(cache, 2*time.Hour)
+	token, err := store.CreatePrincipal(context.Background(), session.Principal{
+		PrincipalType: session.PrincipalTypeLandlord,
+		PrincipalID:   "landlord-id",
+		Terminal:      session.TerminalPublish,
+	})
+	if err != nil {
+		t.Fatalf("create principal: %v", err)
+	}
+
+	key := "hs:sess:" + token
+	cache.ttls[key] = time.Minute
+
+	router := gin.New()
+	router.POST("/protected", PublishAuth(store), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected no content, got %d body=%s", resp.Code, resp.Body.String())
+	}
+	if got := cache.ttls[key]; got != 2*time.Hour {
+		t.Fatalf("expected ttl refreshed to 2h, got %v", got)
+	}
 }

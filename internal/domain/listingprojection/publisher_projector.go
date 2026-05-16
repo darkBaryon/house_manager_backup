@@ -13,6 +13,7 @@ import (
 type PublisherProjector struct {
 	hpdListingRepo             hpdListingRepository
 	hpdPublisherListingRepo    hpdPublisherListingRepository
+	hpdRootScopeRepo           hpdRootScopeRepository
 	hmdCentralizedRepo         hmdCentralizedRepository
 	hmdBuildingRepo            hmdBuildingRepository
 	hmdDecentralizedRepo       hmdDecentralizedRepository
@@ -24,6 +25,7 @@ type PublisherProjector struct {
 func NewPublisherProjector(
 	hpdListingRepo hpdListingRepository,
 	hpdPublisherListingRepo hpdPublisherListingRepository,
+	hpdRootScopeRepo hpdRootScopeRepository,
 	hmdCentralizedRepo hmdCentralizedRepository,
 	hmdBuildingRepo hmdBuildingRepository,
 	hmdDecentralizedRepo hmdDecentralizedRepository,
@@ -34,6 +36,7 @@ func NewPublisherProjector(
 	return &PublisherProjector{
 		hpdListingRepo:             hpdListingRepo,
 		hpdPublisherListingRepo:    hpdPublisherListingRepo,
+		hpdRootScopeRepo:           hpdRootScopeRepo,
 		hmdCentralizedRepo:         hmdCentralizedRepo,
 		hmdBuildingRepo:            hmdBuildingRepo,
 		hmdDecentralizedRepo:       hmdDecentralizedRepo,
@@ -104,7 +107,12 @@ func (p *PublisherProjector) RefreshCentralizedRoom(ctx context.Context, roomID 
 		return fmt.Errorf("upsert hpd listing returned nil")
 	}
 
-	publisherListing := mapCentralizedPublisherListing(listing, room, project, building, roomType)
+	owner, err := p.findRootOwner(ctx, hpdmodel.HpdRootScopeTypeCentralizedProject, project.ID)
+	if err != nil {
+		return fmt.Errorf("find centralized root owner: %w", err)
+	}
+
+	publisherListing := mapCentralizedPublisherListing(listing, room, project, building, roomType, owner)
 	if _, err := p.hpdPublisherListingRepo.UpsertByListingID(ctx, publisherListing); err != nil {
 		return fmt.Errorf("upsert hpd publisher listing: %w", err)
 	}
@@ -142,10 +150,29 @@ func (p *PublisherProjector) RefreshDecentralizedRoom(ctx context.Context, roomI
 		return fmt.Errorf("upsert hpd listing returned nil")
 	}
 
-	publisherListing := mapDecentralizedPublisherListing(listing, room, community)
+	owner, err := p.findRootOwner(ctx, hpdmodel.HpdRootScopeTypeDecentralizedCommunity, community.ID)
+	if err != nil {
+		return fmt.Errorf("find decentralized root owner: %w", err)
+	}
+
+	publisherListing := mapDecentralizedPublisherListing(listing, room, community, owner)
 	if _, err := p.hpdPublisherListingRepo.UpsertByListingID(ctx, publisherListing); err != nil {
 		return fmt.Errorf("upsert hpd publisher listing: %w", err)
 	}
 	logProjectionInfo(ctx, "listingprojection.publisher.refresh_decentralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
+}
+
+func (p *PublisherProjector) findRootOwner(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID) (*hpdmodel.HpdRootScopeRelation, error) {
+	if p.hpdRootScopeRepo == nil {
+		return nil, fmt.Errorf("hpd root scope repository is required")
+	}
+	owner, err := p.hpdRootScopeRepo.FindActiveByRoot(ctx, rootType, rootID)
+	if err != nil {
+		return nil, err
+	}
+	if owner == nil {
+		return nil, fmt.Errorf("hpd root scope relation not found")
+	}
+	return owner, nil
 }

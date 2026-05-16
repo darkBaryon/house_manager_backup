@@ -86,6 +86,7 @@ func newHpdMiniappProjector(
 func newHpdPublisherProjector(
 	hpdListingRepo *repohpd.ListingRepository,
 	hpdPublisherListingRepo *repohpd.PublisherListingRepository,
+	hpdRootScopeRepo *repohpd.RootScopeRepository,
 	hmdCentralizedRepo *repohmd.CentralizedRepository,
 	hmdBuildingRepo *repohmd.BuildingRepository,
 	hmdDecentralizedRepo *repohmd.DecentralizedRepository,
@@ -96,6 +97,7 @@ func newHpdPublisherProjector(
 	return listingprojection.NewPublisherProjector(
 		hpdListingRepo,
 		hpdPublisherListingRepo,
+		hpdRootScopeRepo,
 		hmdCentralizedRepo,
 		hmdBuildingRepo,
 		hmdDecentralizedRepo,

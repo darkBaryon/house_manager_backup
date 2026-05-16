@@ -4,6 +4,7 @@ import "house-manager/pkg/session"
 
 type LoginInput struct {
 	Phone     string
+	Password  string
 	LoginIP   string
 	UserAgent string
 }

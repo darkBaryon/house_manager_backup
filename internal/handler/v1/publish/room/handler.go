@@ -97,7 +97,15 @@ func (h *Handler) UpdateCentralized(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := h.service.UpdateCentralizedRoom(c.Request.Context(), req.toUpdateInput(id))
+	var roomTypeID *bson.ObjectID
+	if req.RoomTypeID != nil && *req.RoomTypeID != "" {
+		parsedRoomTypeID, ok := common.ObjectIDFromHex(c, *req.RoomTypeID)
+		if !ok {
+			return
+		}
+		roomTypeID = &parsedRoomTypeID
+	}
+	result, err := h.service.UpdateCentralizedRoom(c.Request.Context(), req.toUpdateInput(id, roomTypeID))
 	common.WriteResult(c, "update centralized room failed", toCentralizedResponse(result), err)
 }
 
@@ -173,7 +181,7 @@ func (h *Handler) UpdateDecentralizedStatus(c *gin.Context) {
 	common.WriteResult(c, "update decentralized room status failed", toDecentralizedResponse(result), err)
 }
 
-func parseCentralizedIDs(c *gin.Context, projectIDText, buildingIDText, roomTypeIDText string) (bson.ObjectID, bson.ObjectID, bson.ObjectID, bool) {
+func parseCentralizedIDs(c *gin.Context, projectIDText, buildingIDText string, roomTypeIDText *string) (bson.ObjectID, bson.ObjectID, bson.ObjectID, bool) {
 	projectID, ok := common.ObjectIDFromHex(c, projectIDText)
 	if !ok {
 		return bson.NilObjectID, bson.NilObjectID, bson.NilObjectID, false
@@ -182,7 +190,11 @@ func parseCentralizedIDs(c *gin.Context, projectIDText, buildingIDText, roomType
 	if !ok {
 		return bson.NilObjectID, bson.NilObjectID, bson.NilObjectID, false
 	}
-	roomTypeID, ok := common.OptionalObjectIDFromHex(c, roomTypeIDText)
+	roomTypeText := ""
+	if roomTypeIDText != nil {
+		roomTypeText = *roomTypeIDText
+	}
+	roomTypeID, ok := common.OptionalObjectIDFromHex(c, roomTypeText)
 	if !ok {
 		return bson.NilObjectID, bson.NilObjectID, bson.NilObjectID, false
 	}

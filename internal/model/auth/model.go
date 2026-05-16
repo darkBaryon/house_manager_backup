@@ -11,7 +11,12 @@ const (
 	CollectionUserAuth       = "hs_usr_auth"
 	CollectionUserProfileExt = "hs_usr_profile_ext"
 
+	CollectionLandlord        = "hs_lld_landlord"
+	CollectionLandlordAuth    = "hs_lld_auth"
+	CollectionLandlordProfile = "hs_lld_profile"
+
 	CollectionAdmStaff          = "hs_adm_staff"
+	CollectionAdmStaffAuth      = "hs_adm_staff_auth"
 	CollectionAdmRole           = "hs_adm_role"
 	CollectionAdmPermission     = "hs_adm_permission"
 	CollectionAdmStaffRole      = "hs_adm_staff_role"
@@ -56,17 +61,69 @@ type UserProfileExt struct {
 	Remark            string        `bson:"remark" json:"remark"`
 }
 
-// AdmStaff 对应 hs_adm_staff，后台员工档案。
+// Landlord 对应 hs_lld_landlord，发房端房东主体。
+type Landlord struct {
+	commonmodel.CommonFields `bson:",inline"`
+
+	Phone            string        `bson:"phone" json:"phone"`
+	CreatedByStaffID bson.ObjectID `bson:"created_by_staff_id,omitempty" json:"createdByStaffId,omitempty"`
+	UpdatedByStaffID bson.ObjectID `bson:"updated_by_staff_id,omitempty" json:"updatedByStaffId,omitempty"`
+}
+
+// LandlordAuth 对应 hs_lld_auth，房东认证信息。
+type LandlordAuth struct {
+	commonmodel.CommonFields `bson:",inline"`
+
+	LandlordID        bson.ObjectID    `bson:"landlord_id" json:"landlordId"`
+	AuthType          PasswordAuthType `bson:"auth_type" json:"authType"`
+	PasswordHash      string           `bson:"password_hash" json:"-"`
+	PasswordUpdatedAt int64            `bson:"password_updated_at" json:"passwordUpdatedAt"`
+	LastLoginAt       int64            `bson:"last_login_at" json:"lastLoginAt"`
+	LastLoginIP       string           `bson:"last_login_ip" json:"lastLoginIp"`
+}
+
+// LandlordProfile 对应 hs_lld_profile，房东业务资料。当前阶段暂不实现业务写入。
+type LandlordProfile struct {
+	commonmodel.CommonFields `bson:",inline"`
+
+	LandlordID       bson.ObjectID `bson:"landlord_id" json:"landlordId"`
+	LandlordName     string        `bson:"landlord_name" json:"landlordName"`
+	CityCode         string        `bson:"city_code" json:"cityCode"`
+	CityName         string        `bson:"city_name" json:"cityName"`
+	DoorplateImages  []string      `bson:"doorplate_images" json:"doorplateImages"`
+	AppearanceImages []string      `bson:"appearance_images" json:"appearanceImages"`
+	CredentialImages []string      `bson:"credential_images" json:"credentialImages"`
+	BrandName        string        `bson:"brand_name" json:"brandName"`
+	BrandLogo        string        `bson:"brand_logo" json:"brandLogo"`
+	BrandCover       string        `bson:"brand_cover" json:"brandCover"`
+	BrandIntro       string        `bson:"brand_intro" json:"brandIntro"`
+	CreatedByStaffID bson.ObjectID `bson:"created_by_staff_id,omitempty" json:"createdByStaffId,omitempty"`
+	UpdatedByStaffID bson.ObjectID `bson:"updated_by_staff_id,omitempty" json:"updatedByStaffId,omitempty"`
+}
+
+// AdmStaff 对应 hs_adm_staff，后台员工主体。
 type AdmStaff struct {
 	commonmodel.CommonFields `bson:",inline"`
 
-	Name          string        `bson:"name" json:"name"`
-	Phone         string        `bson:"phone" json:"phone"`
-	Email         string        `bson:"email" json:"email"`
-	ContactQRCode string        `bson:"contact_qr_code" json:"contactQrCode"`
-	LastLoginAt   int64         `bson:"last_login_at" json:"lastLoginAt"`
-	LastLoginIP   string        `bson:"last_login_ip" json:"lastLoginIp"`
-	CreatedBy     bson.ObjectID `bson:"created_by,omitempty" json:"createdBy"`
+	Name             string        `bson:"name" json:"name"`
+	Phone            string        `bson:"phone" json:"phone"`
+	Email            string        `bson:"email" json:"email"`
+	Department       string        `bson:"department" json:"department"`
+	JobTitle         string        `bson:"job_title" json:"jobTitle"`
+	ContactQRCode    string        `bson:"contact_qr_code" json:"contactQrCode"`
+	CreatedByStaffID bson.ObjectID `bson:"created_by_staff_id,omitempty" json:"createdByStaffId,omitempty"`
+}
+
+// AdmStaffAuth 对应 hs_adm_staff_auth，后台员工认证信息。
+type AdmStaffAuth struct {
+	commonmodel.CommonFields `bson:",inline"`
+
+	StaffID           bson.ObjectID    `bson:"staff_id" json:"staffId"`
+	AuthType          PasswordAuthType `bson:"auth_type" json:"authType"`
+	PasswordHash      string           `bson:"password_hash" json:"-"`
+	PasswordUpdatedAt int64            `bson:"password_updated_at" json:"passwordUpdatedAt"`
+	LastLoginAt       int64            `bson:"last_login_at" json:"lastLoginAt"`
+	LastLoginIP       string           `bson:"last_login_ip" json:"lastLoginIp"`
 }
 
 // AdmRole 对应 hs_adm_role，角色定义。

@@ -9,17 +9,9 @@ const roomDecentralizedColl = db.getCollection("hs_hmd_room_decentralized");
 
 print(`[seed-hmd] target db: ${db.getName()}`);
 
-centralizedColl.createIndex(
-  { project_code: 1 },
-  { unique: true, partialFilterExpression: { status: 1 }, name: "project_code_1_active_unique" }
-);
 centralizedColl.createIndex({ city: 1, status: 1 }, { name: "city_1_status_1" });
 centralizedColl.createIndex({ city: 1, district: 1, status: 1 }, { name: "city_1_district_1_status_1" });
 
-buildingColl.createIndex(
-  { building_code: 1 },
-  { unique: true, partialFilterExpression: { status: 1 }, name: "building_code_1_active_unique" }
-);
 buildingColl.createIndex(
   { project_id: 1, building_name: 1 },
   { unique: true, partialFilterExpression: { status: 1 }, name: "project_id_1_building_name_1_active_unique" }
@@ -108,11 +100,10 @@ function upsertOne(collection, filter, doc) {
 
 const projectNs = upsertOne(
   centralizedColl,
-  { project_code: "CENTRAL-NS-001" },
+  { project_name: "泊寓南山科技园" },
   {
     _id: new ObjectId(),
     project_name: "泊寓南山科技园",
-    project_code: "CENTRAL-NS-001",
     city: "深圳",
     district: "南山",
     address_text: "南山区科技园科苑路 88 号",
@@ -123,11 +114,10 @@ const projectNs = upsertOne(
 );
 const projectFt = upsertOne(
   centralizedColl,
-  { project_code: "CENTRAL-FT-001" },
+  { project_name: "冠寓福田车公庙" },
   {
     _id: new ObjectId(),
     project_name: "冠寓福田车公庙",
-    project_code: "CENTRAL-FT-001",
     city: "深圳",
     district: "福田",
     address_text: "福田区车公庙泰然八路 18 号",
@@ -139,12 +129,11 @@ const projectFt = upsertOne(
 
 const buildingNs = upsertOne(
   buildingColl,
-  { building_code: "NS-A" },
+  { project_id: projectNs._id, building_name: "A 座" },
   {
     _id: new ObjectId(),
     project_id: projectNs._id,
     building_name: "A 座",
-    building_code: "NS-A",
     floor_total: 28,
     manager_name: "周星河",
     manager_phone: "13800001001",
@@ -155,12 +144,11 @@ const buildingNs = upsertOne(
 );
 const buildingFt = upsertOne(
   buildingColl,
-  { building_code: "FT-B" },
+  { project_id: projectFt._id, building_name: "B 座" },
   {
     _id: new ObjectId(),
     project_id: projectFt._id,
     building_name: "B 座",
-    building_code: "FT-B",
     floor_total: 32,
     manager_name: "沈知夏",
     manager_phone: "13800001002",

@@ -12,7 +12,7 @@ type centralizedRequest struct {
 	ID                string                      `json:"id"`
 	ProjectID         string                      `json:"project_id"`
 	BuildingID        string                      `json:"building_id"`
-	RoomTypeID        string                      `json:"room_type_id"`
+	RoomTypeID        *string                     `json:"room_type_id"`
 	RoomNo            string                      `json:"room_no" binding:"required"`
 	FloorNo           int                         `json:"floor_no"`
 	RentMode          string                      `json:"rent_mode" binding:"required"`
@@ -59,10 +59,11 @@ func (r centralizedRequest) toCreateInput(projectID, buildingID, roomTypeID bson
 	}
 }
 
-func (r centralizedRequest) toUpdateInput(id bson.ObjectID) publishsvc.UpdateCentralizedRoomInput {
+func (r centralizedRequest) toUpdateInput(id bson.ObjectID, roomTypeID *bson.ObjectID) publishsvc.UpdateCentralizedRoomInput {
 	input := r.toCreateInput(bson.NilObjectID, bson.NilObjectID, bson.NilObjectID)
 	return publishsvc.UpdateCentralizedRoomInput{
 		ID:                id,
+		RoomTypeID:        roomTypeID,
 		RoomNo:            input.RoomNo,
 		FloorNo:           input.FloorNo,
 		RentMode:          input.RentMode,

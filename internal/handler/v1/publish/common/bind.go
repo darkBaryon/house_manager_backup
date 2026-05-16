@@ -41,6 +41,11 @@ type ListByCityRequest struct {
 	District string `json:"district"`
 }
 
+type OptionalListByCityRequest struct {
+	City     string `json:"city"`
+	District string `json:"district"`
+}
+
 type GeoPointRequest struct {
 	Lng float64 `json:"lng"`
 	Lat float64 `json:"lat"`
@@ -115,7 +120,7 @@ func BindRoomStatus(c *gin.Context) (bson.ObjectID, int, bool) {
 		return bson.NilObjectID, 0, false
 	}
 	if req.RoomStatus == nil || !hmdmodel.IsValidRoomStatusUpdateTarget(*req.RoomStatus) {
-		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("room_status must be one of -1, 1, 2, 3")))
+		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("room_status 只能是 -1、1、2、3")))
 		return bson.NilObjectID, 0, false
 	}
 	return id, *req.RoomStatus, true
@@ -124,7 +129,7 @@ func BindRoomStatus(c *gin.Context) (bson.ObjectID, int, bool) {
 func ObjectIDFromHex(c *gin.Context, value string) (bson.ObjectID, bool) {
 	id, err := bson.ObjectIDFromHex(value)
 	if err != nil {
-		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("invalid object id %q", value)))
+		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("无效的对象 ID：%q", value)))
 		return bson.NilObjectID, false
 	}
 	return id, true

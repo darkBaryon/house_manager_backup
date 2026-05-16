@@ -6,6 +6,7 @@ import (
 	hmdmodel "house-manager/internal/model/hmd"
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -47,6 +48,24 @@ func (r *DecentralizedRepository) FindByCommunity(ctx context.Context, city, dis
 
 func (r *DecentralizedRepository) List(ctx context.Context, city, district string) ([]hmdmodel.HmdDecentralized, error) {
 	filter := bson.M{}
+	if city != "" {
+		filter["city"] = city
+	}
+	if district != "" {
+		filter["district"] = district
+	}
+	return r.FindMany(ctx, activeFilter(filter), hmdListFindOptions())
+}
+
+func (r *DecentralizedRepository) ListByIDs(ctx context.Context, ids []bson.ObjectID, city, district string) ([]hmdmodel.HmdDecentralized, error) {
+	if len(ids) == 0 {
+		return []hmdmodel.HmdDecentralized{}, nil
+	}
+	filter := bson.M{
+		"_id": bson.M{"$in": ids},
+	}
+	city = strings.TrimSpace(city)
+	district = strings.TrimSpace(district)
 	if city != "" {
 		filter["city"] = city
 	}

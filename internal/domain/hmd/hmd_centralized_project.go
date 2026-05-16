@@ -10,7 +10,6 @@ import (
 func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*HmdMutationResult[hmdmodel.HmdCentralized], error) {
 	entity := &hmdmodel.HmdCentralized{
 		ProjectName: strings.TrimSpace(input.ProjectName),
-		ProjectCode: strings.TrimSpace(input.ProjectCode),
 		City:        strings.TrimSpace(input.City),
 		District:    strings.TrimSpace(input.District),
 		AddressText: strings.TrimSpace(input.AddressText),
@@ -19,14 +18,6 @@ func (s *Service) CreateCentralizedProject(ctx context.Context, input CreateCent
 	}
 	if err := entity.ValidateForCreate(); err != nil {
 		return nil, mutationError("create centralized project", err)
-	}
-
-	existing, err := s.centralizedRepo.FindByProjectCode(ctx, entity.ProjectCode)
-	if err != nil {
-		return nil, databasef("create centralized project: find existing project code: %w", err)
-	}
-	if existing != nil {
-		return nil, alreadyExistsf("create centralized project: projectCode already exists")
 	}
 
 	if err := s.centralizedRepo.Create(ctx, entity); err != nil {
@@ -58,6 +49,16 @@ func (s *Service) ListCentralizedProjects(ctx context.Context, input ListCentral
 	projects, err := s.centralizedRepo.List(ctx, city, district)
 	if err != nil {
 		return nil, databasef("list centralized projects: %w", err)
+	}
+	return projects, nil
+}
+
+func (s *Service) ListCentralizedProjectsByIDs(ctx context.Context, ids []bson.ObjectID, input ListCentralizedProjectsInput) ([]hmdmodel.HmdCentralized, error) {
+	city := strings.TrimSpace(input.City)
+	district := strings.TrimSpace(input.District)
+	projects, err := s.centralizedRepo.ListByIDs(ctx, ids, city, district)
+	if err != nil {
+		return nil, databasef("list centralized projects by ids: %w", err)
 	}
 	return projects, nil
 }

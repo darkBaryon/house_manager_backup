@@ -119,7 +119,7 @@ internal/
   model/                    数据库模型分包
     common/                 通用落库字段与状态
       model.go
-    auth/                   账号与身份：hs_usr_* / hs_adm_*
+    auth/                   账号与身份：hs_usr_* / hs_lld_* / hs_adm_*
       model.go
       enum.go
       validation.go
@@ -137,7 +137,7 @@ internal/
       validation.go
   repository/               Mongo repository
     miniapp_auth/           小程序认证：用户、微信绑定、资料扩展
-    publish_auth/           发房端认证：房东登录主档查询
+    landlord/               房东主体与密码认证仓储
     favorite/               小程序收藏
     history/                小程序足迹
     hmd/                    HMD 主数据读写
@@ -199,6 +199,14 @@ go test ./internal/domain/hmd -run Integration -count=1 -v
 ```
 
 普通 `go test ./...` 不访问 Mongo。
+
+本地联调 publish 房东账号可用：
+
+```bash
+./scripts/seed_publish_auth_collections.sh
+```
+
+默认写入 `hs_lld_landlord.phone=18002584637` 和 `hs_lld_auth` 密码认证，默认密码为 `123456`。如需自定义密码，请传入 `PUBLISH_AUTH_SEED_PASSWORD_HASH`（bcrypt hash）。
 
 ## 日志约定
 

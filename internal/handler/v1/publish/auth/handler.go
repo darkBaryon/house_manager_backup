@@ -58,6 +58,7 @@ func (h *PublicHandler) Login(c *gin.Context) {
 	requestlog.AddField(c, "phone", maskPhone(req.Phone))
 	result, err := h.service.Login(c.Request.Context(), authsvc.LoginInput{
 		Phone:     req.Phone,
+		Password:  req.Password,
 		LoginIP:   c.ClientIP(),
 		UserAgent: c.Request.UserAgent(),
 	})

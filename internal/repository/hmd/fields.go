@@ -56,6 +56,7 @@ var (
 	)
 
 	roomBaseInfoFields = allowedFields(
+		"room_type_id",
 		"room_no",
 		"floor_no",
 		"rent_mode",

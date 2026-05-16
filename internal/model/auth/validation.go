@@ -48,6 +48,45 @@ func (m *UserProfileExt) ValidateForCreate() error {
 	return nil
 }
 
+func (m *Landlord) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("landlord is nil")
+	}
+	if commonmodel.IsBlank(m.Phone) {
+		return fmt.Errorf("phone is required")
+	}
+	return nil
+}
+
+func (m *LandlordAuth) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("landlord auth is nil")
+	}
+	if m.LandlordID.IsZero() {
+		return fmt.Errorf("landlordID is required")
+	}
+	if !m.AuthType.Valid() {
+		return fmt.Errorf("authType is invalid")
+	}
+	if commonmodel.IsBlank(m.PasswordHash) {
+		return fmt.Errorf("passwordHash is required")
+	}
+	return nil
+}
+
+func (m *LandlordProfile) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("landlord profile is nil")
+	}
+	if m.LandlordID.IsZero() {
+		return fmt.Errorf("landlordID is required")
+	}
+	if commonmodel.IsBlank(m.LandlordName) {
+		return fmt.Errorf("landlordName is required")
+	}
+	return nil
+}
+
 func (m *AdmStaff) ValidateForCreate() error {
 	if m == nil {
 		return fmt.Errorf("adm staff is nil")
@@ -57,6 +96,22 @@ func (m *AdmStaff) ValidateForCreate() error {
 	}
 	if commonmodel.IsBlank(m.Phone) {
 		return fmt.Errorf("phone is required")
+	}
+	return nil
+}
+
+func (m *AdmStaffAuth) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("adm staff auth is nil")
+	}
+	if m.StaffID.IsZero() {
+		return fmt.Errorf("staffID is required")
+	}
+	if !m.AuthType.Valid() {
+		return fmt.Errorf("authType is invalid")
+	}
+	if commonmodel.IsBlank(m.PasswordHash) {
+		return fmt.Errorf("passwordHash is required")
 	}
 	return nil
 }

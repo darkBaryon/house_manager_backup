@@ -27,8 +27,9 @@ func Err(c *gin.Context, err error) {
 		c.JSON(http.StatusInternalServerError, Response{Code: 50001, Error: "服务内部错误"})
 		return
 	}
-	requestlog.SetResponse(c, e.Code, e.Message, errString(err))
-	c.JSON(toHTTPStatus(e.Code), Response{Code: e.Code, Error: e.Message})
+	publicMessage := e.PublicMessage()
+	requestlog.SetResponse(c, e.Code, publicMessage, errString(err))
+	c.JSON(toHTTPStatus(e.Code), Response{Code: e.Code, Error: publicMessage})
 }
 
 func SuccessPage(c *gin.Context, data any, size int, maxSize int64) {

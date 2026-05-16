@@ -36,7 +36,7 @@ func TestPublishHandlerInvalidJSONReturnsInvalidParam(t *testing.T) {
 
 func TestPublishHandlerMissingRequiredFieldReturnsInvalidParam(t *testing.T) {
 	svc := &fakePublishService{}
-	body := `{"project_code":"p001","city":"深圳"}`
+	body := `{"city":"深圳"}`
 	resp := performPublishRequest(t, svc, "/api/v1/centralized_project/create", body)
 
 	assertPublishResponse(t, resp, http.StatusBadRequest, errcode.InvalidParam.Code)
@@ -63,7 +63,6 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 			CommonFields:      commonmodel.CommonFields{ID: buildingID},
 			ProjectID:         projectID,
 			BuildingName:      "A栋",
-			BuildingCode:      "B001",
 			FloorTotal:        18,
 			ManagerName:       "测试管家",
 			ManagerPhone:      "18800000000",
@@ -75,7 +74,6 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 	body := mustJSON(t, map[string]any{
 		"project_id":         projectID.Hex(),
 		"building_name":      "A栋",
-		"building_code":      "B001",
 		"floor_total":        18,
 		"manager_name":       "测试管家",
 		"manager_phone":      "18800000000",
@@ -91,7 +89,7 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 	if svc.createBuildingInput.ProjectID != projectID {
 		t.Fatalf("unexpected projectID: %s", svc.createBuildingInput.ProjectID.Hex())
 	}
-	if svc.createBuildingInput.BuildingName != "A栋" || svc.createBuildingInput.BuildingCode != "B001" {
+	if svc.createBuildingInput.BuildingName != "A栋" {
 		t.Fatalf("unexpected building input: %#v", svc.createBuildingInput)
 	}
 	if svc.createBuildingInput.FloorTotal != 18 || len(svc.createBuildingInput.ListingFacilities) != 1 {
@@ -105,7 +103,7 @@ func TestPublishHandlerCreateBuildingBindsRequest(t *testing.T) {
 	if data["id"] != buildingID.Hex() || data["building_name"] != "A栋" || data["project_id"] != projectID.Hex() {
 		t.Fatalf("unexpected response data: %#v", data)
 	}
-	assertJSONKeys(t, envelope.Data, []string{"building_name", "building_code", "created_at", "updated_at", "listing_facilities"}, []string{"buildingName", "buildingCode", "createdAt", "updatedAt", "listingFacilities"})
+	assertJSONKeys(t, envelope.Data, []string{"building_name", "created_at", "updated_at", "listing_facilities"}, []string{"buildingName", "buildingCode", "building_code", "createdAt", "updatedAt", "listingFacilities"})
 }
 
 func TestPublishHandlerListWrapsDataListAndKeepsEmptyArray(t *testing.T) {
@@ -278,13 +276,14 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 		setup      func(*fakePublishService)
 		httpStatus int
 		code       int
+		errorText  string
 	}{
 		{
 			name: "not found",
 			path: "/api/v1/building/detail",
 			body: mustJSON(t, map[string]any{"id": id.Hex()}),
 			setup: func(s *fakePublishService) {
-				s.getBuildingErr = errcode.NotFound.WithError(fmt.Errorf("missing building"))
+				s.getBuildingErr = errcode.NotFound.WithError(fmt.Errorf("楼栋不存在"))
 			},
 			httpStatus: http.StatusNotFound,
 			code:       errcode.NotFound.Code,
@@ -294,17 +293,18 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 			path: "/api/v1/building/create",
 			body: buildingBody,
 			setup: func(s *fakePublishService) {
-				s.createBuildingErr = errcode.AlreadyExists.WithError(fmt.Errorf("duplicate building"))
+				s.createBuildingErr = errcode.AlreadyExists.WithError(fmt.Errorf("当前项目下已存在同名楼栋"))
 			},
 			httpStatus: http.StatusConflict,
 			code:       errcode.AlreadyExists.Code,
+			errorText:  "当前项目下已存在同名楼栋",
 		},
 		{
 			name: "database error",
 			path: "/api/v1/building/create",
 			body: buildingBody,
 			setup: func(s *fakePublishService) {
-				s.createBuildingErr = errcode.DatabaseError.WithError(fmt.Errorf("mongo failed"))
+				s.createBuildingErr = errcode.DatabaseError.WithError(fmt.Errorf("数据库写入失败"))
 			},
 			httpStatus: http.StatusInternalServerError,
 			code:       errcode.DatabaseError.Code,
@@ -316,7 +316,10 @@ func TestPublishHandlerServiceErrcodes(t *testing.T) {
 			svc := &fakePublishService{}
 			tc.setup(svc)
 			resp := performPublishRequest(t, svc, tc.path, tc.body)
-			assertPublishResponse(t, resp, tc.httpStatus, tc.code)
+			envelope := assertPublishResponse(t, resp, tc.httpStatus, tc.code)
+			if tc.errorText != "" && envelope.Error != tc.errorText {
+				t.Fatalf("expected error %q, got %q body=%s", tc.errorText, envelope.Error, resp.Body.String())
+			}
 		})
 	}
 }

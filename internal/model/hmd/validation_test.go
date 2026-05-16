@@ -22,14 +22,14 @@ func TestHmdRoomCentralizedValidateRejectsInvalidRentMode(t *testing.T) {
 	}
 }
 
-func TestHmdBuildingValidateAllowsEmptyBuildingCode(t *testing.T) {
+func TestHmdBuildingValidateAllowsMinimalRequiredFields(t *testing.T) {
 	building := &HmdBuilding{
 		ProjectID:    bson.NewObjectID(),
 		BuildingName: "1号楼",
 	}
 
 	if err := building.ValidateForCreate(); err != nil {
-		t.Fatalf("expected empty buildingCode to be allowed, got %v", err)
+		t.Fatalf("expected minimal building fields to be allowed, got %v", err)
 	}
 }
 

@@ -3,10 +3,9 @@ package wire
 import (
 	"context"
 
-	"house-manager/internal/config"
 	publishhandler "house-manager/internal/handler/v1/publish"
 	publishauthhandler "house-manager/internal/handler/v1/publish/auth"
-	publishauthrepo "house-manager/internal/repository/publish_auth"
+	landlordrepo "house-manager/internal/repository/landlord"
 	publishsvc "house-manager/internal/service/publish"
 	publishauthsvc "house-manager/internal/service/publish/auth"
 	dbmongo "house-manager/pkg/database/mongo"
@@ -14,23 +13,27 @@ import (
 	"github.com/google/wire"
 )
 
-func newPublishOwnerUserRepository(ctx context.Context, client *dbmongo.Client) (*publishauthrepo.OwnerUserRepository, error) {
-	repo := publishauthrepo.NewOwnerUserRepository(client)
+func newPublishLandlordRepository(ctx context.Context, client *dbmongo.Client) (*landlordrepo.LandlordRepository, error) {
+	repo := landlordrepo.NewLandlordRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
 		return nil, err
 	}
 	return repo, nil
 }
 
-func newPublishAuthEnv(cfg *config.Config) string {
-	return cfg.Log.Env
+func newPublishLandlordAuthRepository(ctx context.Context, client *dbmongo.Client) (*landlordrepo.LandlordAuthRepository, error) {
+	repo := landlordrepo.NewLandlordAuthRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
 }
 
 var PublishSet = wire.NewSet(
 	publishsvc.NewPublishService,
 	publishhandler.NewPublishHandler,
-	newPublishOwnerUserRepository,
-	newPublishAuthEnv,
+	newPublishLandlordRepository,
+	newPublishLandlordAuthRepository,
 	publishauthsvc.NewService,
 	publishauthhandler.NewPublicHandler,
 	publishauthhandler.NewHandler,

@@ -14,7 +14,7 @@ type mutationPublisher struct {
 
 func (p mutationPublisher) Apply(ctx context.Context, changes []hmddomain.HmdChange) error {
 	if p.listingProjection == nil {
-		return errcode.InternalError.WithError(fmt.Errorf("listing projection service is required"))
+		return errcode.InternalError.WithError(fmt.Errorf("房源投影服务未初始化"))
 	}
 	logPublishInfo(ctx, "publish.projection.apply.start", "change_count", len(changes))
 	return p.listingProjection.Apply(ctx, changes)

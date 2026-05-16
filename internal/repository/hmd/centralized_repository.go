@@ -6,6 +6,7 @@ import (
 	hmdmodel "house-manager/internal/model/hmd"
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -27,13 +28,6 @@ func (r *CentralizedRepository) Create(ctx context.Context, entity *hmdmodel.Hmd
 	return r.Insert(ctx, entity)
 }
 
-func (r *CentralizedRepository) FindByProjectCode(ctx context.Context, projectCode string) (*hmdmodel.HmdCentralized, error) {
-	if projectCode == "" {
-		return nil, fmt.Errorf("find hmd centralized by projectCode: projectCode is required")
-	}
-	return r.FindOne(ctx, activeFilter(bson.M{"project_code": projectCode}))
-}
-
 func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
 	if id.IsZero() {
 		return nil, fmt.Errorf("find hmd centralized by id: id is required")
@@ -43,6 +37,24 @@ func (r *CentralizedRepository) FindByID(ctx context.Context, id bson.ObjectID) 
 
 func (r *CentralizedRepository) List(ctx context.Context, city, district string) ([]hmdmodel.HmdCentralized, error) {
 	filter := bson.M{}
+	if city != "" {
+		filter["city"] = city
+	}
+	if district != "" {
+		filter["district"] = district
+	}
+	return r.FindMany(ctx, activeFilter(filter), hmdListFindOptions())
+}
+
+func (r *CentralizedRepository) ListByIDs(ctx context.Context, ids []bson.ObjectID, city, district string) ([]hmdmodel.HmdCentralized, error) {
+	if len(ids) == 0 {
+		return []hmdmodel.HmdCentralized{}, nil
+	}
+	filter := bson.M{
+		"_id": bson.M{"$in": ids},
+	}
+	city = strings.TrimSpace(city)
+	district = strings.TrimSpace(district)
 	if city != "" {
 		filter["city"] = city
 	}

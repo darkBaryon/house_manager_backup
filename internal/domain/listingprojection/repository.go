@@ -22,6 +22,10 @@ type hpdPublisherListingRepository interface {
 	UpsertByListingID(ctx context.Context, entity *hpdmodel.HpdPublisherListing) (*hpdmodel.HpdPublisherListing, error)
 }
 
+type hpdRootScopeRepository interface {
+	FindActiveByRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID) (*hpdmodel.HpdRootScopeRelation, error)
+}
+
 type hmdCentralizedRepository interface {
 	FindByID(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error)
 }

@@ -16,7 +16,6 @@ func (s *Service) CreateBuilding(ctx context.Context, input CreateBuildingInput)
 	entity := &hmdmodel.HmdBuilding{
 		ProjectID:         project.ID,
 		BuildingName:      strings.TrimSpace(input.BuildingName),
-		BuildingCode:      strings.TrimSpace(input.BuildingCode),
 		FloorTotal:        input.FloorTotal,
 		ManagerName:       strings.TrimSpace(input.ManagerName),
 		ManagerPhone:      strings.TrimSpace(input.ManagerPhone),
@@ -26,15 +25,12 @@ func (s *Service) CreateBuilding(ctx context.Context, input CreateBuildingInput)
 	if err := entity.ValidateForCreate(); err != nil {
 		return nil, mutationError("create building", err)
 	}
-
-	if entity.BuildingCode != "" {
-		existing, err := s.buildingRepo.FindByBuildingCode(ctx, entity.BuildingCode)
-		if err != nil {
-			return nil, databasef("create building: find existing building code: %w", err)
-		}
-		if existing != nil {
-			return nil, alreadyExistsf("create building: buildingCode already exists")
-		}
+	existing, err := s.buildingRepo.FindByProjectAndName(ctx, entity.ProjectID, entity.BuildingName)
+	if err != nil {
+		return nil, databasef("create building: find existing building name: %w", err)
+	}
+	if existing != nil {
+		return nil, alreadyExistsf("当前项目下已存在同名楼栋")
 	}
 
 	if err := s.buildingRepo.Create(ctx, entity); err != nil {

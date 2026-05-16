@@ -4,128 +4,149 @@ import (
 	"context"
 	"fmt"
 	authmodel "house-manager/internal/model/auth"
-	publishauthrepo "house-manager/internal/repository/publish_auth"
+	landlordrepo "house-manager/internal/repository/landlord"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/session"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	ownerUserRepo ownerUserRepository
-	sessionStore  *session.Store
-	env           string
+	landlordRepo     landlordRepository
+	landlordAuthRepo landlordAuthRepository
+	sessionStore     *session.Store
 }
 
-type ownerUserRepository interface {
-	FindActiveByPhone(ctx context.Context, phone string) (*authmodel.User, error)
-	FindByID(ctx context.Context, id bson.ObjectID) (*authmodel.User, error)
+type landlordRepository interface {
+	FindActiveByPhone(ctx context.Context, phone string) (*authmodel.Landlord, error)
+	FindActiveByID(ctx context.Context, id bson.ObjectID) (*authmodel.Landlord, error)
+}
+
+type landlordAuthRepository interface {
+	FindActivePasswordByLandlordID(ctx context.Context, landlordID bson.ObjectID) (*authmodel.LandlordAuth, error)
+	TouchLastLogin(ctx context.Context, authID bson.ObjectID, loginIP string) error
 }
 
 func NewService(
-	ownerUserRepo *publishauthrepo.OwnerUserRepository,
+	landlordRepo *landlordrepo.LandlordRepository,
+	landlordAuthRepo *landlordrepo.LandlordAuthRepository,
 	sessionStore *session.Store,
-	env string,
 ) *Service {
 	return newService(
-		ownerUserRepo,
+		landlordRepo,
+		landlordAuthRepo,
 		sessionStore,
-		env,
 	)
 }
 
 func newService(
-	ownerUserRepo ownerUserRepository,
+	landlordRepo landlordRepository,
+	landlordAuthRepo landlordAuthRepository,
 	sessionStore *session.Store,
-	env string,
 ) *Service {
 	return &Service{
-		ownerUserRepo: ownerUserRepo,
-		sessionStore:  sessionStore,
-		env:           env,
+		landlordRepo:     landlordRepo,
+		landlordAuthRepo: landlordAuthRepo,
+		sessionStore:     sessionStore,
 	}
 }
 
 func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, error) {
 	phone := strings.TrimSpace(input.Phone)
+	password := strings.TrimSpace(input.Password)
 	logAuthInfo(ctx, "publish.auth.login.start", "phone", maskPhone(phone))
 	if phone == "" {
-		err := errcode.InvalidParam.WithError(fmt.Errorf("phone is required"))
+		err := errcode.InvalidParam.WithError(fmt.Errorf("手机号不能为空"))
 		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", err, "phone", maskPhone(phone))
 		return nil, err
 	}
-	if s.env != "local" {
-		err := errcode.Forbidden.WithError(fmt.Errorf("phone-only publish login is local-only"))
+	if password == "" {
+		err := errcode.InvalidParam.WithError(fmt.Errorf("密码不能为空"))
 		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", err, "phone", maskPhone(phone))
 		return nil, err
 	}
-	if s.ownerUserRepo == nil || s.sessionStore == nil {
-		err := errcode.DatabaseError.WithError(fmt.Errorf("publish auth dependency is nil"))
+	if s.landlordRepo == nil || s.landlordAuthRepo == nil || s.sessionStore == nil {
+		err := errcode.DatabaseError.WithError(fmt.Errorf("房东登录服务未正确初始化"))
 		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", err, "phone", maskPhone(phone))
 		return nil, err
 	}
 
-	user, err := s.ownerUserRepo.FindActiveByPhone(ctx, phone)
+	landlord, err := s.landlordRepo.FindActiveByPhone(ctx, phone)
 	if err != nil {
 		dbErr := errcode.DatabaseError.WithError(err)
 		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", dbErr, "phone", maskPhone(phone))
 		return nil, dbErr
 	}
-	if user == nil {
-		authErr := errcode.Unauthorized.WithError(fmt.Errorf("user not found"))
+	if landlord == nil {
+		authErr := errcode.Unauthorized.WithError(fmt.Errorf("手机号或密码错误"))
 		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", authErr, "phone", maskPhone(phone))
 		return nil, authErr
 	}
-	logAuthInfo(ctx, "publish.auth.login.user_found", "user_id", user.ID.Hex(), "phone", maskPhone(user.Phone))
-
-	authSession, err := s.buildSession(user)
+	logAuthInfo(ctx, "publish.auth.login.landlord_found", "landlord_id", landlord.ID.Hex(), "phone", maskPhone(landlord.Phone))
+	authRecord, err := s.landlordAuthRepo.FindActivePasswordByLandlordID(ctx, landlord.ID)
 	if err != nil {
-		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", err, "user_id", user.ID.Hex())
+		dbErr := errcode.DatabaseError.WithError(err)
+		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", dbErr, "landlord_id", landlord.ID.Hex())
+		return nil, dbErr
+	}
+	if authRecord == nil || bcrypt.CompareHashAndPassword([]byte(authRecord.PasswordHash), []byte(password)) != nil {
+		authErr := errcode.Unauthorized.WithError(fmt.Errorf("手机号或密码错误"))
+		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", authErr, "landlord_id", landlord.ID.Hex())
+		return nil, authErr
+	}
+
+	authSession, err := s.buildSession(landlord)
+	if err != nil {
+		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", err, "landlord_id", landlord.ID.Hex())
 		return nil, err
 	}
 	token, err := s.sessionStore.CreatePrincipal(ctx, authSession.Principal)
 	if err != nil {
 		cacheErr := errcode.CacheError.WithError(err)
-		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", cacheErr, "user_id", user.ID.Hex())
+		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", cacheErr, "landlord_id", landlord.ID.Hex())
 		return nil, cacheErr
 	}
-	logAuthInfo(ctx, "publish.auth.login.session_created", "user_id", user.ID.Hex())
+	if err := s.landlordAuthRepo.TouchLastLogin(ctx, authRecord.ID, input.LoginIP); err != nil {
+		logAuthResult(ctx, "publish.auth.login.success", "publish.auth.login.failed", errcode.DatabaseError.WithError(err), "landlord_id", landlord.ID.Hex(), "step", "touch_last_login")
+	}
+	logAuthInfo(ctx, "publish.auth.login.session_created", "landlord_id", landlord.ID.Hex())
 
 	result := &LoginResult{
 		Token:       token,
 		AuthSession: *authSession,
 	}
-	logAuthInfo(ctx, "publish.auth.login.success", "user_id", user.ID.Hex())
+	logAuthInfo(ctx, "publish.auth.login.success", "landlord_id", landlord.ID.Hex())
 	return result, nil
 }
 
 func (s *Service) Session(ctx context.Context, principal session.Principal) (*AuthSession, error) {
 	logAuthInfo(ctx, "publish.auth.session.start")
-	if principal.Terminal != session.TerminalPublish || principal.PrincipalType != session.PrincipalTypeUser {
+	if principal.Terminal != session.TerminalPublish || principal.PrincipalType != session.PrincipalTypeLandlord {
 		err := errcode.Unauthorized
 		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", err, "principal_id", principal.PrincipalID)
 		return nil, err
 	}
-	userID, err := bson.ObjectIDFromHex(principal.PrincipalID)
+	landlordID, err := bson.ObjectIDFromHex(principal.PrincipalID)
 	if err != nil {
 		authErr := errcode.Unauthorized.WithError(err)
 		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", authErr, "principal_id", principal.PrincipalID)
 		return nil, authErr
 	}
-	user, err := s.ownerUserRepo.FindByID(ctx, userID)
+	landlord, err := s.landlordRepo.FindActiveByID(ctx, landlordID)
 	if err != nil {
 		dbErr := errcode.DatabaseError.WithError(err)
-		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", dbErr, "user_id", userID.Hex())
+		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", dbErr, "landlord_id", landlordID.Hex())
 		return nil, dbErr
 	}
-	if user == nil {
-		authErr := errcode.Unauthorized.WithError(fmt.Errorf("user not found"))
-		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", authErr, "user_id", userID.Hex())
+	if landlord == nil {
+		authErr := errcode.Unauthorized.WithError(fmt.Errorf("登录会话已失效，请重新登录"))
+		logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", authErr, "landlord_id", landlordID.Hex())
 		return nil, authErr
 	}
-	authSession, err := s.buildSession(user)
-	logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", err, "user_id", userID.Hex())
+	authSession, err := s.buildSession(landlord)
+	logAuthResult(ctx, "publish.auth.session.success", "publish.auth.session.failed", err, "landlord_id", landlordID.Hex())
 	return authSession, err
 }
 
@@ -145,24 +166,23 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
-func (s *Service) buildSession(user *authmodel.User) (*AuthSession, error) {
-	if user == nil || user.ID.IsZero() {
-		return nil, errcode.DatabaseError.WithError(fmt.Errorf("user is required"))
+func (s *Service) buildSession(landlord *authmodel.Landlord) (*AuthSession, error) {
+	if landlord == nil || landlord.ID.IsZero() {
+		return nil, errcode.DatabaseError.WithError(fmt.Errorf("房东主体数据无效"))
 	}
 	principal := session.Principal{
-		PrincipalType:   session.PrincipalTypeUser,
-		PrincipalID:     user.ID.Hex(),
+		PrincipalType:   session.PrincipalTypeLandlord,
+		PrincipalID:     landlord.ID.Hex(),
 		Terminal:        session.TerminalPublish,
-		Phone:           user.Phone,
+		Phone:           landlord.Phone,
 		RoleCodes:       []string{},
 		PermissionCodes: []string{},
 	}
 	return &AuthSession{
 		Principal: principal,
 		Subject: Subject{
-			ID:    user.ID.Hex(),
-			Name:  user.Nickname,
-			Phone: user.Phone,
+			ID:    landlord.ID.Hex(),
+			Phone: landlord.Phone,
 		},
 	}, nil
 }

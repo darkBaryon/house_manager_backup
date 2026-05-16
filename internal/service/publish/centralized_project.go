@@ -2,10 +2,13 @@ package publish
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
 	hpdmodel "house-manager/internal/model/hpd"
+	"house-manager/pkg/errcode"
 )
 
 type centralizedProjectService struct {
@@ -19,10 +22,14 @@ func newCentralizedProjectService(hmd centralizedProjectScopeDomain, publisher m
 }
 
 func (s *centralizedProjectService) CreateCentralizedProject(ctx context.Context, input CreateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {
-	logPublishInfo(ctx, "publish.project.create.start", "project_code", input.ProjectCode, "city", input.City, "district", input.District)
+	logPublishInfo(ctx, "publish.project.create.start", "project_name", input.ProjectName, "city", input.City, "district", input.District)
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_code", input.ProjectCode)
+		logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_name", input.ProjectName)
+		return nil, err
+	}
+	if err := s.ensureNoDuplicateProjectForLandlord(ctx, scope, input); err != nil {
+		logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_name", input.ProjectName, "city", input.City)
 		return nil, err
 	}
 	result, err := s.hmd.CreateCentralizedProject(ctx, input)
@@ -30,11 +37,11 @@ func (s *centralizedProjectService) CreateCentralizedProject(ctx context.Context
 	entity, err := resolveHmdMutation(ctx, s.publisher, result, err)
 	if err != nil {
 		err = rollbackCreateFailure(ctx, s.hmd.RollbackCentralizedProjectCreate, createdID, "publish.project.create", err)
-		logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_id", createdID.Hex(), "project_code", input.ProjectCode)
+		logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_id", createdID.Hex(), "project_name", input.ProjectName)
 		return nil, err
 	}
 	if entity != nil {
-		logPublishInfo(ctx, "publish.project.create.hmd_created", "project_id", entity.ID.Hex(), "project_code", entity.ProjectCode)
+		logPublishInfo(ctx, "publish.project.create.hmd_created", "project_id", entity.ID.Hex(), "project_name", entity.ProjectName)
 		if err := registerRootScope(ctx, s.access, hpdmodel.HpdRootScopeTypeCentralizedProject, entity.ID, scope.principal); err != nil {
 			err = rollbackCreateFailure(ctx, s.hmd.RollbackCentralizedProjectCreate, entity.ID, "publish.project.create", err)
 			logPublishResult(ctx, "publish.project.create.success", "publish.project.create.failed", err, "project_id", entity.ID.Hex())
@@ -42,8 +49,30 @@ func (s *centralizedProjectService) CreateCentralizedProject(ctx context.Context
 		}
 		logPublishInfo(ctx, "publish.project.create.root_scope_created", "project_id", entity.ID.Hex())
 	}
-	logPublishInfo(ctx, "publish.project.create.success", "project_id", entity.ID.Hex(), "project_code", entity.ProjectCode)
+	logPublishInfo(ctx, "publish.project.create.success", "project_id", entity.ID.Hex(), "project_name", entity.ProjectName)
 	return entity, nil
+}
+
+func (s *centralizedProjectService) ensureNoDuplicateProjectForLandlord(ctx context.Context, scope PublishScope, input CreateCentralizedProjectInput) error {
+	projectIDs, err := scope.accessibleProjectIDs(ctx)
+	if err != nil {
+		return err
+	}
+	if len(projectIDs) == 0 {
+		return nil
+	}
+	projects, err := s.hmd.ListCentralizedProjectsByIDs(ctx, projectIDs, ListCentralizedProjectsInput{City: input.City})
+	if err != nil {
+		return err
+	}
+	targetName := strings.TrimSpace(input.ProjectName)
+	targetCity := strings.TrimSpace(input.City)
+	for i := range projects {
+		if strings.TrimSpace(projects[i].ProjectName) == targetName && strings.TrimSpace(projects[i].City) == targetCity {
+			return errcode.AlreadyExists.WithError(fmt.Errorf("当前房东在该城市下已存在同名项目"))
+		}
+	}
+	return nil
 }
 
 func (s *centralizedProjectService) GetCentralizedProject(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdCentralized, error) {
@@ -75,18 +104,18 @@ func (s *centralizedProjectService) ListCentralizedProjects(ctx context.Context,
 		logPublishResult(ctx, "publish.project.list.success", "publish.project.list.failed", err, "city", input.City, "district", input.District)
 		return nil, err
 	}
-	projects, err := s.hmd.ListCentralizedProjects(ctx, input)
+	projectIDs, err := scope.accessibleProjectIDs(ctx)
 	if err != nil {
-		logPublishResult(ctx, "publish.project.list.success", "publish.project.list.failed", err, "city", input.City, "district", input.District)
+		logPublishResult(ctx, "publish.project.list.success", "publish.project.list.failed", err, "city", input.City, "district", input.District, "step", "resolve_scope")
 		return nil, err
 	}
-	filtered, err := filterCentralizedProjectsByScope(ctx, scope, projects)
+	projects, err := s.hmd.ListCentralizedProjectsByIDs(ctx, projectIDs, input)
 	if err != nil {
-		logPublishResult(ctx, "publish.project.list.success", "publish.project.list.failed", err, "input_count", len(projects))
+		logPublishResult(ctx, "publish.project.list.success", "publish.project.list.failed", err, "city", input.City, "district", input.District, "project_scope_count", len(projectIDs))
 		return nil, err
 	}
-	logPublishInfo(ctx, "publish.project.list.success", "input_count", len(projects), "result_count", len(filtered))
-	return filtered, nil
+	logPublishInfo(ctx, "publish.project.list.success", "project_scope_count", len(projectIDs), "result_count", len(projects))
+	return projects, nil
 }
 
 func (s *centralizedProjectService) UpdateCentralizedProject(ctx context.Context, input UpdateCentralizedProjectInput) (*hmdmodel.HmdCentralized, error) {

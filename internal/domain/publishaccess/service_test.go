@@ -9,14 +9,15 @@ import (
 	"house-manager/pkg/session"
 )
 
-func TestServiceUpsertsRootScopeForUserPrincipal(t *testing.T) {
+func TestServiceUpsertsRootScopeForLandlordPrincipal(t *testing.T) {
 	rootID := bson.NewObjectID()
+	landlordID := bson.NewObjectID()
 	repo := &fakeHpdRootScopeRepo{}
 	service := &Service{rootScopeRepo: repo}
 
 	_, err := service.UpsertRootScopeForPrincipal(context.Background(), hpdmodel.HpdRootScopeTypeCentralizedProject, rootID, session.Principal{
-		PrincipalType: session.PrincipalTypeUser,
-		PrincipalID:   bson.NewObjectID().Hex(),
+		PrincipalType: session.PrincipalTypeLandlord,
+		PrincipalID:   landlordID.Hex(),
 		Terminal:      session.TerminalPublish,
 		Phone:         "13800000000",
 	})
@@ -25,6 +26,9 @@ func TestServiceUpsertsRootScopeForUserPrincipal(t *testing.T) {
 	}
 	if repo.upserted.OwnerPhone != "13800000000" {
 		t.Fatalf("expected owner phone relation, got %#v", repo.upserted)
+	}
+	if repo.upserted.OwnerLandlordID != landlordID {
+		t.Fatalf("expected owner landlord id relation, got %#v", repo.upserted)
 	}
 	if repo.upserted.RootType != hpdmodel.HpdRootScopeTypeCentralizedProject || repo.upserted.RootID != rootID {
 		t.Fatalf("expected project root scope relation, got %#v", repo.upserted)
@@ -40,10 +44,10 @@ func (f *fakeHpdRootScopeRepo) UpsertActiveByRoot(ctx context.Context, entity *h
 	return entity, nil
 }
 
-func (f *fakeHpdRootScopeRepo) ListActiveRootIDsByOwnerPhone(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerPhone string) ([]bson.ObjectID, error) {
+func (f *fakeHpdRootScopeRepo) ListActiveRootIDsByOwnerLandlordID(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerLandlordID bson.ObjectID) ([]bson.ObjectID, error) {
 	return nil, nil
 }
 
-func (f *fakeHpdRootScopeRepo) CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bool, error) {
+func (f *fakeHpdRootScopeRepo) CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerLandlordID bson.ObjectID) (bool, error) {
 	return false, nil
 }

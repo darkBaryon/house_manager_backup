@@ -9,7 +9,6 @@ type ListCentralizedProjectsInput struct {
 
 type CreateCentralizedProjectInput struct {
 	ProjectName string
-	ProjectCode string
 	City        string
 	District    string
 	AddressText string
@@ -30,7 +29,6 @@ type UpdateCentralizedProjectInput struct {
 type CreateBuildingInput struct {
 	ProjectID         bson.ObjectID
 	BuildingName      string
-	BuildingCode      string
 	FloorTotal        int
 	ManagerName       string
 	ManagerPhone      string

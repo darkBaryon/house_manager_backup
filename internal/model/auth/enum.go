@@ -32,3 +32,18 @@ func (v AuthProvider) Valid() bool {
 	_, ok := validAuthProviders[v]
 	return ok
 }
+
+type PasswordAuthType string
+
+const (
+	PasswordAuthTypePassword PasswordAuthType = "password"
+)
+
+var validPasswordAuthTypes = map[PasswordAuthType]struct{}{
+	PasswordAuthTypePassword: {},
+}
+
+func (v PasswordAuthType) Valid() bool {
+	_, ok := validPasswordAuthTypes[v]
+	return ok
+}

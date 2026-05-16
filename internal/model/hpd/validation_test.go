@@ -53,19 +53,20 @@ func TestHpdPublisherListingValidateForCreateRequiresRootAndRoomFields(t *testin
 
 func TestHpdPublisherListingValidateForCreateAcceptsMinimalValidListing(t *testing.T) {
 	listing := &HpdPublisherListing{
-		ListingID:     bson.NewObjectID(),
-		SourceType:    HpdSourceTypeCentralizedRoom,
-		SourceID:      bson.NewObjectID(),
-		AssetMode:     HpdAssetModeCentralized,
-		RootType:      HpdRootScopeTypeCentralizedProject,
-		RootID:        bson.NewObjectID(),
-		RentMode:      hmdmodel.RentModeWhole,
-		City:          "杭州",
-		RoomNo:        "1201",
-		Title:         "测试房源",
-		ListingStatus: HpdListingStatusDraft,
-		RoomStatus:    hmdmodel.RoomStatusAvailable,
-		IsOnline:      HpdOnlineStatusNo,
+		ListingID:       bson.NewObjectID(),
+		SourceType:      HpdSourceTypeCentralizedRoom,
+		SourceID:        bson.NewObjectID(),
+		AssetMode:       HpdAssetModeCentralized,
+		RootType:        HpdRootScopeTypeCentralizedProject,
+		RootID:          bson.NewObjectID(),
+		OwnerLandlordID: bson.NewObjectID(),
+		RentMode:        hmdmodel.RentModeWhole,
+		City:            "杭州",
+		RoomNo:          "1201",
+		Title:           "测试房源",
+		ListingStatus:   HpdListingStatusDraft,
+		RoomStatus:      hmdmodel.RoomStatusAvailable,
+		IsOnline:        HpdOnlineStatusNo,
 	}
 
 	if err := listing.ValidateForCreate(); err != nil {
@@ -75,9 +76,10 @@ func TestHpdPublisherListingValidateForCreateAcceptsMinimalValidListing(t *testi
 
 func TestHpdRootScopeRelationValidateForCreateRequiresOwnerPhone(t *testing.T) {
 	relation := &HpdRootScopeRelation{
-		RootType:       HpdRootScopeTypeCentralizedProject,
-		RootID:         bson.NewObjectID(),
-		RelationStatus: HpdRelationStatusActive,
+		RootType:        HpdRootScopeTypeCentralizedProject,
+		RootID:          bson.NewObjectID(),
+		OwnerLandlordID: bson.NewObjectID(),
+		RelationStatus:  HpdRelationStatusActive,
 	}
 
 	err := relation.ValidateForCreate()
@@ -88,10 +90,11 @@ func TestHpdRootScopeRelationValidateForCreateRequiresOwnerPhone(t *testing.T) {
 
 func TestHpdRootScopeRelationValidateForCreateAcceptsValidOwnerRelation(t *testing.T) {
 	relation := &HpdRootScopeRelation{
-		RootType:       HpdRootScopeTypeDecentralizedCommunity,
-		RootID:         bson.NewObjectID(),
-		OwnerPhone:     "13800000000",
-		RelationStatus: HpdRelationStatusActive,
+		RootType:        HpdRootScopeTypeDecentralizedCommunity,
+		RootID:          bson.NewObjectID(),
+		OwnerLandlordID: bson.NewObjectID(),
+		OwnerPhone:      "13800000000",
+		RelationStatus:  HpdRelationStatusActive,
 	}
 
 	if err := relation.ValidateForCreate(); err != nil {

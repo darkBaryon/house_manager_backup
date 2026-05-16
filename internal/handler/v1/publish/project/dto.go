@@ -7,7 +7,6 @@ import (
 
 type createRequest struct {
 	ProjectName string                  `json:"project_name" binding:"required"`
-	ProjectCode string                  `json:"project_code" binding:"required"`
 	City        string                  `json:"city" binding:"required"`
 	District    string                  `json:"district"`
 	AddressText string                  `json:"address_text"`
@@ -34,7 +33,6 @@ type response struct {
 	common.EntityMetaResponse
 
 	ProjectName string                   `json:"project_name"`
-	ProjectCode string                   `json:"project_code"`
 	City        string                   `json:"city"`
 	District    string                   `json:"district"`
 	AddressText string                   `json:"address_text"`
@@ -49,7 +47,6 @@ func toResponse(project *hmdmodel.HmdCentralized) *response {
 	return &response{
 		EntityMetaResponse: common.EntityMeta(project.CommonFields),
 		ProjectName:        project.ProjectName,
-		ProjectCode:        project.ProjectCode,
 		City:               project.City,
 		District:           project.District,
 		AddressText:        project.AddressText,

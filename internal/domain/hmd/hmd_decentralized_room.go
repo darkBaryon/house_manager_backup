@@ -43,7 +43,7 @@ func (s *Service) CreateDecentralizedRoom(ctx context.Context, input CreateDecen
 		return nil, databasef("create decentralized room: find existing room: %w", err)
 	}
 	if existing != nil {
-		return nil, alreadyExistsf("create decentralized room: roomNo already exists under community")
+		return nil, alreadyExistsf("当前小区下已存在相同房间号")
 	}
 
 	if err := s.roomDecentralizedRepo.Create(ctx, entity); err != nil {
@@ -79,7 +79,7 @@ func (s *Service) UpdateDecentralizedRoom(ctx context.Context, input UpdateDecen
 		return nil, databasef("update decentralized room: find existing room: %w", err)
 	}
 	if existing != nil && existing.ID != room.ID {
-		return nil, alreadyExistsf("update decentralized room: roomNo already exists under community")
+		return nil, alreadyExistsf("当前小区下已存在相同房间号")
 	}
 
 	fields := bsonFields(

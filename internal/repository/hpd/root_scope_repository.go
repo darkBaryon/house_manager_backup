@@ -40,47 +40,57 @@ func (r *RootScopeRepository) UpsertActiveByRoot(ctx context.Context, entity *hp
 	filter := activeRootScopeRelationFilter(bson.M{
 		"root_type":       entity.RootType,
 		"root_id":         entity.RootID,
-		"owner_phone":     entity.OwnerPhone,
 		"relation_status": hpdmodel.HpdRelationStatusActive,
 	})
 	if _, err := r.UpsertFields(ctx, filter, rootScopeRelationFields(entity)); err != nil {
 		return nil, fmt.Errorf("upsert active hpd root scope relation by root: %w", err)
 	}
-	return r.FindActiveByRoot(ctx, entity.RootType, entity.RootID, entity.OwnerPhone)
+	return r.FindActiveByRootAndOwner(ctx, entity.RootType, entity.RootID, entity.OwnerLandlordID)
 }
 
-func (r *RootScopeRepository) FindActiveByRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (*hpdmodel.HpdRootScopeRelation, error) {
-	ownerPhone = strings.TrimSpace(ownerPhone)
+func (r *RootScopeRepository) FindActiveByRootAndOwner(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerLandlordID bson.ObjectID) (*hpdmodel.HpdRootScopeRelation, error) {
 	if !rootType.Valid() {
 		return nil, fmt.Errorf("find active hpd root scope relation by root: rootType is invalid")
 	}
 	if rootID.IsZero() {
 		return nil, fmt.Errorf("find active hpd root scope relation by root: rootID is required")
 	}
-	if ownerPhone == "" {
-		return nil, fmt.Errorf("find active hpd root scope relation by root: ownerPhone is required")
+	if ownerLandlordID.IsZero() {
+		return nil, fmt.Errorf("find active hpd root scope relation by root: ownerLandlordID is required")
 	}
 	return r.FindOne(ctx, activeRootScopeRelationFilter(bson.M{
-		"root_type":   rootType,
-		"root_id":     rootID,
-		"owner_phone": ownerPhone,
+		"root_type":         rootType,
+		"root_id":           rootID,
+		"owner_landlord_id": ownerLandlordID,
 	}))
 }
 
-func (r *RootScopeRepository) ListActiveRootIDsByOwnerPhone(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerPhone string) ([]bson.ObjectID, error) {
-	ownerPhone = strings.TrimSpace(ownerPhone)
+func (r *RootScopeRepository) FindActiveByRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID) (*hpdmodel.HpdRootScopeRelation, error) {
 	if !rootType.Valid() {
-		return nil, fmt.Errorf("list active rootIDs by owner phone: rootType is invalid")
+		return nil, fmt.Errorf("find active hpd root scope relation: rootType is invalid")
 	}
-	if ownerPhone == "" {
-		return nil, fmt.Errorf("list active rootIDs by owner phone: ownerPhone is required")
+	if rootID.IsZero() {
+		return nil, fmt.Errorf("find active hpd root scope relation: rootID is required")
+	}
+	return r.FindOne(ctx, activeRootScopeRelationFilter(bson.M{
+		"root_type": rootType,
+		"root_id":   rootID,
+	}))
+}
+
+func (r *RootScopeRepository) ListActiveRootIDsByOwnerLandlordID(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerLandlordID bson.ObjectID) ([]bson.ObjectID, error) {
+	if !rootType.Valid() {
+		return nil, fmt.Errorf("list active rootIDs by owner landlord id: rootType is invalid")
+	}
+	if ownerLandlordID.IsZero() {
+		return nil, fmt.Errorf("list active rootIDs by owner landlord id: ownerLandlordID is required")
 	}
 	rows, err := r.FindMany(ctx, activeRootScopeRelationFilter(bson.M{
-		"root_type":   rootType,
-		"owner_phone": ownerPhone,
+		"root_type":         rootType,
+		"owner_landlord_id": ownerLandlordID,
 	}))
 	if err != nil {
-		return nil, fmt.Errorf("list active rootIDs by owner phone: %w", err)
+		return nil, fmt.Errorf("list active rootIDs by owner landlord id: %w", err)
 	}
 	ids := make([]bson.ObjectID, 0, len(rows))
 	seen := make(map[bson.ObjectID]struct{}, len(rows))
@@ -97,8 +107,8 @@ func (r *RootScopeRepository) ListActiveRootIDsByOwnerPhone(ctx context.Context,
 	return ids, nil
 }
 
-func (r *RootScopeRepository) CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bool, error) {
-	filter, err := activeRootScopeAccessFilter(rootType, rootID, ownerPhone)
+func (r *RootScopeRepository) CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerLandlordID bson.ObjectID) (bool, error) {
+	filter, err := activeRootScopeAccessFilter(rootType, rootID, ownerLandlordID)
 	if err != nil {
 		return false, fmt.Errorf("can access hpd root scope: %w", err)
 	}

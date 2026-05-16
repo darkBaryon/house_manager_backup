@@ -9,6 +9,6 @@ import (
 
 type hpdRootScopeRepository interface {
 	UpsertActiveByRoot(ctx context.Context, entity *hpdmodel.HpdRootScopeRelation) (*hpdmodel.HpdRootScopeRelation, error)
-	ListActiveRootIDsByOwnerPhone(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerPhone string) ([]bson.ObjectID, error)
-	CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bool, error)
+	ListActiveRootIDsByOwnerLandlordID(ctx context.Context, rootType hpdmodel.HpdRootScopeType, ownerLandlordID bson.ObjectID) ([]bson.ObjectID, error)
+	CanAccessRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerLandlordID bson.ObjectID) (bool, error)
 }

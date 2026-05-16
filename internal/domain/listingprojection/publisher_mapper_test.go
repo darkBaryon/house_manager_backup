@@ -45,10 +45,17 @@ func TestMapCentralizedPublisherListingBuildsProjectScopedSnapshot(t *testing.T)
 		CommonFields: commonmodel.CommonFields{ID: room.RoomTypeID},
 		RoomTypeName: "一居室",
 	}
+	owner := &hpdmodel.HpdRootScopeRelation{
+		OwnerLandlordID: bson.NewObjectID(),
+		OwnerPhone:      "13800000000",
+	}
 
-	got := mapCentralizedPublisherListing(listing, room, project, building, roomType)
+	got := mapCentralizedPublisherListing(listing, room, project, building, roomType, owner)
 	if got.RootType != hpdmodel.HpdRootScopeTypeCentralizedProject || got.RootID != project.ID {
 		t.Fatalf("expected project root scope, got %#v", got)
+	}
+	if got.OwnerLandlordID != owner.OwnerLandlordID || got.OwnerPhoneSnapshot != owner.OwnerPhone {
+		t.Fatalf("unexpected owner mapping: %#v", got)
 	}
 	if got.ProjectName != project.ProjectName || got.BuildingName != building.BuildingName || got.RoomTypeName != roomType.RoomTypeName {
 		t.Fatalf("unexpected name mapping: %#v", got)
@@ -79,10 +86,17 @@ func TestMapDecentralizedPublisherListingBuildsCommunityScopedSnapshot(t *testin
 		City:          "深圳",
 		District:      "南山",
 	}
+	owner := &hpdmodel.HpdRootScopeRelation{
+		OwnerLandlordID: bson.NewObjectID(),
+		OwnerPhone:      "13800000000",
+	}
 
-	got := mapDecentralizedPublisherListing(listing, room, community)
+	got := mapDecentralizedPublisherListing(listing, room, community, owner)
 	if got.RootType != hpdmodel.HpdRootScopeTypeDecentralizedCommunity || got.RootID != community.ID {
 		t.Fatalf("expected community root scope, got %#v", got)
+	}
+	if got.OwnerLandlordID != owner.OwnerLandlordID || got.OwnerPhoneSnapshot != owner.OwnerPhone {
+		t.Fatalf("unexpected owner mapping: %#v", got)
 	}
 	if got.CommunityName != community.CommunityName || got.RoomNo != room.RoomNo {
 		t.Fatalf("unexpected field mapping: %#v", got)

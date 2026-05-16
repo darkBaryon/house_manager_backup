@@ -32,7 +32,6 @@ type HmdCentralized struct {
 	commonmodel.CommonFields `bson:",inline"`
 
 	ProjectName string    `bson:"project_name" json:"projectName"`
-	ProjectCode string    `bson:"project_code" json:"projectCode"`
 	City        string    `bson:"city" json:"city"`
 	District    string    `bson:"district" json:"district"`
 	AddressText string    `bson:"address_text" json:"addressText"`
@@ -46,7 +45,6 @@ type HmdBuilding struct {
 
 	ProjectID         bson.ObjectID     `bson:"project_id" json:"projectId"`
 	BuildingName      string            `bson:"building_name" json:"buildingName"`
-	BuildingCode      string            `bson:"building_code" json:"buildingCode"`
 	FloorTotal        int               `bson:"floor_total" json:"floorTotal"`
 	ManagerName       string            `bson:"manager_name" json:"managerName"`
 	ManagerPhone      string            `bson:"manager_phone" json:"managerPhone"`

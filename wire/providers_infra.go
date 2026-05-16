@@ -88,7 +88,7 @@ func newCache(rc *dbredis.Client) *cache.Cache {
 }
 
 func newSessionStore(rc *dbredis.Client) *session.Store {
-	return session.NewStore(rc, 30*time.Minute)
+	return session.NewStore(rc, 2*time.Hour)
 }
 
 func newContext() context.Context {

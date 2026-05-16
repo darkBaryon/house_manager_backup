@@ -90,6 +90,9 @@ func (m *HpdPublisherListing) ValidateForCreate() error {
 	if !m.RootType.Valid() {
 		return fmt.Errorf("rootType is invalid")
 	}
+	if m.OwnerLandlordID.IsZero() {
+		return fmt.Errorf("ownerLandlordID is required")
+	}
 	if !m.RentMode.Valid() {
 		return fmt.Errorf("rentMode is invalid")
 	}
@@ -131,6 +134,9 @@ func (m *HpdRootScopeRelation) ValidateForCreate() error {
 	}
 	if m.RootID.IsZero() {
 		return fmt.Errorf("rootID is required")
+	}
+	if m.OwnerLandlordID.IsZero() {
+		return fmt.Errorf("ownerLandlordID is required")
 	}
 	if m.RelationStatus == HpdRelationStatusUnspecified || !m.RelationStatus.Valid() {
 		return fmt.Errorf("relationStatus is invalid")

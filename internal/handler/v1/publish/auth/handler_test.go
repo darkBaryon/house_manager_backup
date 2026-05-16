@@ -29,20 +29,20 @@ func TestLoginBindsPhoneAndReturnsSnakeCasePrincipal(t *testing.T) {
 			Token: "opaque-token",
 			AuthSession: authsvc.AuthSession{
 				Principal: session.Principal{
-					PrincipalType: session.PrincipalTypeUser,
-					PrincipalID:   "user-id",
+					PrincipalType: session.PrincipalTypeLandlord,
+					PrincipalID:   "landlord-id",
 					Terminal:      session.TerminalPublish,
 					Phone:         "13800000000",
 				},
-				Subject: authsvc.Subject{ID: "user-id", Name: "房东A", Phone: "13800000000"},
+				Subject: authsvc.Subject{ID: "landlord-id", Name: "房东A", Phone: "13800000000"},
 			},
 		},
 	}
 
-	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/login", `{"phone":"13800000000"}`, nil, true)
+	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/login", `{"phone":"13800000000","password":"secret123"}`, nil, true)
 
 	envelope := assertPublishAuthResponse(t, resp, http.StatusOK, 0)
-	if svc.loginCalls != 1 || svc.loginInput.Phone != "13800000000" {
+	if svc.loginCalls != 1 || svc.loginInput.Phone != "13800000000" || svc.loginInput.Password != "secret123" {
 		t.Fatalf("unexpected login call: %#v", svc)
 	}
 	var data struct {
@@ -61,7 +61,7 @@ func TestLoginBindsPhoneAndReturnsSnakeCasePrincipal(t *testing.T) {
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode data: %v", err)
 	}
-	if data.Token != "opaque-token" || data.Principal.PrincipalType != session.PrincipalTypeUser || data.Principal.PrincipalID != "user-id" {
+	if data.Token != "opaque-token" || data.Principal.PrincipalType != session.PrincipalTypeLandlord || data.Principal.PrincipalID != "landlord-id" {
 		t.Fatalf("unexpected data: %#v", data)
 	}
 }
@@ -78,11 +78,14 @@ func TestLoginInvalidJSONReturnsInvalidParam(t *testing.T) {
 }
 
 func TestLoginServiceError(t *testing.T) {
-	svc := &fakePublishAuthService{loginErr: errcode.Forbidden.WithError(fmt.Errorf("local only"))}
+	svc := &fakePublishAuthService{loginErr: errcode.Forbidden.WithError(fmt.Errorf("仅支持本地环境登录"))}
 
-	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/login", `{"phone":"13800000000"}`, nil, true)
+	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/login", `{"phone":"13800000000","password":"secret123"}`, nil, true)
 
-	assertPublishAuthResponse(t, resp, http.StatusForbidden, errcode.Forbidden.Code)
+	envelope := assertPublishAuthResponse(t, resp, http.StatusForbidden, errcode.Forbidden.Code)
+	if envelope.Error != "仅支持本地环境登录" {
+		t.Fatalf("expected detailed error, got %q body=%s", envelope.Error, resp.Body.String())
+	}
 }
 
 func TestSessionRequiresPrincipal(t *testing.T) {
@@ -95,22 +98,22 @@ func TestSessionReturnsPrincipal(t *testing.T) {
 	svc := &fakePublishAuthService{
 		sessionResult: &authsvc.AuthSession{
 			Principal: session.Principal{
-				PrincipalType: session.PrincipalTypeUser,
-				PrincipalID:   "user-id",
+				PrincipalType: session.PrincipalTypeLandlord,
+				PrincipalID:   "landlord-id",
 				Terminal:      session.TerminalPublish,
 				Phone:         "13800000000",
 			},
-			Subject: authsvc.Subject{ID: "user-id", Name: "房东A", Phone: "13800000000"},
+			Subject: authsvc.Subject{ID: "landlord-id", Name: "房东A", Phone: "13800000000"},
 		},
 	}
-	principal := session.Principal{PrincipalType: session.PrincipalTypeUser, PrincipalID: "user-id", Terminal: session.TerminalPublish, Phone: "13800000000"}
+	principal := session.Principal{PrincipalType: session.PrincipalTypeLandlord, PrincipalID: "landlord-id", Terminal: session.TerminalPublish, Phone: "13800000000"}
 
 	resp := performPublishAuthRequest(t, svc, "/api/v1/publish_auth/session", `{}`, func(c *gin.Context) {
 		c.Set(middleware.ContextPrincipal, principal)
 	}, false)
 
 	envelope := assertPublishAuthResponse(t, resp, http.StatusOK, 0)
-	if svc.sessionCalls != 1 || svc.sessionPrincipal.PrincipalID != "user-id" {
+	if svc.sessionCalls != 1 || svc.sessionPrincipal.PrincipalID != "landlord-id" {
 		t.Fatalf("unexpected session call: %#v", svc)
 	}
 	if !bytes.Contains(envelope.Data, []byte("principal_type")) {

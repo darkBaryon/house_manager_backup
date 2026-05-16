@@ -17,8 +17,9 @@ const keyPrefix = "hs:sess:"
 type principalContextKey struct{}
 
 const (
-	PrincipalTypeUser  = "user"
-	PrincipalTypeStaff = "staff"
+	PrincipalTypeUser     = "user"
+	PrincipalTypeLandlord = "landlord"
+	PrincipalTypeStaff    = "staff"
 
 	TerminalMiniapp = "miniapp"
 	TerminalPublish = "publish"
@@ -103,7 +104,8 @@ func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, err
 	if token == "" {
 		return nil, nil
 	}
-	val, err := s.client.Get(ctx, keyPrefix+token)
+	key := keyPrefix + token
+	val, err := s.client.Get(ctx, key)
 	if err != nil {
 		return nil, nil
 	}
@@ -115,6 +117,15 @@ func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, err
 		return nil, nil
 	}
 	normalized := principal.normalized()
+	if s.ttl > 0 {
+		payload, err := json.Marshal(normalized)
+		if err != nil {
+			return nil, nil
+		}
+		if err := s.client.Set(ctx, key, string(payload), s.ttl); err != nil {
+			return nil, nil
+		}
+	}
 	return &normalized, nil
 }
 
@@ -142,7 +153,7 @@ func (p Principal) Validate() error {
 		return fmt.Errorf("terminal is required")
 	}
 	switch p.PrincipalType {
-	case PrincipalTypeUser, PrincipalTypeStaff:
+	case PrincipalTypeUser, PrincipalTypeLandlord, PrincipalTypeStaff:
 	default:
 		return fmt.Errorf("principal_type is invalid")
 	}

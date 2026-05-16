@@ -28,6 +28,7 @@ type CreateCentralizedRoomInput struct {
 
 type UpdateCentralizedRoomInput struct {
 	ID                bson.ObjectID
+	RoomTypeID        *bson.ObjectID
 	RoomNo            string
 	FloorNo           int
 	RentMode          string

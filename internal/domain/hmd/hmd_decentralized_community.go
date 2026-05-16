@@ -26,7 +26,7 @@ func (s *Service) CreateDecentralizedCommunity(ctx context.Context, input Create
 		return nil, databasef("create decentralized community: find existing community: %w", err)
 	}
 	if existing != nil {
-		return nil, alreadyExistsf("create decentralized community: community already exists in city and district")
+		return nil, alreadyExistsf("当前城市和区域下已存在同名小区")
 	}
 
 	if err := s.decentralizedRepo.Create(ctx, entity); err != nil {
@@ -62,6 +62,16 @@ func (s *Service) ListDecentralizedCommunities(ctx context.Context, input ListDe
 	return communities, nil
 }
 
+func (s *Service) ListDecentralizedCommunitiesByIDs(ctx context.Context, ids []bson.ObjectID, input ListDecentralizedCommunitiesInput) ([]hmdmodel.HmdDecentralized, error) {
+	city := strings.TrimSpace(input.City)
+	district := strings.TrimSpace(input.District)
+	communities, err := s.decentralizedRepo.ListByIDs(ctx, ids, city, district)
+	if err != nil {
+		return nil, databasef("list decentralized communities by ids: %w", err)
+	}
+	return communities, nil
+}
+
 func (s *Service) UpdateDecentralizedCommunity(ctx context.Context, input UpdateDecentralizedCommunityInput) (*HmdMutationResult[hmdmodel.HmdDecentralized], error) {
 	community, err := s.requireDecentralized(ctx, input.ID, "update decentralized community")
 	if err != nil {
@@ -76,7 +86,7 @@ func (s *Service) UpdateDecentralizedCommunity(ctx context.Context, input Update
 		return nil, databasef("update decentralized community: find existing community: %w", err)
 	}
 	if existing != nil && existing.ID != community.ID {
-		return nil, alreadyExistsf("update decentralized community: community already exists in city and district")
+		return nil, alreadyExistsf("当前城市和区域下已存在同名小区")
 	}
 
 	fields := bsonFields(

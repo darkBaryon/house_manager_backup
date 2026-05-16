@@ -16,10 +16,9 @@ func (r *RootScopeRepository) EnsureIndexes(ctx context.Context) error {
 			Keys: bson.D{
 				{Key: "root_type", Value: 1},
 				{Key: "root_id", Value: 1},
-				{Key: "owner_phone", Value: 1},
 			},
 			Options: options.Index().
-				SetName("root_type_1_root_id_1_owner_phone_1_active_unique").
+				SetName("root_type_1_root_id_1_active_unique").
 				SetUnique(true).
 				SetPartialFilterExpression(bson.M{
 					"status":          commonmodel.StatusActive,
@@ -29,11 +28,11 @@ func (r *RootScopeRepository) EnsureIndexes(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				{Key: "root_type", Value: 1},
-				{Key: "owner_phone", Value: 1},
+				{Key: "owner_landlord_id", Value: 1},
 				{Key: "relation_status", Value: 1},
 				{Key: "status", Value: 1},
 			},
-			Options: options.Index().SetName("root_type_1_owner_phone_1_relation_status_1_status_1"),
+			Options: options.Index().SetName("root_type_1_owner_landlord_id_1_relation_status_1_status_1"),
 		},
 	}
 	if _, err := r.Collection.Indexes().CreateMany(ctx, models); err != nil {
@@ -56,6 +55,13 @@ func (r *PublisherListingRepository) EnsureIndexes(ctx context.Context) error {
 				{Key: "source_id", Value: 1},
 			},
 			Options: options.Index().SetName("source_type_1_source_id_1"),
+		},
+		{
+			Keys: bson.D{
+				{Key: "owner_landlord_id", Value: 1},
+				{Key: "updated_at", Value: -1},
+			},
+			Options: options.Index().SetName("owner_landlord_id_1_updated_at_-1"),
 		},
 		{
 			Keys: bson.D{

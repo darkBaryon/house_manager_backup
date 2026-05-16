@@ -45,7 +45,6 @@ func (h *Handler) Create(c *gin.Context) {
 	result, err := h.service.CreateBuilding(c.Request.Context(), publishsvc.CreateBuildingInput{
 		ProjectID:         projectID,
 		BuildingName:      req.BuildingName,
-		BuildingCode:      req.BuildingCode,
 		FloorTotal:        req.FloorTotal,
 		ManagerName:       req.ManagerName,
 		ManagerPhone:      req.ManagerPhone,

@@ -2,8 +2,12 @@ package publish
 
 import (
 	"context"
+	"fmt"
+	"strings"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	"house-manager/pkg/errcode"
 )
 
 type centralizedRoomService struct {
@@ -27,6 +31,11 @@ func (s *centralizedRoomService) CreateCentralizedRoom(ctx context.Context, inpu
 		logPublishWarn(ctx, "publish.room.create.denied", "building_id", input.BuildingID.Hex(), "error", err)
 		return nil, err
 	}
+	input, err = s.mergeRoomTypeTemplate(ctx, input)
+	if err != nil {
+		logPublishResult(ctx, "publish.room.create.success", "publish.room.create.failed", err, "building_id", input.BuildingID.Hex(), "room_type_id", input.RoomTypeID.Hex(), "room_no", input.RoomNo)
+		return nil, err
+	}
 	result, err := s.hmd.CreateCentralizedRoom(ctx, input)
 	entity, err := resolveHmdMutation(ctx, s.publisher, result, err)
 	if err != nil {
@@ -35,6 +44,109 @@ func (s *centralizedRoomService) CreateCentralizedRoom(ctx context.Context, inpu
 	}
 	logPublishInfo(ctx, "publish.room.create.success", "room_id", entity.ID.Hex(), "project_id", entity.ProjectID.Hex(), "room_no", entity.RoomNo)
 	return entity, nil
+}
+
+func (s *centralizedRoomService) mergeRoomTypeTemplate(ctx context.Context, input CreateCentralizedRoomInput) (CreateCentralizedRoomInput, error) {
+	if input.RoomTypeID.IsZero() {
+		return input, nil
+	}
+
+	roomType, err := s.hmd.GetRoomType(ctx, input.RoomTypeID)
+	if err != nil {
+		return input, err
+	}
+	if roomType == nil {
+		return input, errcode.NotFound.WithError(fmt.Errorf("房型不存在"))
+	}
+	if !roomType.ProjectID.IsZero() && roomType.ProjectID != input.ProjectID {
+		return input, errcode.InvalidParam.WithError(fmt.Errorf("房型不属于当前项目"))
+	}
+	if !roomType.BuildingID.IsZero() && roomType.BuildingID != input.BuildingID {
+		return input, errcode.InvalidParam.WithError(fmt.Errorf("房型不属于当前楼栋"))
+	}
+
+	if strings.TrimSpace(input.LayoutText) == "" {
+		input.LayoutText = layoutTextFromRoomType(roomType)
+	}
+	if input.AreaSize == 0 {
+		input.AreaSize = roomType.AreaSize
+	}
+	if strings.TrimSpace(input.Orientation) == "" {
+		input.Orientation = string(roomType.Orientation)
+	}
+	if strings.TrimSpace(input.DecorationLevel) == "" {
+		input.DecorationLevel = string(roomType.DecorationLevel)
+	}
+	if strings.TrimSpace(input.PaymentCycle) == "" {
+		input.PaymentCycle = string(roomType.PaymentCycle)
+	}
+	if input.Rent == 0 {
+		input.Rent = roomType.Rent
+	}
+	if input.Deposit == 0 {
+		input.Deposit = roomType.Deposit
+	}
+	if input.ServiceFee == 0 {
+		input.ServiceFee = roomType.ServiceFee
+	}
+	if strings.TrimSpace(input.AgencyFeeMode) == "" {
+		input.AgencyFeeMode = string(roomType.AgencyFeeMode)
+	}
+	if input.AgencyFeeValue == 0 {
+		input.AgencyFeeValue = roomType.AgencyFeeValue
+	}
+	if len(input.Images) == 0 {
+		input.Images = taggedImageInputsFromModel(roomType.Images)
+	}
+	if len(input.RoomFacilities) == 0 {
+		input.RoomFacilities = roomFacilitiesFromModel(roomType.RoomFacilities)
+	}
+	return input, nil
+}
+
+func layoutTextFromRoomType(roomType *hmdmodel.HmdRoomTypeCentralized) string {
+	if roomType == nil {
+		return ""
+	}
+	var parts []string
+	if roomType.RoomCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d室", roomType.RoomCount))
+	}
+	if roomType.HallCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d厅", roomType.HallCount))
+	}
+	if roomType.BathroomCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d卫", roomType.BathroomCount))
+	}
+	if roomType.KitchenCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d厨", roomType.KitchenCount))
+	}
+	return strings.Join(parts, "")
+}
+
+func taggedImageInputsFromModel(images []hmdmodel.TaggedImage) []TaggedImageInput {
+	if len(images) == 0 {
+		return nil
+	}
+	result := make([]TaggedImageInput, 0, len(images))
+	for _, image := range images {
+		result = append(result, TaggedImageInput{
+			URL: image.URL,
+			Tag: string(image.Tag),
+		})
+	}
+	return result
+}
+
+func roomFacilitiesFromModel(facilities []hmdmodel.RoomFacility) []string {
+	if len(facilities) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(facilities))
+	for _, facility := range facilities {
+		result = append(result, string(facility))
+	}
+	return result
 }
 
 func (s *centralizedRoomService) GetCentralizedRoom(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomCentralized, error) {

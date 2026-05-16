@@ -27,7 +27,7 @@ func newPublishScope(ctx context.Context, access publishAccessService) (PublishS
 
 func (s PublishScope) accessibleProjectIDSet(ctx context.Context) (map[bson.ObjectID]struct{}, error) {
 	if s.access == nil {
-		return nil, errcode.InternalError.WithError(fmt.Errorf("publish access service is required"))
+		return nil, errcode.InternalError.WithError(fmt.Errorf("发房权限服务未初始化"))
 	}
 	ids, err := s.access.ListAccessibleProjectIDs(ctx, s.principal)
 	if err != nil {
@@ -43,9 +43,16 @@ func (s PublishScope) accessibleProjectIDSet(ctx context.Context) (map[bson.Obje
 	return set, nil
 }
 
+func (s PublishScope) accessibleProjectIDs(ctx context.Context) ([]bson.ObjectID, error) {
+	if s.access == nil {
+		return nil, errcode.InternalError.WithError(fmt.Errorf("发房权限服务未初始化"))
+	}
+	return s.access.ListAccessibleProjectIDs(ctx, s.principal)
+}
+
 func (s PublishScope) accessibleCommunityIDSet(ctx context.Context) (map[bson.ObjectID]struct{}, error) {
 	if s.access == nil {
-		return nil, errcode.InternalError.WithError(fmt.Errorf("publish access service is required"))
+		return nil, errcode.InternalError.WithError(fmt.Errorf("发房权限服务未初始化"))
 	}
 	ids, err := s.access.ListAccessibleCommunityIDs(ctx, s.principal)
 	if err != nil {
@@ -61,8 +68,15 @@ func (s PublishScope) accessibleCommunityIDSet(ctx context.Context) (map[bson.Ob
 	return set, nil
 }
 
+func (s PublishScope) accessibleCommunityIDs(ctx context.Context) ([]bson.ObjectID, error) {
+	if s.access == nil {
+		return nil, errcode.InternalError.WithError(fmt.Errorf("发房权限服务未初始化"))
+	}
+	return s.access.ListAccessibleCommunityIDs(ctx, s.principal)
+}
+
 func scopeNotFound(action string) error {
-	return errcode.NotFound.WithError(fmt.Errorf("%s: resource not found", action))
+	return errcode.NotFound.WithError(fmt.Errorf("资源不存在或当前账号无权访问"))
 }
 
 func isNotFoundError(err error) bool {

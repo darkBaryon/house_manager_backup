@@ -33,21 +33,12 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 	f := newIntegrationFixture(t)
 
 	_, err := f.svc.CreateCentralizedProject(f.ctx, CreateCentralizedProjectInput{
-		ProjectCode: f.prefix + "_missing_project_name",
-		City:        "深圳",
+		City: "深圳",
 	})
 	assertErrCode(t, err, errcode.InvalidParam.Code)
 
 	project := mustCreateCentralizedProject(t, f, f.prefix+"_project_a")
 	assertChange(t, project.Changes, HmdChangeCreated, HmdEntityCentralizedProject, HmdScopeCentralizedProject)
-
-	_, err = f.svc.CreateCentralizedProject(f.ctx, CreateCentralizedProjectInput{
-		ProjectName: project.Entity.ProjectName,
-		ProjectCode: project.Entity.ProjectCode,
-		City:        project.Entity.City,
-		District:    project.Entity.District,
-	})
-	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
 	projects, err := f.svc.ListCentralizedProjects(f.ctx, ListCentralizedProjectsInput{City: "深圳"})
 	requireNoError(t, err)
@@ -55,8 +46,8 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 
 	detail, err := f.svc.GetCentralizedProject(f.ctx, project.Entity.ID)
 	requireNoError(t, err)
-	if detail.ProjectCode != project.Entity.ProjectCode {
-		t.Fatalf("expected project code %q, got %q", project.Entity.ProjectCode, detail.ProjectCode)
+	if detail.ProjectName != project.Entity.ProjectName {
+		t.Fatalf("expected project name %q, got %q", project.Entity.ProjectName, detail.ProjectName)
 	}
 
 	updatedProject, err := f.svc.UpdateCentralizedProject(f.ctx, UpdateCentralizedProjectInput{
@@ -79,7 +70,6 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 	_, err = f.svc.CreateBuilding(f.ctx, CreateBuildingInput{
 		ProjectID:    project.Entity.ID,
 		BuildingName: f.prefix + "_building_dup",
-		BuildingCode: building.Entity.BuildingCode,
 	})
 	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
@@ -391,9 +381,9 @@ func cleanupIntegrationData(t *testing.T, f *integrationFixture) {
 		{hmdmodel.CollectionHmdRoomCentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
 		{hmdmodel.CollectionHmdRoomDecentralized, bson.M{"room_no": bson.M{"$regex": pattern}}},
 		{hmdmodel.CollectionHmdRoomTypeCentralized, bson.M{"room_type_name": bson.M{"$regex": pattern}}},
-		{hmdmodel.CollectionHmdBuilding, bson.M{"building_code": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdBuilding, bson.M{"building_name": bson.M{"$regex": pattern}}},
 		{hmdmodel.CollectionHmdDecentralized, bson.M{"community_name": bson.M{"$regex": pattern}}},
-		{hmdmodel.CollectionHmdCentralized, bson.M{"project_code": bson.M{"$regex": pattern}}},
+		{hmdmodel.CollectionHmdCentralized, bson.M{"project_name": bson.M{"$regex": pattern}}},
 	}
 	for _, tc := range cases {
 		if _, err := f.client.Collection(tc.collection).DeleteMany(f.ctx, tc.filter); err != nil {
@@ -402,11 +392,10 @@ func cleanupIntegrationData(t *testing.T, f *integrationFixture) {
 	}
 }
 
-func mustCreateCentralizedProject(t *testing.T, f *integrationFixture, code string) *HmdMutationResult[hmdmodel.HmdCentralized] {
+func mustCreateCentralizedProject(t *testing.T, f *integrationFixture, name string) *HmdMutationResult[hmdmodel.HmdCentralized] {
 	t.Helper()
 	result, err := f.svc.CreateCentralizedProject(f.ctx, CreateCentralizedProjectInput{
-		ProjectName: code,
-		ProjectCode: code,
+		ProjectName: name,
 		City:        "深圳",
 		District:    "南山",
 		AddressText: "测试集中式地址",
@@ -424,7 +413,6 @@ func mustCreateBuilding(t *testing.T, f *integrationFixture, projectID bson.Obje
 	result, err := f.svc.CreateBuilding(f.ctx, CreateBuildingInput{
 		ProjectID:         projectID,
 		BuildingName:      code,
-		BuildingCode:      code,
 		FloorTotal:        12,
 		ManagerName:       "测试管家",
 		ManagerPhone:      "18800000000",

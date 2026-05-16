@@ -68,18 +68,18 @@ func (s *Service) listRootIDsForPrincipal(ctx context.Context, rootType hpdmodel
 		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "action", action)
 		return nil, err
 	}
-	ownerPhone, err := ownerPhoneForPrincipal(principal)
+	ownerLandlordID, ownerPhone, err := ownerForPrincipal(principal)
 	if err != nil {
 		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "action", action)
 		return nil, err
 	}
-	ids, err := s.rootScopeRepo.ListActiveRootIDsByOwnerPhone(ctx, rootType, ownerPhone)
+	ids, err := s.rootScopeRepo.ListActiveRootIDsByOwnerLandlordID(ctx, rootType, ownerLandlordID)
 	if err != nil {
 		err = databasef("%s: %w", action, err)
-		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "owner_phone", maskAccessPhone(ownerPhone))
+		logPublishAccessResult(ctx, "publishaccess.root_scope.list.success", "publishaccess.root_scope.list.failed", err, "root_type", rootType, "owner_landlord_id", ownerLandlordID.Hex(), "owner_phone", maskAccessPhone(ownerPhone))
 		return nil, err
 	}
-	logPublishAccessInfo(ctx, "publishaccess.root_scope.list.success", "root_type", rootType, "owner_phone", maskAccessPhone(ownerPhone), "result_count", len(ids))
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.list.success", "root_type", rootType, "owner_landlord_id", ownerLandlordID.Hex(), "owner_phone", maskAccessPhone(ownerPhone), "result_count", len(ids))
 	return ids, nil
 }
 
@@ -90,53 +90,58 @@ func (s *Service) canAccessRootForPrincipal(ctx context.Context, rootType hpdmod
 		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex())
 		return false, err
 	}
-	ownerPhone, err := ownerPhoneForPrincipal(principal)
+	ownerLandlordID, ownerPhone, err := ownerForPrincipal(principal)
 	if err != nil {
 		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex())
 		return false, err
 	}
-	allowed, err := s.rootScopeRepo.CanAccessRoot(ctx, rootType, rootID, ownerPhone)
+	allowed, err := s.rootScopeRepo.CanAccessRoot(ctx, rootType, rootID, ownerLandlordID)
 	if err != nil {
 		err = databasef("%s: %w", action, err)
-		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex(), "owner_phone", maskAccessPhone(ownerPhone))
+		logPublishAccessResult(ctx, "publishaccess.root_scope.can_access.success", "publishaccess.root_scope.can_access.failed", err, "root_type", rootType, "root_id", rootID.Hex(), "owner_landlord_id", ownerLandlordID.Hex(), "owner_phone", maskAccessPhone(ownerPhone))
 		return false, err
 	}
-	logPublishAccessInfo(ctx, "publishaccess.root_scope.can_access.success", "root_type", rootType, "root_id", rootID.Hex(), "owner_phone", maskAccessPhone(ownerPhone), "allowed", allowed)
+	logPublishAccessInfo(ctx, "publishaccess.root_scope.can_access.success", "root_type", rootType, "root_id", rootID.Hex(), "owner_landlord_id", ownerLandlordID.Hex(), "owner_phone", maskAccessPhone(ownerPhone), "allowed", allowed)
 	return allowed, nil
 }
 
 func rootScopeRelationForPrincipal(rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, principal session.Principal) (*hpdmodel.HpdRootScopeRelation, error) {
 	if !rootType.Valid() {
-		return nil, invalidParamf("root_type is invalid")
+		return nil, invalidParamf("归属根类型不合法")
 	}
 	if rootID.IsZero() {
-		return nil, invalidParamf("root_id is required")
+		return nil, invalidParamf("归属根 ID 不能为空")
 	}
-	ownerPhone, err := ownerPhoneForPrincipal(principal)
+	ownerLandlordID, ownerPhone, err := ownerForPrincipal(principal)
 	if err != nil {
 		return nil, err
 	}
 	return &hpdmodel.HpdRootScopeRelation{
-		RootType:       rootType,
-		RootID:         rootID,
-		OwnerPhone:     ownerPhone,
-		RelationStatus: hpdmodel.HpdRelationStatusActive,
+		RootType:        rootType,
+		RootID:          rootID,
+		OwnerLandlordID: ownerLandlordID,
+		OwnerPhone:      ownerPhone,
+		RelationStatus:  hpdmodel.HpdRelationStatusActive,
 	}, nil
 }
 
-func ownerPhoneForPrincipal(principal session.Principal) (string, error) {
+func ownerForPrincipal(principal session.Principal) (bson.ObjectID, string, error) {
 	if err := principal.Validate(); err != nil {
-		return "", invalidParamf("principal is invalid: %w", err)
+		return bson.NilObjectID, "", invalidParamf("登录身份无效: %w", err)
 	}
 	if principal.Terminal != session.TerminalPublish {
-		return "", invalidParamf("principal terminal must be publish")
+		return bson.NilObjectID, "", invalidParamf("当前登录终端不是发房端")
 	}
-	if principal.PrincipalType != session.PrincipalTypeUser {
-		return "", invalidParamf("principal_type must be user")
+	if principal.PrincipalType != session.PrincipalTypeLandlord {
+		return bson.NilObjectID, "", invalidParamf("当前登录身份不是房东")
+	}
+	ownerLandlordID, err := bson.ObjectIDFromHex(principal.PrincipalID)
+	if err != nil || ownerLandlordID.IsZero() {
+		return bson.NilObjectID, "", invalidParamf("房东身份 ID 无效")
 	}
 	ownerPhone := strings.TrimSpace(principal.Phone)
 	if ownerPhone == "" {
-		return "", invalidParamf("user principal phone is required")
+		return bson.NilObjectID, "", invalidParamf("房东手机号不能为空")
 	}
-	return ownerPhone, nil
+	return ownerLandlordID, ownerPhone, nil
 }

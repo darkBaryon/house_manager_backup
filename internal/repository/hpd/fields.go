@@ -5,7 +5,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	commonmodel "house-manager/internal/model/common"
 	hpdmodel "house-manager/internal/model/hpd"
-	"strings"
 )
 
 var (
@@ -49,6 +48,9 @@ var (
 	)
 
 	publisherProjectionFields = allowedFields(
+		"owner_landlord_id",
+		"owner_phone_snapshot",
+		"landlord_name_snapshot",
 		"root_type",
 		"root_id",
 		"project_id",
@@ -188,51 +190,54 @@ func miniappListingFields(entity *hpdmodel.HpdMiniappListing) bson.M {
 
 func publisherListingFields(entity *hpdmodel.HpdPublisherListing) bson.M {
 	return bson.M{
-		"listing_id":         entity.ListingID,
-		"source_type":        entity.SourceType,
-		"source_id":          entity.SourceID,
-		"asset_mode":         entity.AssetMode,
-		"root_type":          entity.RootType,
-		"root_id":            entity.RootID,
-		"project_id":         entity.ProjectID,
-		"project_name":       entity.ProjectName,
-		"building_id":        entity.BuildingID,
-		"building_name":      entity.BuildingName,
-		"room_type_id":       entity.RoomTypeID,
-		"room_type_name":     entity.RoomTypeName,
-		"decentralized_id":   entity.DecentralizedID,
-		"community_name":     entity.CommunityName,
-		"rent_mode":          entity.RentMode,
-		"city":               entity.City,
-		"district":           entity.District,
-		"biz_area":           entity.BizArea,
-		"subway_station":     entity.SubwayStation,
-		"address_text":       entity.AddressText,
-		"geo":                entity.Geo,
-		"room_no":            entity.RoomNo,
-		"floor_no":           entity.FloorNo,
-		"title":              entity.Title,
-		"subtitle":           entity.Subtitle,
-		"price":              entity.Price,
-		"price_text":         entity.PriceText,
-		"layout_text":        entity.LayoutText,
-		"area_size":          entity.AreaSize,
-		"orientation":        entity.Orientation,
-		"decoration_level":   entity.DecorationLevel,
-		"payment_cycle":      entity.PaymentCycle,
-		"deposit":            entity.Deposit,
-		"service_fee":        entity.ServiceFee,
-		"agency_fee_mode":    entity.AgencyFeeMode,
-		"agency_fee_value":   entity.AgencyFeeValue,
-		"room_status":        entity.RoomStatus,
-		"listing_status":     entity.ListingStatus,
-		"viewing_time_rule":  entity.ViewingTimeRule,
-		"start_rent_rule":    entity.StartRentRule,
-		"feature_flags":      entity.FeatureFlags,
-		"listing_facilities": entity.ListingFacilities,
-		"room_facilities":    entity.RoomFacilities,
-		"images":             entity.Images,
-		"is_online":          entity.IsOnline,
+		"listing_id":             entity.ListingID,
+		"source_type":            entity.SourceType,
+		"source_id":              entity.SourceID,
+		"asset_mode":             entity.AssetMode,
+		"owner_landlord_id":      entity.OwnerLandlordID,
+		"owner_phone_snapshot":   entity.OwnerPhoneSnapshot,
+		"landlord_name_snapshot": entity.LandlordNameSnapshot,
+		"root_type":              entity.RootType,
+		"root_id":                entity.RootID,
+		"project_id":             entity.ProjectID,
+		"project_name":           entity.ProjectName,
+		"building_id":            entity.BuildingID,
+		"building_name":          entity.BuildingName,
+		"room_type_id":           entity.RoomTypeID,
+		"room_type_name":         entity.RoomTypeName,
+		"decentralized_id":       entity.DecentralizedID,
+		"community_name":         entity.CommunityName,
+		"rent_mode":              entity.RentMode,
+		"city":                   entity.City,
+		"district":               entity.District,
+		"biz_area":               entity.BizArea,
+		"subway_station":         entity.SubwayStation,
+		"address_text":           entity.AddressText,
+		"geo":                    entity.Geo,
+		"room_no":                entity.RoomNo,
+		"floor_no":               entity.FloorNo,
+		"title":                  entity.Title,
+		"subtitle":               entity.Subtitle,
+		"price":                  entity.Price,
+		"price_text":             entity.PriceText,
+		"layout_text":            entity.LayoutText,
+		"area_size":              entity.AreaSize,
+		"orientation":            entity.Orientation,
+		"decoration_level":       entity.DecorationLevel,
+		"payment_cycle":          entity.PaymentCycle,
+		"deposit":                entity.Deposit,
+		"service_fee":            entity.ServiceFee,
+		"agency_fee_mode":        entity.AgencyFeeMode,
+		"agency_fee_value":       entity.AgencyFeeValue,
+		"room_status":            entity.RoomStatus,
+		"listing_status":         entity.ListingStatus,
+		"viewing_time_rule":      entity.ViewingTimeRule,
+		"start_rent_rule":        entity.StartRentRule,
+		"feature_flags":          entity.FeatureFlags,
+		"listing_facilities":     entity.ListingFacilities,
+		"room_facilities":        entity.RoomFacilities,
+		"images":                 entity.Images,
+		"is_online":              entity.IsOnline,
 	}
 }
 
@@ -242,12 +247,13 @@ func listingStatusUpdateFields(listingStatus hpdmodel.HpdListingStatus) bson.M {
 
 func rootScopeRelationFields(entity *hpdmodel.HpdRootScopeRelation) bson.M {
 	return bson.M{
-		"root_type":       entity.RootType,
-		"root_id":         entity.RootID,
-		"owner_phone":     entity.OwnerPhone,
-		"relation_status": entity.RelationStatus,
-		"effective_from":  entity.EffectiveFrom,
-		"effective_to":    entity.EffectiveTo,
+		"root_type":         entity.RootType,
+		"root_id":           entity.RootID,
+		"owner_landlord_id": entity.OwnerLandlordID,
+		"owner_phone":       entity.OwnerPhone,
+		"relation_status":   entity.RelationStatus,
+		"effective_from":    entity.EffectiveFrom,
+		"effective_to":      entity.EffectiveTo,
 	}
 }
 
@@ -257,20 +263,19 @@ func activeRootScopeRelationFilter(fields bson.M) bson.M {
 	return filter
 }
 
-func activeRootScopeAccessFilter(rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerPhone string) (bson.M, error) {
+func activeRootScopeAccessFilter(rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID, ownerLandlordID bson.ObjectID) (bson.M, error) {
 	if !rootType.Valid() {
 		return nil, fmt.Errorf("rootType is invalid")
 	}
 	if rootID.IsZero() {
 		return nil, fmt.Errorf("rootID is required")
 	}
-	ownerPhone = strings.TrimSpace(ownerPhone)
-	if ownerPhone == "" {
-		return nil, fmt.Errorf("ownerPhone is required")
+	if ownerLandlordID.IsZero() {
+		return nil, fmt.Errorf("ownerLandlordID is required")
 	}
 	return activeRootScopeRelationFilter(bson.M{
-		"root_type":   rootType,
-		"root_id":     rootID,
-		"owner_phone": ownerPhone,
+		"root_type":         rootType,
+		"root_id":           rootID,
+		"owner_landlord_id": ownerLandlordID,
 	}), nil
 }

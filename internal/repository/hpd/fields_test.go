@@ -170,7 +170,8 @@ func TestMiniappCountUsesSearchValidation(t *testing.T) {
 
 func TestActiveRootScopeAccessFilterBuildsOwnerScope(t *testing.T) {
 	rootID := bson.NewObjectID()
-	filter, err := activeRootScopeAccessFilter(hpdmodel.HpdRootScopeTypeCentralizedProject, rootID, " 13800000000 ")
+	landlordID := bson.NewObjectID()
+	filter, err := activeRootScopeAccessFilter(hpdmodel.HpdRootScopeTypeCentralizedProject, rootID, landlordID)
 	if err != nil {
 		t.Fatalf("expected access filter, got %v", err)
 	}
@@ -186,18 +187,18 @@ func TestActiveRootScopeAccessFilterBuildsOwnerScope(t *testing.T) {
 	if got := filter["root_id"]; got != rootID {
 		t.Fatalf("expected root id, got %v", got)
 	}
-	if got := filter["owner_phone"]; got != "13800000000" {
-		t.Fatalf("expected owner phone filter, got %#v", got)
+	if got := filter["owner_landlord_id"]; got != landlordID {
+		t.Fatalf("expected owner landlord filter, got %#v", got)
 	}
 }
 
 func TestRootScopeRepositoryRejectsEmptyScopeInputs(t *testing.T) {
 	repo := &RootScopeRepository{}
-	if _, err := repo.FindActiveByRoot(context.Background(), hpdmodel.HpdRootScopeType(""), bson.NewObjectID(), "13800000000"); err == nil || !strings.Contains(err.Error(), "rootType is invalid") {
+	if _, err := repo.FindActiveByRootAndOwner(context.Background(), hpdmodel.HpdRootScopeType(""), bson.NewObjectID(), bson.NewObjectID()); err == nil || !strings.Contains(err.Error(), "rootType is invalid") {
 		t.Fatalf("expected root type error, got %v", err)
 	}
-	if _, err := repo.ListActiveRootIDsByOwnerPhone(context.Background(), hpdmodel.HpdRootScopeTypeCentralizedProject, " "); err == nil || !strings.Contains(err.Error(), "ownerPhone is required") {
-		t.Fatalf("expected owner phone error, got %v", err)
+	if _, err := repo.ListActiveRootIDsByOwnerLandlordID(context.Background(), hpdmodel.HpdRootScopeTypeCentralizedProject, bson.NilObjectID); err == nil || !strings.Contains(err.Error(), "ownerLandlordID is required") {
+		t.Fatalf("expected owner landlord error, got %v", err)
 	}
 }
 
@@ -205,11 +206,14 @@ func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
 	listingID := bson.NewObjectID()
 	rootID := bson.NewObjectID()
 	fields := publisherListingFields(&hpdmodel.HpdPublisherListing{
-		ListingID:     listingID,
-		RootType:      hpdmodel.HpdRootScopeTypeCentralizedProject,
-		RootID:        rootID,
-		RoomNo:        "1201",
-		ListingStatus: hpdmodel.HpdListingStatusDraft,
+		ListingID:            listingID,
+		OwnerLandlordID:      bson.NewObjectID(),
+		OwnerPhoneSnapshot:   "13800000000",
+		LandlordNameSnapshot: "房东A",
+		RootType:             hpdmodel.HpdRootScopeTypeCentralizedProject,
+		RootID:               rootID,
+		RoomNo:               "1201",
+		ListingStatus:        hpdmodel.HpdListingStatusDraft,
 	})
 
 	if got := fields["listing_id"]; got != listingID {
@@ -223,5 +227,8 @@ func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
 	}
 	if got := fields["room_no"]; got != "1201" {
 		t.Fatalf("expected room no, got %v", got)
+	}
+	if got := fields["owner_phone_snapshot"]; got != "13800000000" {
+		t.Fatalf("expected owner phone snapshot, got %v", got)
 	}
 }
