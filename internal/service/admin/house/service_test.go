@@ -14,108 +14,107 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-func TestListNormalizesFiltersAndMapsAdminListings(t *testing.T) {
+func TestListRootsNormalizesFiltersAndMapsItems(t *testing.T) {
 	providerID := bson.NewObjectID()
-	listingID := bson.NewObjectID()
+	repo := &fakeAdminListingRepository{
+		rootItems: []hpdrepo.AdminRootListItem{{
+			RootID:        bson.NewObjectID(),
+			RootType:      hpdmodel.HpdRootScopeTypeCentralizedProject,
+			AssetMode:     hpdmodel.HpdAssetModeCentralized,
+			ProviderID:    providerID,
+			ProviderPhone: "13800000000",
+			ProviderName:  "张三",
+			ProjectName:   "星海公寓",
+			City:          "上海",
+			District:      "徐汇",
+			BuildingCount: 2,
+			RoomCount:     24,
+			UpdatedAt:     123,
+		}},
+		rootTotal: 1,
+	}
+	svc := newService(repo)
 	roomStatus := int(hmdmodel.RoomStatusAvailable)
-	listingStatus := int(hpdmodel.HpdListingStatusPublished)
-	auditStatus := int(hpdmodel.HpdAuditStatusPending)
+
+	result, err := svc.ListRoots(context.Background(), RootListInput{
+		ProviderID: " " + providerID.Hex() + " ",
+		AssetMode:  "centralized",
+		City:       " 上海 ",
+		District:   " 徐汇 ",
+		RoomStatus: &roomStatus,
+		Page:       -1,
+		PageSize:   999,
+	})
+	if err != nil {
+		t.Fatalf("list roots: %v", err)
+	}
+	if result.Page != 1 || result.PageSize != 100 || result.Total != 1 {
+		t.Fatalf("unexpected page result: %#v", result)
+	}
+	if repo.rootInput.OwnerLandlordID != providerID || repo.rootInput.City != "上海" || repo.rootInput.District != "徐汇" {
+		t.Fatalf("unexpected root filter: %#v", repo.rootInput)
+	}
+	if len(result.List) != 1 || result.List[0].RootName != "星海公寓" || result.List[0].BuildingCount != 2 {
+		t.Fatalf("unexpected root list: %#v", result.List)
+	}
+}
+
+func TestListBuildingsRequiresRootID(t *testing.T) {
+	svc := newService(&fakeAdminListingRepository{})
+	_, err := svc.ListBuildings(context.Background(), BuildingListInput{})
+	assertHouseErr(t, err, errcode.InvalidParam.Code, "项目/小区参数不正确")
+}
+
+func TestListRoomsRequiresRootID(t *testing.T) {
+	svc := newService(&fakeAdminListingRepository{})
+	_, err := svc.ListRooms(context.Background(), ListInput{})
+	assertHouseErr(t, err, errcode.InvalidParam.Code, "项目/小区参数不正确")
+}
+
+func TestListRoomsNormalizesRootAndBuildingFilters(t *testing.T) {
+	rootID := bson.NewObjectID()
+	buildingID := bson.NewObjectID()
+	listingID := bson.NewObjectID()
 	repo := &fakeAdminListingRepository{
 		listItems: []hpdmodel.HpdAdminListing{{
-			CommonFields:       commonmodel.CommonFields{UpdatedAt: 123},
-			ListingID:          listingID,
-			AssetMode:          hpdmodel.HpdAssetModeCentralized,
-			OwnerLandlordID:    providerID,
-			OwnerPhoneSnapshot: "13800000000",
-			City:               "上海",
-			District:           "徐汇",
-			Title:              "整租一居室",
-			Price:              5200,
-			RoomStatus:         hmdmodel.RoomStatusAvailable,
-			ListingStatus:      hpdmodel.HpdListingStatusPublished,
-			AuditStatus:        hpdmodel.HpdAuditStatusPending,
-			IsOnline:           hpdmodel.HpdOnlineStatusYes,
+			CommonFields: commonmodel.CommonFields{UpdatedAt: 123},
+			ListingID:    listingID,
+			RootID:       rootID,
+			BuildingID:   buildingID,
+			AssetMode:    hpdmodel.HpdAssetModeCentralized,
+			Title:        "A座 1001",
 		}},
 		listTotal: 1,
 	}
 	svc := newService(repo)
 
-	result, err := svc.List(context.Background(), ListInput{
-		ProviderID:    " " + providerID.Hex() + " ",
-		AssetMode:     "centralized",
-		City:          " 上海 ",
-		District:      " 徐汇 ",
-		RoomStatus:    &roomStatus,
-		ListingStatus: &listingStatus,
-		AuditStatus:   &auditStatus,
-		Page:          -1,
-		PageSize:      200,
+	result, err := svc.ListRooms(context.Background(), ListInput{
+		RootID:     rootID.Hex(),
+		BuildingID: buildingID.Hex(),
+		Page:       1,
+		PageSize:   20,
 	})
 	if err != nil {
-		t.Fatalf("list house: %v", err)
+		t.Fatalf("list rooms: %v", err)
 	}
-	if result.Page != 1 || result.PageSize != 100 || result.Total != 1 {
-		t.Fatalf("unexpected page result: %#v", result)
+	if repo.listInput.RootID != rootID || repo.listInput.BuildingID != buildingID {
+		t.Fatalf("unexpected room filter: %#v", repo.listInput)
 	}
-	if repo.listInput.OwnerLandlordID != providerID || repo.listInput.AssetMode != hpdmodel.HpdAssetModeCentralized {
-		t.Fatalf("unexpected list filter: %#v", repo.listInput)
-	}
-	if repo.listInput.City != "上海" || repo.listInput.District != "徐汇" || repo.listInput.Skip != 0 || repo.listInput.Limit != 100 {
-		t.Fatalf("unexpected normalized filter: %#v", repo.listInput)
-	}
-	if len(result.List) != 1 || result.List[0].ListingID != listingID.Hex() || result.List[0].ProviderPhone != "13800000000" {
-		t.Fatalf("unexpected list item: %#v", result.List)
+	if len(result.List) != 1 || result.List[0].ListingID != listingID.Hex() {
+		t.Fatalf("unexpected room list: %#v", result.List)
 	}
 }
 
-func TestListRejectsInvalidFilter(t *testing.T) {
-	status := 99
+func TestDetailRoomReturnsNotFound(t *testing.T) {
 	svc := newService(&fakeAdminListingRepository{})
-	_, err := svc.List(context.Background(), ListInput{RoomStatus: &status})
-	assertHouseErr(t, err, errcode.InvalidParam.Code, "房源筛选参数不正确")
-}
-
-func TestDetailReturnsHouse(t *testing.T) {
-	listingID := bson.NewObjectID()
-	sourceID := bson.NewObjectID()
-	repo := &fakeAdminListingRepository{
-		detail: &hpdmodel.HpdAdminListing{
-			ListingID:     listingID,
-			SourceType:    hpdmodel.HpdSourceTypeCentralizedRoom,
-			SourceID:      sourceID,
-			AssetMode:     hpdmodel.HpdAssetModeCentralized,
-			Title:         "房源详情",
-			ListingStatus: hpdmodel.HpdListingStatusPublished,
-			AuditStatus:   hpdmodel.HpdAuditStatusApproved,
-		},
-	}
-	svc := newService(repo)
-
-	result, err := svc.Detail(context.Background(), DetailInput{ListingID: listingID.Hex()})
-	if err != nil {
-		t.Fatalf("detail house: %v", err)
-	}
-	if repo.detailListingID != listingID || result.House.SourceID != sourceID.Hex() || result.House.AuditStatus != int(hpdmodel.HpdAuditStatusApproved) {
-		t.Fatalf("unexpected detail result: input=%s result=%#v", repo.detailListingID.Hex(), result.House)
-	}
-}
-
-func TestDetailReturnsNotFound(t *testing.T) {
-	svc := newService(&fakeAdminListingRepository{})
-	_, err := svc.Detail(context.Background(), DetailInput{ListingID: bson.NewObjectID().Hex()})
+	_, err := svc.DetailRoom(context.Background(), DetailInput{ListingID: bson.NewObjectID().Hex()})
 	assertHouseErr(t, err, errcode.NotFound.Code, "房源不存在或已删除")
 }
 
-func TestDetailRejectsInvalidListingID(t *testing.T) {
-	svc := newService(&fakeAdminListingRepository{})
-	_, err := svc.Detail(context.Background(), DetailInput{ListingID: "bad"})
-	assertHouseErr(t, err, errcode.InvalidParam.Code, "房源参数不正确")
-}
-
-func TestListWrapsRepositoryErrorWithChineseMessage(t *testing.T) {
+func TestListRootsWrapsRepositoryErrorWithChineseMessage(t *testing.T) {
 	svc := newService(&fakeAdminListingRepository{err: errors.New("mongo down")})
-	_, err := svc.List(context.Background(), ListInput{})
-	assertHouseErr(t, err, errcode.DatabaseError.Code, "获取房源列表失败，请稍后重试")
+	_, err := svc.ListRoots(context.Background(), RootListInput{})
+	assertHouseErr(t, err, errcode.DatabaseError.Code, "获取项目/小区列表失败，请稍后重试")
 }
 
 func assertHouseErr(t *testing.T, err error, code int, message string) {
@@ -130,12 +129,34 @@ func assertHouseErr(t *testing.T, err error, code int, message string) {
 }
 
 type fakeAdminListingRepository struct {
+	rootInput       hpdrepo.AdminRootListFilter
+	rootItems       []hpdrepo.AdminRootListItem
+	rootTotal       int64
+	buildingInput   hpdrepo.AdminBuildingListFilter
+	buildingItems   []hpdrepo.AdminBuildingListItem
+	buildingTotal   int64
 	listInput       hpdrepo.AdminListingListFilter
 	listItems       []hpdmodel.HpdAdminListing
 	listTotal       int64
 	detailListingID bson.ObjectID
 	detail          *hpdmodel.HpdAdminListing
 	err             error
+}
+
+func (f *fakeAdminListingRepository) ListAdminRoots(ctx context.Context, input hpdrepo.AdminRootListFilter) ([]hpdrepo.AdminRootListItem, int64, error) {
+	if f.err != nil {
+		return nil, 0, f.err
+	}
+	f.rootInput = input
+	return f.rootItems, f.rootTotal, nil
+}
+
+func (f *fakeAdminListingRepository) ListAdminBuildings(ctx context.Context, input hpdrepo.AdminBuildingListFilter) ([]hpdrepo.AdminBuildingListItem, int64, error) {
+	if f.err != nil {
+		return nil, 0, f.err
+	}
+	f.buildingInput = input
+	return f.buildingItems, f.buildingTotal, nil
 }
 
 func (f *fakeAdminListingRepository) ListAdmin(ctx context.Context, input hpdrepo.AdminListingListFilter) ([]hpdmodel.HpdAdminListing, int64, error) {

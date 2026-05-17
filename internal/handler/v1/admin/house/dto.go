@@ -2,7 +2,30 @@ package house
 
 import housesvc "house-manager/internal/service/admin/house"
 
-type listRequest struct {
+type rootListRequest struct {
+	ProviderID    string `json:"provider_id"`
+	AssetMode     string `json:"asset_mode"`
+	City          string `json:"city"`
+	District      string `json:"district"`
+	RoomStatus    *int   `json:"room_status"`
+	ListingStatus *int   `json:"listing_status"`
+	AuditStatus   *int   `json:"audit_status"`
+	Page          int    `json:"page"`
+	PageSize      int    `json:"page_size"`
+}
+
+type buildingListRequest struct {
+	RootID        string `json:"root_id"`
+	RoomStatus    *int   `json:"room_status"`
+	ListingStatus *int   `json:"listing_status"`
+	AuditStatus   *int   `json:"audit_status"`
+	Page          int    `json:"page"`
+	PageSize      int    `json:"page_size"`
+}
+
+type roomListRequest struct {
+	RootID        string `json:"root_id"`
+	BuildingID    string `json:"building_id"`
 	ProviderID    string `json:"provider_id"`
 	AssetMode     string `json:"asset_mode"`
 	City          string `json:"city"`
@@ -18,7 +41,54 @@ type detailRequest struct {
 	ListingID string `json:"listing_id"`
 }
 
-type listItemResponse struct {
+type rootListItemResponse struct {
+	RootID        string `json:"root_id"`
+	RootType      string `json:"root_type"`
+	RootName      string `json:"root_name"`
+	AssetMode     string `json:"asset_mode"`
+	ProviderID    string `json:"provider_id"`
+	ProviderPhone string `json:"provider_phone"`
+	ProviderName  string `json:"provider_name"`
+	ProjectID     string `json:"project_id"`
+	ProjectName   string `json:"project_name"`
+	CommunityID   string `json:"community_id"`
+	CommunityName string `json:"community_name"`
+	City          string `json:"city"`
+	District      string `json:"district"`
+	BizArea       string `json:"biz_area"`
+	BuildingCount int    `json:"building_count"`
+	RoomCount     int64  `json:"room_count"`
+	UpdatedAt     int64  `json:"updated_at"`
+}
+
+type rootListResponse struct {
+	List     []rootListItemResponse `json:"list"`
+	Page     int                    `json:"page"`
+	PageSize int                    `json:"page_size"`
+	Total    int64                  `json:"total"`
+}
+
+type buildingListItemResponse struct {
+	RootID       string `json:"root_id"`
+	BuildingID   string `json:"building_id"`
+	ProjectID    string `json:"project_id"`
+	ProjectName  string `json:"project_name"`
+	BuildingName string `json:"building_name"`
+	City         string `json:"city"`
+	District     string `json:"district"`
+	BizArea      string `json:"biz_area"`
+	RoomCount    int64  `json:"room_count"`
+	UpdatedAt    int64  `json:"updated_at"`
+}
+
+type buildingListResponse struct {
+	List     []buildingListItemResponse `json:"list"`
+	Page     int                        `json:"page"`
+	PageSize int                        `json:"page_size"`
+	Total    int64                      `json:"total"`
+}
+
+type roomListItemResponse struct {
 	ListingID     string `json:"listing_id"`
 	AssetMode     string `json:"asset_mode"`
 	ProviderID    string `json:"provider_id"`
@@ -41,18 +111,18 @@ type listItemResponse struct {
 	UpdatedAt     int64  `json:"updated_at"`
 }
 
-type listResponse struct {
-	List     []listItemResponse `json:"list"`
-	Page     int                `json:"page"`
-	PageSize int                `json:"page_size"`
-	Total    int64              `json:"total"`
+type roomListResponse struct {
+	List     []roomListItemResponse `json:"list"`
+	Page     int                    `json:"page"`
+	PageSize int                    `json:"page_size"`
+	Total    int64                  `json:"total"`
 }
 
 type detailResponse struct {
-	House houseResponse `json:"house"`
+	Room roomResponse `json:"room"`
 }
 
-type houseResponse struct {
+type roomResponse struct {
 	ListingID         string `json:"listing_id"`
 	SourceType        string `json:"source_type"`
 	SourceID          string `json:"source_id"`
@@ -93,15 +163,100 @@ type houseResponse struct {
 	UpdatedAt         int64  `json:"updated_at"`
 }
 
-func toListResponse(result *housesvc.ListResult) listResponse {
-	items := make([]listItemResponse, 0, len(result.List))
+func toRootListResponse(result *housesvc.RootListResult) rootListResponse {
+	items := make([]rootListItemResponse, 0, len(result.List))
 	for _, item := range result.List {
-		items = append(items, toListItemResponse(item))
+		root := item.RootSummary
+		items = append(items, rootListItemResponse{
+			RootID:        root.RootID,
+			RootType:      root.RootType,
+			RootName:      root.RootName,
+			AssetMode:     root.AssetMode,
+			ProviderID:    root.ProviderID,
+			ProviderPhone: root.ProviderPhone,
+			ProviderName:  root.ProviderName,
+			ProjectID:     root.ProjectID,
+			ProjectName:   root.ProjectName,
+			CommunityID:   root.CommunityID,
+			CommunityName: root.CommunityName,
+			City:          root.City,
+			District:      root.District,
+			BizArea:       root.BizArea,
+			BuildingCount: root.BuildingCount,
+			RoomCount:     root.RoomCount,
+			UpdatedAt:     root.UpdatedAt,
+		})
 	}
 	if items == nil {
-		items = []listItemResponse{}
+		items = []rootListItemResponse{}
 	}
-	return listResponse{
+	return rootListResponse{
+		List:     items,
+		Page:     result.Page,
+		PageSize: result.PageSize,
+		Total:    result.Total,
+	}
+}
+
+func toBuildingListResponse(result *housesvc.BuildingListResult) buildingListResponse {
+	items := make([]buildingListItemResponse, 0, len(result.List))
+	for _, item := range result.List {
+		building := item.BuildingSummary
+		items = append(items, buildingListItemResponse{
+			RootID:       building.RootID,
+			BuildingID:   building.BuildingID,
+			ProjectID:    building.ProjectID,
+			ProjectName:  building.ProjectName,
+			BuildingName: building.BuildingName,
+			City:         building.City,
+			District:     building.District,
+			BizArea:      building.BizArea,
+			RoomCount:    building.RoomCount,
+			UpdatedAt:    building.UpdatedAt,
+		})
+	}
+	if items == nil {
+		items = []buildingListItemResponse{}
+	}
+	return buildingListResponse{
+		List:     items,
+		Page:     result.Page,
+		PageSize: result.PageSize,
+		Total:    result.Total,
+	}
+}
+
+func toRoomListResponse(result *housesvc.ListResult) roomListResponse {
+	items := make([]roomListItemResponse, 0, len(result.List))
+	for _, item := range result.List {
+		room := item.HouseSummary
+		items = append(items, roomListItemResponse{
+			ListingID:     room.ListingID,
+			AssetMode:     room.AssetMode,
+			ProviderID:    room.ProviderID,
+			ProviderPhone: room.ProviderPhone,
+			Title:         room.Title,
+			City:          room.City,
+			District:      room.District,
+			BizArea:       room.BizArea,
+			CommunityName: room.CommunityName,
+			BuildingName:  room.BuildingName,
+			RoomNo:        room.RoomNo,
+			Price:         room.Price,
+			PriceText:     room.PriceText,
+			LayoutText:    room.LayoutText,
+			AreaSize:      room.AreaSize,
+			RoomStatus:    room.RoomStatus,
+			ListingStatus: room.ListingStatus,
+			AuditStatus:   room.AuditStatus,
+			IsOnline:      room.IsOnline,
+			UpdatedAt:     room.UpdatedAt,
+		})
+	}
+	if items == nil {
+		items = []roomListItemResponse{}
+	}
+	return roomListResponse{
 		List:     items,
 		Page:     result.Page,
 		PageSize: result.PageSize,
@@ -110,74 +265,48 @@ func toListResponse(result *housesvc.ListResult) listResponse {
 }
 
 func toDetailResponse(result *housesvc.DetailResult) detailResponse {
-	return detailResponse{House: toHouseResponse(result.House)}
+	return detailResponse{Room: toRoomResponse(result.House)}
 }
 
-func toListItemResponse(item housesvc.ListItem) listItemResponse {
-	house := item.HouseSummary
-	return listItemResponse{
-		ListingID:     house.ListingID,
-		AssetMode:     house.AssetMode,
-		ProviderID:    house.ProviderID,
-		ProviderPhone: house.ProviderPhone,
-		Title:         house.Title,
-		City:          house.City,
-		District:      house.District,
-		BizArea:       house.BizArea,
-		CommunityName: house.CommunityName,
-		BuildingName:  house.BuildingName,
-		RoomNo:        house.RoomNo,
-		Price:         house.Price,
-		PriceText:     house.PriceText,
-		LayoutText:    house.LayoutText,
-		AreaSize:      house.AreaSize,
-		RoomStatus:    house.RoomStatus,
-		ListingStatus: house.ListingStatus,
-		AuditStatus:   house.AuditStatus,
-		IsOnline:      house.IsOnline,
-		UpdatedAt:     house.UpdatedAt,
-	}
-}
-
-func toHouseResponse(house housesvc.HouseSummary) houseResponse {
-	return houseResponse{
-		ListingID:         house.ListingID,
-		SourceType:        house.SourceType,
-		SourceID:          house.SourceID,
-		AssetMode:         house.AssetMode,
-		ProviderID:        house.ProviderID,
-		ProviderPhone:     house.ProviderPhone,
-		LandlordName:      house.LandlordName,
-		RootType:          house.RootType,
-		RootID:            house.RootID,
-		ProjectID:         house.ProjectID,
-		ProjectName:       house.ProjectName,
-		BuildingID:        house.BuildingID,
-		BuildingName:      house.BuildingName,
-		RoomTypeID:        house.RoomTypeID,
-		RoomTypeName:      house.RoomTypeName,
-		DecentralizedID:   house.DecentralizedID,
-		CommunityName:     house.CommunityName,
-		RentMode:          house.RentMode,
-		City:              house.City,
-		District:          house.District,
-		BizArea:           house.BizArea,
-		AddressText:       house.AddressText,
-		RoomNo:            house.RoomNo,
-		Title:             house.Title,
-		Price:             house.Price,
-		PriceText:         house.PriceText,
-		LayoutText:        house.LayoutText,
-		AreaSize:          house.AreaSize,
-		RoomStatus:        house.RoomStatus,
-		ListingStatus:     house.ListingStatus,
-		AuditStatus:       house.AuditStatus,
-		IsOnline:          house.IsOnline,
-		LatestAuditTaskID: house.LatestAuditTaskID,
-		LatestSubmittedAt: house.LatestSubmittedAt,
-		LatestReviewedAt:  house.LatestReviewedAt,
-		ReviewerStaffID:   house.ReviewerStaffID,
-		CreatedAt:         house.CreatedAt,
-		UpdatedAt:         house.UpdatedAt,
+func toRoomResponse(room housesvc.HouseSummary) roomResponse {
+	return roomResponse{
+		ListingID:         room.ListingID,
+		SourceType:        room.SourceType,
+		SourceID:          room.SourceID,
+		AssetMode:         room.AssetMode,
+		ProviderID:        room.ProviderID,
+		ProviderPhone:     room.ProviderPhone,
+		LandlordName:      room.LandlordName,
+		RootType:          room.RootType,
+		RootID:            room.RootID,
+		ProjectID:         room.ProjectID,
+		ProjectName:       room.ProjectName,
+		BuildingID:        room.BuildingID,
+		BuildingName:      room.BuildingName,
+		RoomTypeID:        room.RoomTypeID,
+		RoomTypeName:      room.RoomTypeName,
+		DecentralizedID:   room.DecentralizedID,
+		CommunityName:     room.CommunityName,
+		RentMode:          room.RentMode,
+		City:              room.City,
+		District:          room.District,
+		BizArea:           room.BizArea,
+		AddressText:       room.AddressText,
+		RoomNo:            room.RoomNo,
+		Title:             room.Title,
+		Price:             room.Price,
+		PriceText:         room.PriceText,
+		LayoutText:        room.LayoutText,
+		AreaSize:          room.AreaSize,
+		RoomStatus:        room.RoomStatus,
+		ListingStatus:     room.ListingStatus,
+		AuditStatus:       room.AuditStatus,
+		IsOnline:          room.IsOnline,
+		LatestAuditTaskID: room.LatestAuditTaskID,
+		LatestSubmittedAt: room.LatestSubmittedAt,
+		LatestReviewedAt:  room.LatestReviewedAt,
+		ReviewerStaffID:   room.ReviewerStaffID,
+		CreatedAt:         room.CreatedAt,
+		UpdatedAt:         room.UpdatedAt,
 	}
 }

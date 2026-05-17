@@ -18,6 +18,8 @@ import (
 type AdminListingListFilter struct {
 	OwnerLandlordID bson.ObjectID
 	AssetMode       hpdmodel.HpdAssetMode
+	RootID          bson.ObjectID
+	BuildingID      bson.ObjectID
 	City            string
 	District        string
 	RoomStatus      *hmdmodel.RoomStatus
@@ -147,6 +149,12 @@ func adminListingListFilter(input AdminListingListFilter) (bson.M, error) {
 	}
 	if input.AssetMode != "" {
 		fields["asset_mode"] = input.AssetMode
+	}
+	if !input.RootID.IsZero() {
+		fields["root_id"] = input.RootID
+	}
+	if !input.BuildingID.IsZero() {
+		fields["building_id"] = input.BuildingID
 	}
 	if city := strings.TrimSpace(input.City); city != "" {
 		fields["city"] = city

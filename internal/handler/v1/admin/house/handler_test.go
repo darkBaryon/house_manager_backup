@@ -23,20 +23,15 @@ type houseEnvelope struct {
 	Data  json.RawMessage `json:"data"`
 }
 
-func TestListReturnsHousesAndAllowsEmptyBody(t *testing.T) {
+func TestListRootsReturnsRootList(t *testing.T) {
 	svc := &fakeHouseService{
-		listResult: &housesvc.ListResult{
-			List: []housesvc.ListItem{{
-				HouseSummary: housesvc.HouseSummary{
-					ListingID:     "listing-id",
-					AssetMode:     "centralized",
-					ProviderID:    "provider-id",
-					ProviderPhone: "13800000000",
-					Title:         "整租一居室",
-					ListingStatus: 3,
-					AuditStatus:   1,
-					IsOnline:      1,
-					UpdatedAt:     123,
+		rootListResult: &housesvc.RootListResult{
+			List: []housesvc.RootListItem{{
+				RootSummary: housesvc.RootSummary{
+					RootID:    "root-id",
+					RootName:  "星海公寓",
+					RootType:  "centralized_project",
+					RoomCount: 20,
 				},
 			}},
 			Page:     1,
@@ -45,7 +40,7 @@ func TestListReturnsHousesAndAllowsEmptyBody(t *testing.T) {
 		},
 	}
 
-	resp := performHouseRequest(t, svc, "/api/v1/house/list", "", housePrincipal([]string{"house.view"}))
+	resp := performHouseRequest(t, svc, "/api/v1/house_root/list", "", housePrincipal([]string{"house.view"}))
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected ok, got %d body=%s", resp.Code, resp.Body.String())
 	}
@@ -53,17 +48,17 @@ func TestListReturnsHousesAndAllowsEmptyBody(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &envelope); err != nil {
 		t.Fatalf("decode envelope: %v", err)
 	}
-	var data listResponse
+	var data rootListResponse
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode data: %v", err)
 	}
-	if len(data.List) != 1 || data.List[0].ListingID != "listing-id" || data.Total != 1 {
-		t.Fatalf("unexpected list response: %#v", data)
+	if len(data.List) != 1 || data.List[0].RootID != "root-id" || data.List[0].RootName != "星海公寓" {
+		t.Fatalf("unexpected root list response: %#v", data)
 	}
 }
 
-func TestListRequiresPermission(t *testing.T) {
-	resp := performHouseRequest(t, &fakeHouseService{}, "/api/v1/house/list", `{}`, housePrincipal([]string{"provider.view"}))
+func TestListBuildingsRequiresPermission(t *testing.T) {
+	resp := performHouseRequest(t, &fakeHouseService{}, "/api/v1/house_building/list", `{"root_id":"root-id"}`, housePrincipal([]string{"provider.view"}))
 	if resp.Code != http.StatusForbidden {
 		t.Fatalf("expected forbidden, got %d body=%s", resp.Code, resp.Body.String())
 	}
@@ -71,38 +66,36 @@ func TestListRequiresPermission(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &envelope); err != nil {
 		t.Fatalf("decode envelope: %v", err)
 	}
-	if envelope.Error != "当前账号无权查看房源列表" {
+	if envelope.Error != "当前账号无权查看楼栋列表" {
 		t.Fatalf("unexpected error: %q", envelope.Error)
 	}
 }
 
-func TestListPropagatesServiceError(t *testing.T) {
-	svc := &fakeHouseService{listErr: errcode.InvalidParam.WithError(fmt.Errorf("房源筛选参数不正确"))}
-	resp := performHouseRequest(t, svc, "/api/v1/house/list", `{"room_status":99}`, housePrincipal([]string{"house.view"}))
+func TestListRoomsPropagatesServiceError(t *testing.T) {
+	svc := &fakeHouseService{roomListErr: errcode.InvalidParam.WithError(fmt.Errorf("项目/小区参数不正确"))}
+	resp := performHouseRequest(t, svc, "/api/v1/house_room/list", `{"root_id":"bad"}`, housePrincipal([]string{"house.view"}))
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("expected bad request, got %d body=%s", resp.Code, resp.Body.String())
 	}
 }
 
-func TestDetailReturnsHouse(t *testing.T) {
+func TestDetailRoomReturnsRoom(t *testing.T) {
 	svc := &fakeHouseService{
-		detailResult: &housesvc.DetailResult{
+		roomDetailResult: &housesvc.DetailResult{
 			House: housesvc.HouseSummary{
-				ListingID:     "listing-id",
-				SourceType:    "centralized_room",
-				SourceID:      "source-id",
-				Title:         "房源详情",
-				ListingStatus: 3,
+				ListingID:  "listing-id",
+				SourceType: "centralized_room",
+				Title:      "房间详情",
 			},
 		},
 	}
 
-	resp := performHouseRequest(t, svc, "/api/v1/house/detail", `{"listing_id":"listing-id"}`, housePrincipal([]string{"house.view"}))
+	resp := performHouseRequest(t, svc, "/api/v1/house_room/detail", `{"listing_id":"listing-id"}`, housePrincipal([]string{"house.view"}))
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected ok, got %d body=%s", resp.Code, resp.Body.String())
 	}
-	if svc.detailInput.ListingID != "listing-id" {
-		t.Fatalf("unexpected detail input: %#v", svc.detailInput)
+	if svc.roomDetailInput.ListingID != "listing-id" {
+		t.Fatalf("unexpected detail input: %#v", svc.roomDetailInput)
 	}
 	var envelope houseEnvelope
 	if err := json.Unmarshal(resp.Body.Bytes(), &envelope); err != nil {
@@ -112,27 +105,13 @@ func TestDetailReturnsHouse(t *testing.T) {
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {
 		t.Fatalf("decode data: %v", err)
 	}
-	if data.House.SourceType != "centralized_room" || data.House.Title != "房源详情" {
+	if data.Room.SourceType != "centralized_room" || data.Room.Title != "房间详情" {
 		t.Fatalf("unexpected detail response: %#v", data)
 	}
 }
 
-func TestDetailRequiresPermission(t *testing.T) {
-	resp := performHouseRequest(t, &fakeHouseService{}, "/api/v1/house/detail", `{"listing_id":"listing-id"}`, housePrincipal([]string{"staff.view"}))
-	if resp.Code != http.StatusForbidden {
-		t.Fatalf("expected forbidden, got %d body=%s", resp.Code, resp.Body.String())
-	}
-	var envelope houseEnvelope
-	if err := json.Unmarshal(resp.Body.Bytes(), &envelope); err != nil {
-		t.Fatalf("decode envelope: %v", err)
-	}
-	if envelope.Error != "当前账号无权查看房源详情" {
-		t.Fatalf("unexpected error: %q", envelope.Error)
-	}
-}
-
-func TestDetailRejectsInvalidJSON(t *testing.T) {
-	resp := performHouseRequest(t, &fakeHouseService{}, "/api/v1/house/detail", `{bad`, housePrincipal([]string{"house.view"}))
+func TestDetailRoomRejectsInvalidJSON(t *testing.T) {
+	resp := performHouseRequest(t, &fakeHouseService{}, "/api/v1/house_room/detail", `{bad`, housePrincipal([]string{"house.view"}))
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("expected bad request, got %d body=%s", resp.Code, resp.Body.String())
 	}
@@ -175,26 +154,48 @@ func housePrincipal(permissionCodes []string) session.Principal {
 }
 
 type fakeHouseService struct {
-	listInput    housesvc.ListInput
-	listResult   *housesvc.ListResult
-	listErr      error
-	detailInput  housesvc.DetailInput
-	detailResult *housesvc.DetailResult
-	detailErr    error
+	rootListInput      housesvc.RootListInput
+	rootListResult     *housesvc.RootListResult
+	rootListErr        error
+	buildingListInput  housesvc.BuildingListInput
+	buildingListResult *housesvc.BuildingListResult
+	buildingListErr    error
+	roomListInput      housesvc.ListInput
+	roomListResult     *housesvc.ListResult
+	roomListErr        error
+	roomDetailInput    housesvc.DetailInput
+	roomDetailResult   *housesvc.DetailResult
+	roomDetailErr      error
 }
 
-func (f *fakeHouseService) List(ctx context.Context, input housesvc.ListInput) (*housesvc.ListResult, error) {
-	f.listInput = input
-	if f.listErr != nil {
-		return nil, f.listErr
+func (f *fakeHouseService) ListRoots(ctx context.Context, input housesvc.RootListInput) (*housesvc.RootListResult, error) {
+	f.rootListInput = input
+	if f.rootListErr != nil {
+		return nil, f.rootListErr
 	}
-	return f.listResult, nil
+	return f.rootListResult, nil
 }
 
-func (f *fakeHouseService) Detail(ctx context.Context, input housesvc.DetailInput) (*housesvc.DetailResult, error) {
-	f.detailInput = input
-	if f.detailErr != nil {
-		return nil, f.detailErr
+func (f *fakeHouseService) ListBuildings(ctx context.Context, input housesvc.BuildingListInput) (*housesvc.BuildingListResult, error) {
+	f.buildingListInput = input
+	if f.buildingListErr != nil {
+		return nil, f.buildingListErr
 	}
-	return f.detailResult, nil
+	return f.buildingListResult, nil
+}
+
+func (f *fakeHouseService) ListRooms(ctx context.Context, input housesvc.ListInput) (*housesvc.ListResult, error) {
+	f.roomListInput = input
+	if f.roomListErr != nil {
+		return nil, f.roomListErr
+	}
+	return f.roomListResult, nil
+}
+
+func (f *fakeHouseService) DetailRoom(ctx context.Context, input housesvc.DetailInput) (*housesvc.DetailResult, error) {
+	f.roomDetailInput = input
+	if f.roomDetailErr != nil {
+		return nil, f.roomDetailErr
+	}
+	return f.roomDetailResult, nil
 }
