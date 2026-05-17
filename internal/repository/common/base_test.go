@@ -108,6 +108,21 @@ func TestBuildUpsertFieldsDocDoesNotSetVersionOnInsert(t *testing.T) {
 	}
 }
 
+func TestBuildUpsertFieldsDocAvoidsSetOnInsertConflicts(t *testing.T) {
+	update := buildUpsertFieldsDoc(bson.M{
+		"status":     commonmodel.StatusActive,
+		"created_at": int64(123),
+	}, 456)
+
+	setOnInsert := update["$setOnInsert"].(bson.M)
+	if _, ok := setOnInsert["status"]; ok {
+		t.Fatal("expected status to be omitted from $setOnInsert when $set already contains it")
+	}
+	if _, ok := setOnInsert["created_at"]; ok {
+		t.Fatal("expected created_at to be omitted from $setOnInsert when $set already contains it")
+	}
+}
+
 func TestUpsertFieldsRejectsEmptyFilter(t *testing.T) {
 	repo := &Repository[authmodel.User]{}
 	_, err := repo.UpsertFields(context.Background(), bson.M{}, bson.M{"nickname": "x"})

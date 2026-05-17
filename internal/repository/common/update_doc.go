@@ -30,12 +30,16 @@ func buildUpdateFieldsByIDDoc(fields bson.M, now int64) bson.M {
 func buildUpsertFieldsDoc(fields bson.M, now int64) bson.M {
 	setFields := cloneBsonM(fields)
 	setFields["updated_at"] = now
+	setOnInsert := bson.M{
+		"created_at": now,
+		"status":     commonmodel.StatusActive,
+	}
+	for key := range setFields {
+		delete(setOnInsert, key)
+	}
 	return bson.M{
-		"$set": setFields,
-		"$inc": bson.M{"version": 1},
-		"$setOnInsert": bson.M{
-			"created_at": now,
-			"status":     commonmodel.StatusActive,
-		},
+		"$set":         setFields,
+		"$inc":         bson.M{"version": 1},
+		"$setOnInsert": setOnInsert,
 	}
 }
