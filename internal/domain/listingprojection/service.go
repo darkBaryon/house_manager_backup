@@ -11,23 +11,26 @@ import (
 )
 
 // Service consumes HMD mutations and refreshes HPD listing read models.
-// Concrete projection targets currently include the miniapp and publisher read models.
+// Concrete projection targets currently include the miniapp, publisher and admin read models.
 // Publish ownership relations live in package publishaccess instead of this projection service.
 type Service struct {
 	listingRepo        hpdListingRepository
 	miniappProjector   miniappProjector
 	publisherProjector publisherProjector
+	adminProjector     adminProjector
 }
 
 func NewService(
 	hpdListingRepo *repohpd.ListingRepository,
 	miniappProjector *MiniappProjector,
 	publisherProjector *PublisherProjector,
+	adminProjector *AdminProjector,
 ) *Service {
 	return &Service{
 		listingRepo:        hpdListingRepo,
 		miniappProjector:   miniappProjector,
 		publisherProjector: publisherProjector,
+		adminProjector:     adminProjector,
 	}
 }
 
@@ -42,6 +45,16 @@ type miniappProjector interface {
 }
 
 type publisherProjector interface {
+	RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error
+	RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
+	RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
+	RefreshCentralizedProject(ctx context.Context, projectID bson.ObjectID) error
+	RefreshBuilding(ctx context.Context, buildingID bson.ObjectID) error
+	RefreshRoomTypeCentralized(ctx context.Context, roomTypeID bson.ObjectID) error
+	RefreshDecentralizedCommunity(ctx context.Context, decentralizedID bson.ObjectID) error
+}
+
+type adminProjector interface {
 	RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error
 	RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
 	RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error
@@ -132,7 +145,7 @@ func (s *Service) UpdateListingLifecycleFields(ctx context.Context, listingID bs
 }
 
 func (s *Service) refreshListingAfterLifecycleUpdate(ctx context.Context, listingID bson.ObjectID) error {
-	if s.miniappProjector == nil && s.publisherProjector == nil {
+	if s.miniappProjector == nil && s.publisherProjector == nil && s.adminProjector == nil {
 		return nil
 	}
 	logProjectionInfo(ctx, "listingprojection.lifecycle.refresh.start", "listing_id", listingID.Hex())
@@ -153,6 +166,11 @@ func (s *Service) refreshListingAfterLifecycleUpdate(ctx context.Context, listin
 			return databasef("refresh hpd listing after lifecycle update: %w", err)
 		}
 	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshByListing(ctx, listing); err != nil {
+			return databasef("refresh hpd listing after lifecycle update: %w", err)
+		}
+	}
 	logProjectionInfo(ctx, "listingprojection.lifecycle.refresh.success", "listing_id", listingID.Hex(), "source_type", listing.SourceType)
 	return nil
 }
@@ -165,6 +183,11 @@ func (s *Service) refreshCentralizedProject(ctx context.Context, projectID bson.
 	}
 	if s.publisherProjector != nil {
 		if err := s.publisherProjector.RefreshCentralizedProject(ctx, projectID); err != nil {
+			return err
+		}
+	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshCentralizedProject(ctx, projectID); err != nil {
 			return err
 		}
 	}
@@ -182,6 +205,11 @@ func (s *Service) refreshBuilding(ctx context.Context, buildingID bson.ObjectID)
 			return err
 		}
 	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshBuilding(ctx, buildingID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -193,6 +221,11 @@ func (s *Service) refreshRoomTypeCentralized(ctx context.Context, roomTypeID bso
 	}
 	if s.publisherProjector != nil {
 		if err := s.publisherProjector.RefreshRoomTypeCentralized(ctx, roomTypeID); err != nil {
+			return err
+		}
+	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshRoomTypeCentralized(ctx, roomTypeID); err != nil {
 			return err
 		}
 	}
@@ -210,6 +243,11 @@ func (s *Service) refreshCentralizedRoom(ctx context.Context, roomID bson.Object
 			return err
 		}
 	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshCentralizedRoom(ctx, roomID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -224,6 +262,11 @@ func (s *Service) refreshDecentralizedCommunity(ctx context.Context, decentraliz
 			return err
 		}
 	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshDecentralizedCommunity(ctx, decentralizedID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -235,6 +278,11 @@ func (s *Service) refreshDecentralizedRoom(ctx context.Context, roomID bson.Obje
 	}
 	if s.publisherProjector != nil {
 		if err := s.publisherProjector.RefreshDecentralizedRoom(ctx, roomID); err != nil {
+			return err
+		}
+	}
+	if s.adminProjector != nil {
+		if err := s.adminProjector.RefreshDecentralizedRoom(ctx, roomID); err != nil {
 			return err
 		}
 	}

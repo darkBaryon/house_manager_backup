@@ -232,3 +232,41 @@ func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
 		t.Fatalf("expected owner phone snapshot, got %v", got)
 	}
 }
+
+func TestAdminListingFieldsIncludeAuditAndOwnerFields(t *testing.T) {
+	listingID := bson.NewObjectID()
+	auditTaskID := bson.NewObjectID()
+	fields := adminListingFields(&hpdmodel.HpdAdminListing{
+		ListingID:          listingID,
+		OwnerLandlordID:    bson.NewObjectID(),
+		OwnerPhoneSnapshot: "13800000000",
+		RootType:           hpdmodel.HpdRootScopeTypeCentralizedProject,
+		RootID:             bson.NewObjectID(),
+		RoomNo:             "1201",
+		ListingStatus:      hpdmodel.HpdListingStatusPending,
+		AuditStatus:        hpdmodel.HpdAuditStatusPending,
+		LatestAuditTaskID:  auditTaskID,
+		LatestSubmittedAt:  123,
+	})
+
+	if got := fields["listing_id"]; got != listingID {
+		t.Fatalf("expected listing id, got %v", got)
+	}
+	if got := fields["audit_status"]; got != hpdmodel.HpdAuditStatusPending {
+		t.Fatalf("expected audit status, got %v", got)
+	}
+	if got := fields["latest_audit_task_id"]; got != auditTaskID {
+		t.Fatalf("expected latest audit task id, got %v", got)
+	}
+	if got := fields["owner_phone_snapshot"]; got != "13800000000" {
+		t.Fatalf("expected owner phone snapshot, got %v", got)
+	}
+}
+
+func TestAdminUpdateProjectionRejectsIdentityField(t *testing.T) {
+	repo := &AdminListingRepository{}
+	err := repo.UpdateProjectionFields(context.Background(), bson.NewObjectID(), bson.M{"listing_id": bson.NewObjectID()})
+	if err == nil || !strings.Contains(err.Error(), "listing_id") {
+		t.Fatalf("expected listing_id to be rejected, got %v", err)
+	}
+}

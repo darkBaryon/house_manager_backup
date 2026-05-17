@@ -146,3 +146,35 @@ func TestStoreGetPrincipalRefreshesTTL(t *testing.T) {
 		t.Fatalf("ttl not refreshed, got %v", got)
 	}
 }
+
+func TestStoreInvalidatePrincipalRejectsOldSession(t *testing.T) {
+	cache := newFakeCache()
+	store := NewStore(cache, time.Hour)
+	principal := Principal{
+		PrincipalType: PrincipalTypeStaff,
+		PrincipalID:   "staff-id",
+		Terminal:      TerminalAdmin,
+	}
+	token, err := store.CreatePrincipal(context.Background(), principal)
+	if err != nil {
+		t.Fatalf("create principal: %v", err)
+	}
+	if got, err := store.GetPrincipal(context.Background(), token); err != nil || got == nil {
+		t.Fatalf("expected session before invalidation, principal=%#v err=%v", got, err)
+	}
+
+	if err := store.InvalidatePrincipal(context.Background(), principal); err != nil {
+		t.Fatalf("invalidate principal: %v", err)
+	}
+	if got, err := store.GetPrincipal(context.Background(), token); err != nil || got != nil {
+		t.Fatalf("expected old session invalidated, principal=%#v err=%v", got, err)
+	}
+
+	newToken, err := store.CreatePrincipal(context.Background(), principal)
+	if err != nil {
+		t.Fatalf("create new principal: %v", err)
+	}
+	if got, err := store.GetPrincipal(context.Background(), newToken); err != nil || got == nil || got.PrincipalID != principal.PrincipalID {
+		t.Fatalf("expected new session valid, principal=%#v err=%v", got, err)
+	}
+}

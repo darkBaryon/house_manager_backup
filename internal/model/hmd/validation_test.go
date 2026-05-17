@@ -17,7 +17,7 @@ func TestHmdRoomCentralizedValidateRejectsInvalidRentMode(t *testing.T) {
 	}
 
 	err := room.ValidateForCreate()
-	if err == nil || !strings.Contains(err.Error(), "rentMode is invalid") {
+	if err == nil || !strings.Contains(err.Error(), "出租方式不合法") {
 		t.Fatalf("expected invalid rentMode error, got %v", err)
 	}
 }
@@ -55,7 +55,7 @@ func TestHmdRoomCentralizedValidateRejectsInvalidEnumFields(t *testing.T) {
 	}
 
 	err := room.ValidateForCreate()
-	if err == nil || !strings.Contains(err.Error(), "decorationLevel is invalid") {
+	if err == nil || !strings.Contains(err.Error(), "装修等级不合法") {
 		t.Fatalf("expected invalid decorationLevel error, got %v", err)
 	}
 }
@@ -71,21 +71,21 @@ func TestHmdRoomCentralizedValidateRejectsInvalidFacilities(t *testing.T) {
 	}
 
 	err := room.ValidateForCreate()
-	if err == nil || !strings.Contains(err.Error(), "listing facility") {
+	if err == nil || !strings.Contains(err.Error(), "房源设施") {
 		t.Fatalf("expected invalid listing facility error, got %v", err)
 	}
 }
 
 func TestValidateHmdUpdateFieldsRejectsEmptyRequiredString(t *testing.T) {
 	err := ValidateHmdUpdateFields(bson.M{"building_name": ""})
-	if err == nil || !strings.Contains(err.Error(), "building_name is required") {
+	if err == nil || !strings.Contains(err.Error(), "building_name 不能为空") {
 		t.Fatalf("expected required building_name error, got %v", err)
 	}
 }
 
 func TestValidateHmdUpdateFieldsRejectsInvalidPaymentCycle(t *testing.T) {
 	err := ValidateHmdUpdateFields(bson.M{"payment_cycle": PaymentCycle("weekly")})
-	if err == nil || !strings.Contains(err.Error(), "paymentCycle is invalid") {
+	if err == nil || !strings.Contains(err.Error(), "付款周期不合法") {
 		t.Fatalf("expected invalid paymentCycle error, got %v", err)
 	}
 }

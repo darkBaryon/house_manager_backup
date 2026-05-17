@@ -10,6 +10,7 @@ import (
 const (
 	CollectionHpdListing          = "hs_hpd_listing"
 	CollectionHpdMiniappListing   = "hs_hpd_miniapp_listing"
+	CollectionHpdAdminListing     = "hs_hpd_admin_listing"
 	CollectionHpdPublisherListing = "hs_hpd_publisher_listing"
 	CollectionHpdRootScope        = "hs_hpd_root_scope_relation"
 )
@@ -64,6 +65,48 @@ type HpdMiniappListing struct {
 	Images                  []hmdmodel.TaggedImage     `bson:"images" json:"images"`
 	WeightScore             int                        `bson:"weight_score" json:"weightScore"`
 	IsOnline                HpdOnlineStatus            `bson:"is_online" json:"isOnline"`
+}
+
+// HpdAdminListing 对应 hs_hpd_admin_listing，后台运营房源总览 read model。
+type HpdAdminListing struct {
+	commonmodel.CommonFields `bson:",inline"`
+
+	ListingID            bson.ObjectID       `bson:"listing_id" json:"listingId"`
+	SourceType           HpdSourceType       `bson:"source_type" json:"sourceType"`
+	SourceID             bson.ObjectID       `bson:"source_id" json:"sourceId"`
+	AssetMode            HpdAssetMode        `bson:"asset_mode" json:"assetMode"`
+	OwnerLandlordID      bson.ObjectID       `bson:"owner_landlord_id" json:"ownerLandlordId"`
+	OwnerPhoneSnapshot   string              `bson:"owner_phone_snapshot" json:"ownerPhoneSnapshot"`
+	LandlordNameSnapshot string              `bson:"landlord_name_snapshot" json:"landlordNameSnapshot"`
+	RootType             HpdRootScopeType    `bson:"root_type" json:"rootType"`
+	RootID               bson.ObjectID       `bson:"root_id" json:"rootId"`
+	ProjectID            bson.ObjectID       `bson:"project_id,omitempty" json:"projectId,omitempty"`
+	ProjectName          string              `bson:"project_name" json:"projectName"`
+	BuildingID           bson.ObjectID       `bson:"building_id,omitempty" json:"buildingId,omitempty"`
+	BuildingName         string              `bson:"building_name" json:"buildingName"`
+	RoomTypeID           bson.ObjectID       `bson:"room_type_id,omitempty" json:"roomTypeId,omitempty"`
+	RoomTypeName         string              `bson:"room_type_name" json:"roomTypeName"`
+	DecentralizedID      bson.ObjectID       `bson:"decentralized_id,omitempty" json:"decentralizedId,omitempty"`
+	CommunityName        string              `bson:"community_name" json:"communityName"`
+	RentMode             hmdmodel.RentMode   `bson:"rent_mode" json:"rentMode"`
+	City                 string              `bson:"city" json:"city"`
+	District             string              `bson:"district" json:"district"`
+	BizArea              string              `bson:"biz_area" json:"bizArea"`
+	AddressText          string              `bson:"address_text" json:"addressText"`
+	RoomNo               string              `bson:"room_no" json:"roomNo"`
+	Title                string              `bson:"title" json:"title"`
+	Price                int                 `bson:"price" json:"price"`
+	PriceText            string              `bson:"price_text" json:"priceText"`
+	LayoutText           string              `bson:"layout_text" json:"layoutText"`
+	AreaSize             int                 `bson:"area_size" json:"areaSize"`
+	RoomStatus           hmdmodel.RoomStatus `bson:"room_status" json:"roomStatus"`
+	ListingStatus        HpdListingStatus    `bson:"listing_status" json:"listingStatus"`
+	AuditStatus          HpdAuditStatus      `bson:"audit_status" json:"auditStatus"`
+	IsOnline             HpdOnlineStatus     `bson:"is_online" json:"isOnline"`
+	LatestAuditTaskID    bson.ObjectID       `bson:"latest_audit_task_id,omitempty" json:"latestAuditTaskId,omitempty"`
+	LatestSubmittedAt    int64               `bson:"latest_submitted_at" json:"latestSubmittedAt"`
+	LatestReviewedAt     int64               `bson:"latest_reviewed_at" json:"latestReviewedAt"`
+	ReviewerStaffID      bson.ObjectID       `bson:"reviewer_staff_id,omitempty" json:"reviewerStaffId,omitempty"`
 }
 
 // HpdPublisherListing 对应 hs_hpd_publisher_listing，房东端房源读模型。

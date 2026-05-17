@@ -29,12 +29,21 @@ const (
 )
 
 type HpdOnlineStatus int
+type HpdAuditStatus int
 type HpdRelationStatus int
 type HpdRootScopeType string
 
 const (
 	HpdOnlineStatusNo  HpdOnlineStatus = 0
 	HpdOnlineStatusYes HpdOnlineStatus = 1
+)
+
+const (
+	HpdAuditStatusUnspecified HpdAuditStatus = 0
+	HpdAuditStatusPending     HpdAuditStatus = 1
+	HpdAuditStatusApproved    HpdAuditStatus = 2
+	HpdAuditStatusRejected    HpdAuditStatus = 3
+	HpdAuditStatusClosed      HpdAuditStatus = -1
 )
 
 const (
@@ -74,6 +83,14 @@ var validHpdOnlineStatuses = map[HpdOnlineStatus]struct{}{
 	HpdOnlineStatusYes: {},
 }
 
+var validHpdAuditStatuses = map[HpdAuditStatus]struct{}{
+	HpdAuditStatusUnspecified: {},
+	HpdAuditStatusPending:     {},
+	HpdAuditStatusApproved:    {},
+	HpdAuditStatusRejected:    {},
+	HpdAuditStatusClosed:      {},
+}
+
 var validHpdRelationStatuses = map[HpdRelationStatus]struct{}{
 	HpdRelationStatusUnspecified: {},
 	HpdRelationStatusActive:      {},
@@ -103,6 +120,11 @@ func (v HpdListingStatus) Valid() bool {
 
 func (v HpdOnlineStatus) Valid() bool {
 	_, ok := validHpdOnlineStatuses[v]
+	return ok
+}
+
+func (v HpdAuditStatus) Valid() bool {
+	_, ok := validHpdAuditStatuses[v]
 	return ok
 }
 

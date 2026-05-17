@@ -47,6 +47,22 @@ func (r *LandlordAuthRepository) FindActivePasswordByLandlordID(ctx context.Cont
 	return auth, nil
 }
 
+func (r *LandlordAuthRepository) FindActivePasswordByLandlordIDs(ctx context.Context, landlordIDs []bson.ObjectID) ([]authmodel.LandlordAuth, error) {
+	objectIDs := compactObjectIDs(landlordIDs)
+	if len(objectIDs) == 0 {
+		return []authmodel.LandlordAuth{}, nil
+	}
+	items, err := r.FindMany(ctx, bson.M{
+		"landlord_id": bson.M{"$in": objectIDs},
+		"auth_type":   authmodel.PasswordAuthTypePassword,
+		"status":      commonmodel.StatusActive,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("find landlord password auth by landlord ids: %w", err)
+	}
+	return items, nil
+}
+
 func (r *LandlordAuthRepository) TouchLastLogin(ctx context.Context, authID bson.ObjectID, loginIP string) error {
 	if authID.IsZero() {
 		return fmt.Errorf("touch landlord auth last login: authID is required")
@@ -55,6 +71,16 @@ func (r *LandlordAuthRepository) TouchLastLogin(ctx context.Context, authID bson
 		"last_login_at": time.Now().Unix(),
 		"last_login_ip": strings.TrimSpace(loginIP),
 	})
+}
+
+func (r *LandlordAuthRepository) RollbackCreateByLandlordID(ctx context.Context, landlordID bson.ObjectID) error {
+	if landlordID.IsZero() {
+		return fmt.Errorf("rollback landlord auth create: landlordID is required")
+	}
+	if _, err := r.Collection.DeleteMany(ctx, bson.M{"landlord_id": landlordID}); err != nil {
+		return fmt.Errorf("rollback landlord auth create: %w", err)
+	}
+	return nil
 }
 
 func normalizeLandlordAuth(auth *authmodel.LandlordAuth) {
@@ -66,4 +92,23 @@ func normalizeLandlordAuth(auth *authmodel.LandlordAuth) {
 	}
 	auth.PasswordHash = strings.TrimSpace(auth.PasswordHash)
 	auth.LastLoginIP = strings.TrimSpace(auth.LastLoginIP)
+}
+
+func compactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
+	if len(ids) == 0 {
+		return nil
+	}
+	result := make([]bson.ObjectID, 0, len(ids))
+	seen := make(map[bson.ObjectID]struct{}, len(ids))
+	for _, id := range ids {
+		if id.IsZero() {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
 }

@@ -74,6 +74,55 @@ func TestHpdPublisherListingValidateForCreateAcceptsMinimalValidListing(t *testi
 	}
 }
 
+func TestHpdAdminListingValidateForCreateAcceptsMinimalValidListing(t *testing.T) {
+	listing := &HpdAdminListing{
+		ListingID:       bson.NewObjectID(),
+		SourceType:      HpdSourceTypeCentralizedRoom,
+		SourceID:        bson.NewObjectID(),
+		AssetMode:       HpdAssetModeCentralized,
+		RootType:        HpdRootScopeTypeCentralizedProject,
+		RootID:          bson.NewObjectID(),
+		OwnerLandlordID: bson.NewObjectID(),
+		RentMode:        hmdmodel.RentModeWhole,
+		City:            "杭州",
+		RoomNo:          "1201",
+		Title:           "测试房源",
+		ListingStatus:   HpdListingStatusDraft,
+		RoomStatus:      hmdmodel.RoomStatusAvailable,
+		AuditStatus:     HpdAuditStatusUnspecified,
+		IsOnline:        HpdOnlineStatusNo,
+	}
+
+	if err := listing.ValidateForCreate(); err != nil {
+		t.Fatalf("expected valid admin listing, got %v", err)
+	}
+}
+
+func TestHpdAdminListingValidateForCreateRejectsInvalidAuditStatus(t *testing.T) {
+	listing := &HpdAdminListing{
+		ListingID:       bson.NewObjectID(),
+		SourceType:      HpdSourceTypeCentralizedRoom,
+		SourceID:        bson.NewObjectID(),
+		AssetMode:       HpdAssetModeCentralized,
+		RootType:        HpdRootScopeTypeCentralizedProject,
+		RootID:          bson.NewObjectID(),
+		OwnerLandlordID: bson.NewObjectID(),
+		RentMode:        hmdmodel.RentModeWhole,
+		City:            "杭州",
+		RoomNo:          "1201",
+		Title:           "测试房源",
+		ListingStatus:   HpdListingStatusDraft,
+		RoomStatus:      hmdmodel.RoomStatusAvailable,
+		AuditStatus:     HpdAuditStatus(99),
+		IsOnline:        HpdOnlineStatusNo,
+	}
+
+	err := listing.ValidateForCreate()
+	if err == nil || !strings.Contains(err.Error(), "auditStatus is invalid") {
+		t.Fatalf("expected invalid auditStatus error, got %v", err)
+	}
+}
+
 func TestHpdRootScopeRelationValidateForCreateRequiresOwnerPhone(t *testing.T) {
 	relation := &HpdRootScopeRelation{
 		RootType:        HpdRootScopeTypeCentralizedProject,
@@ -189,9 +238,17 @@ func TestValidateHpdUpdateFieldsAllowsValidMiniappFields(t *testing.T) {
 		"images":             []hmdmodel.TaggedImage{{URL: "https://example.com/room.jpg", Tag: hmdmodel.ImageTagBedroom}},
 		"cost_items":         []HpdCostItem{{Name: "押金", Amount: 5000, Unit: "元"}},
 		"is_online":          HpdOnlineStatusYes,
+		"audit_status":       HpdAuditStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("expected valid hpd update fields, got %v", err)
+	}
+}
+
+func TestValidateHpdUpdateFieldsRejectsInvalidAuditStatus(t *testing.T) {
+	err := ValidateHpdUpdateFields(bson.M{"audit_status": HpdAuditStatus(99)})
+	if err == nil || !strings.Contains(err.Error(), "auditStatus is invalid") {
+		t.Fatalf("expected invalid auditStatus error, got %v", err)
 	}
 }
 

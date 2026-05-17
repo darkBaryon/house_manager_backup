@@ -53,6 +53,14 @@ func newHpdPublisherListingRepository(ctx context.Context, client *dbmongo.Clien
 	return repo, nil
 }
 
+func newHpdAdminListingRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.AdminListingRepository, error) {
+	repo := repohpd.NewAdminListingRepository(client)
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
 func newHpdRootScopeRepository(ctx context.Context, client *dbmongo.Client) (*repohpd.RootScopeRepository, error) {
 	repo := repohpd.NewRootScopeRepository(client)
 	if err := repo.EnsureIndexes(ctx); err != nil {
@@ -107,6 +115,30 @@ func newHpdPublisherProjector(
 	)
 }
 
+func newHpdAdminProjector(
+	hpdListingRepo *repohpd.ListingRepository,
+	hpdAdminListingRepo *repohpd.AdminListingRepository,
+	hpdRootScopeRepo *repohpd.RootScopeRepository,
+	hmdCentralizedRepo *repohmd.CentralizedRepository,
+	hmdBuildingRepo *repohmd.BuildingRepository,
+	hmdDecentralizedRepo *repohmd.DecentralizedRepository,
+	hmdRoomTypeCentralizedRepo *repohmd.RoomTypeCentralizedRepository,
+	hmdRoomCentralizedRepo *repohmd.RoomCentralizedRepository,
+	hmdRoomDecentralizedRepo *repohmd.RoomDecentralizedRepository,
+) *listingprojection.AdminProjector {
+	return listingprojection.NewAdminProjector(
+		hpdListingRepo,
+		hpdAdminListingRepo,
+		hpdRootScopeRepo,
+		hmdCentralizedRepo,
+		hmdBuildingRepo,
+		hmdDecentralizedRepo,
+		hmdRoomTypeCentralizedRepo,
+		hmdRoomCentralizedRepo,
+		hmdRoomDecentralizedRepo,
+	)
+}
+
 var DomainHmdSet = wire.NewSet(
 	newHmdCentralizedRepository,
 	newHmdBuildingRepository,
@@ -121,12 +153,14 @@ var HpdStorageSet = wire.NewSet(
 	newHpdListingRepository,
 	newHpdMiniappListingRepository,
 	newHpdPublisherListingRepository,
+	newHpdAdminListingRepository,
 	newHpdRootScopeRepository,
 )
 
 var ListingProjectionSet = wire.NewSet(
 	newHpdMiniappProjector,
 	newHpdPublisherProjector,
+	newHpdAdminProjector,
 	listingprojection.NewService,
 )
 

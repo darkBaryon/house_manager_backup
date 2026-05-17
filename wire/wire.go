@@ -19,6 +19,7 @@ func InitializeApp(cfg *config.Config) (*app.App, func(), error) {
 		PublishAccessSet,
 		MiniappUserActivitySet,
 		PublishSet,
+		AdminSet,
 		MiniappHouseSet,
 		HealthSet,
 		RouterSet,

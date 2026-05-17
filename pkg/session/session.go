@@ -34,6 +34,7 @@ type Principal struct {
 	Phone           string   `json:"phone"`
 	RoleCodes       []string `json:"role_codes"`
 	PermissionCodes []string `json:"permission_codes"`
+	SessionVersion  string   `json:"session_version,omitempty"`
 }
 
 // Store Redis session 存储
@@ -67,11 +68,13 @@ func (s *Store) CreatePrincipal(ctx context.Context, principal Principal) (strin
 	if err := principal.Validate(); err != nil {
 		return "", err
 	}
+	normalized := principal.normalized()
+	normalized.SessionVersion = s.currentVersion(ctx, normalized)
 	token, err := generateToken()
 	if err != nil {
 		return "", fmt.Errorf("generate token: %w", err)
 	}
-	payload, err := json.Marshal(principal.normalized())
+	payload, err := json.Marshal(normalized)
 	if err != nil {
 		return "", fmt.Errorf("marshal principal: %w", err)
 	}
@@ -117,6 +120,10 @@ func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, err
 		return nil, nil
 	}
 	normalized := principal.normalized()
+	currentVersion := s.currentVersion(ctx, normalized)
+	if currentVersion != "" && normalized.SessionVersion != currentVersion {
+		return nil, nil
+	}
 	if s.ttl > 0 {
 		payload, err := json.Marshal(normalized)
 		if err != nil {
@@ -132,6 +139,18 @@ func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, err
 // Delete 删除 session
 func (s *Store) Delete(ctx context.Context, token string) error {
 	return s.client.Del(ctx, keyPrefix+token)
+}
+
+// InvalidatePrincipal makes previously issued sessions for the same principal invalid.
+func (s *Store) InvalidatePrincipal(ctx context.Context, principal Principal) error {
+	if err := principal.Validate(); err != nil {
+		return err
+	}
+	version := fmt.Sprintf("%d", time.Now().UnixNano())
+	if err := s.client.Set(ctx, versionKey(principal.normalized()), version, s.ttl); err != nil {
+		return fmt.Errorf("invalidate principal sessions: %w", err)
+	}
+	return nil
 }
 
 func generateToken() (string, error) {
@@ -170,6 +189,7 @@ func (p Principal) normalized() Principal {
 	p.PrincipalID = strings.TrimSpace(p.PrincipalID)
 	p.Terminal = strings.TrimSpace(p.Terminal)
 	p.Phone = strings.TrimSpace(p.Phone)
+	p.SessionVersion = strings.TrimSpace(p.SessionVersion)
 	if p.RoleCodes == nil {
 		p.RoleCodes = []string{}
 	}
@@ -177,6 +197,19 @@ func (p Principal) normalized() Principal {
 		p.PermissionCodes = []string{}
 	}
 	return p
+}
+
+func (s *Store) currentVersion(ctx context.Context, principal Principal) string {
+	version, err := s.client.Get(ctx, versionKey(principal.normalized()))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(version)
+}
+
+func versionKey(principal Principal) string {
+	normalized := principal.normalized()
+	return fmt.Sprintf("%sver:%s:%s:%s", keyPrefix, normalized.Terminal, normalized.PrincipalType, normalized.PrincipalID)
 }
 
 // ContextWithPrincipal 把结构化登录身份放入 request context。

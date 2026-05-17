@@ -188,6 +188,18 @@ go vet ./...
 go build ./...
 ```
 
+## CI
+
+当前 GitHub Actions 只跑基础后端检查：
+
+```text
+gofmt -l .
+go test ./...
+go build ./...
+```
+
+默认 CI 不连接 Mongo / Redis；需要真实库的集成测试仍然按下面的环境变量手动开启。
+
 HMD Mongo 集成测试默认跳过，显式开启：
 
 ```bash

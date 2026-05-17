@@ -200,3 +200,105 @@ func TestPublishAuthRefreshesSessionTTL(t *testing.T) {
 		t.Fatalf("expected ttl refreshed to 2h, got %v", got)
 	}
 }
+
+func TestAdminAuthAcceptsAdminSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := session.NewStore(newMiddlewareFakeCache(), time.Minute)
+	token, err := store.CreatePrincipal(context.Background(), session.Principal{
+		PrincipalType: session.PrincipalTypeStaff,
+		PrincipalID:   "staff-id",
+		Terminal:      session.TerminalAdmin,
+	})
+	if err != nil {
+		t.Fatalf("create principal: %v", err)
+	}
+
+	router := gin.New()
+	router.POST("/protected", AdminAuth(store), func(c *gin.Context) {
+		requestPrincipal, ok := session.PrincipalFromContext(c.Request.Context())
+		if !ok || requestPrincipal.PrincipalID != "staff-id" || requestPrincipal.Terminal != session.TerminalAdmin {
+			t.Fatalf("unexpected request context principal: %#v ok=%v", requestPrincipal, ok)
+		}
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected no content, got %d body=%s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestAdminAuthRejectsPublishSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := session.NewStore(newMiddlewareFakeCache(), time.Minute)
+	token, err := store.CreatePrincipal(context.Background(), session.Principal{
+		PrincipalType: session.PrincipalTypeLandlord,
+		PrincipalID:   "landlord-id",
+		Terminal:      session.TerminalPublish,
+	})
+	if err != nil {
+		t.Fatalf("create principal: %v", err)
+	}
+
+	router := gin.New()
+	router.POST("/protected", AdminAuth(store), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized, got %d body=%s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestRequirePermissionAcceptsMatchingPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/protected", func(c *gin.Context) {
+		setPrincipal(c, "token", session.Principal{
+			PrincipalType:   session.PrincipalTypeStaff,
+			PrincipalID:     "staff-id",
+			Terminal:        session.TerminalAdmin,
+			PermissionCodes: []string{"staff.edit"},
+		})
+		c.Next()
+	}, RequirePermission("staff.edit", "当前账号无权创建员工"), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/protected", nil))
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected no content, got %d body=%s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestRequirePermissionRejectsMissingPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/protected", func(c *gin.Context) {
+		setPrincipal(c, "token", session.Principal{
+			PrincipalType:   session.PrincipalTypeStaff,
+			PrincipalID:     "staff-id",
+			Terminal:        session.TerminalAdmin,
+			PermissionCodes: []string{"staff.view"},
+		})
+		c.Next()
+	}, RequirePermission("staff.edit", "当前账号无权创建员工"), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/protected", nil))
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("expected forbidden, got %d body=%s", resp.Code, resp.Body.String())
+	}
+}

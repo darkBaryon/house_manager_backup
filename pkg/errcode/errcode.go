@@ -42,7 +42,7 @@ func (e *Error) PublicMessage() string {
 		return e.Message
 	}
 	switch e.Code {
-	case InvalidParam.Code, Unauthorized.Code, Forbidden.Code, AlreadyExists.Code:
+	case InvalidParam.Code, Unauthorized.Code, Forbidden.Code, NotFound.Code, AlreadyExists.Code:
 		if text := strings.TrimSpace(e.cause.Error()); text != "" {
 			return text
 		}

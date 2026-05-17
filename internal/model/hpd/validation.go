@@ -125,6 +125,58 @@ func (m *HpdPublisherListing) ValidateForCreate() error {
 	)
 }
 
+func (m *HpdAdminListing) ValidateForCreate() error {
+	if m == nil {
+		return fmt.Errorf("hpd admin listing is nil")
+	}
+	if m.ListingID.IsZero() || m.SourceID.IsZero() || m.RootID.IsZero() {
+		return fmt.Errorf("listingID, sourceID and rootID are required")
+	}
+	if !m.SourceType.Valid() {
+		return fmt.Errorf("sourceType is invalid")
+	}
+	if !m.AssetMode.Valid() {
+		return fmt.Errorf("assetMode is invalid")
+	}
+	if !HpdSourceAssetModeMatch(m.SourceType, m.AssetMode) {
+		return fmt.Errorf("sourceType and assetMode mismatch")
+	}
+	if !m.RootType.Valid() {
+		return fmt.Errorf("rootType is invalid")
+	}
+	if m.OwnerLandlordID.IsZero() {
+		return fmt.Errorf("ownerLandlordID is required")
+	}
+	if !m.RentMode.Valid() {
+		return fmt.Errorf("rentMode is invalid")
+	}
+	if m.ListingStatus == HpdListingStatusUnspecified || !m.ListingStatus.Valid() {
+		return fmt.Errorf("listingStatus is invalid")
+	}
+	if !m.RoomStatus.Valid() {
+		return fmt.Errorf("roomStatus is invalid")
+	}
+	if !m.AuditStatus.Valid() {
+		return fmt.Errorf("auditStatus is invalid")
+	}
+	if !m.IsOnline.Valid() {
+		return fmt.Errorf("isOnline is invalid")
+	}
+	if commonmodel.IsBlank(m.City) || commonmodel.IsBlank(m.Title) || commonmodel.IsBlank(m.RoomNo) {
+		return fmt.Errorf("city, title and roomNo are required")
+	}
+	if err := validateNonNegativeInt("price", m.Price); err != nil {
+		return err
+	}
+	if err := validateNonNegativeInt("areaSize", m.AreaSize); err != nil {
+		return err
+	}
+	if err := validateNonNegativeInt64("latestSubmittedAt", m.LatestSubmittedAt); err != nil {
+		return err
+	}
+	return validateNonNegativeInt64("latestReviewedAt", m.LatestReviewedAt)
+}
+
 func (m *HpdRootScopeRelation) ValidateForCreate() error {
 	if m == nil {
 		return fmt.Errorf("hpd root scope relation is nil")
@@ -204,6 +256,11 @@ func validateHpdUpdateField(key string, value any) error {
 		if !ok || !hmdmodel.RoomStatus(intValue).Valid() {
 			return fmt.Errorf("roomStatus is invalid")
 		}
+	case "audit_status":
+		intValue, ok := hpdAnyInt(value)
+		if !ok || !HpdAuditStatus(intValue).Valid() {
+			return fmt.Errorf("auditStatus is invalid")
+		}
 	case "city", "title":
 		if text, ok := value.(string); !ok || commonmodel.IsBlank(text) {
 			return fmt.Errorf("%s is required", key)
@@ -214,7 +271,7 @@ func validateHpdUpdateField(key string, value any) error {
 			return fmt.Errorf("%s must be int", key)
 		}
 		return validateNonNegativeInt(key, intValue)
-	case "published_at", "offline_at":
+	case "published_at", "offline_at", "latest_submitted_at", "latest_reviewed_at":
 		intValue, ok := hpdAnyInt64(value)
 		if !ok {
 			return fmt.Errorf("%s must be int64", key)
@@ -448,6 +505,8 @@ func hpdAnyInt(value any) (int, bool) {
 	case HpdListingStatus:
 		return int(v), true
 	case HpdOnlineStatus:
+		return int(v), true
+	case HpdAuditStatus:
 		return int(v), true
 	default:
 		return 0, false
