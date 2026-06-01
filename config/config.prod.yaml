@@ -36,6 +36,15 @@ wechat:
   secret: ""
   api_base: "https://api.weixin.qq.com"
 
+ai_chat:
+  python_base_url: ""
+  internal_token: ""
+  respond_timeout: "25s"
+  tool_timeout: "5s"
+  session_idle_timeout: "30m"
+  recent_message_limit: 20
+  runtime_context_ttl: "24h"
+
 log:
   level: "info"
   format: "json"

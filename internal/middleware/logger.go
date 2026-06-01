@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -21,6 +20,12 @@ func Logger() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
 		requestID := requestIDFromHeader(c.GetHeader("X-Request-ID"))
+		if requestID == "" {
+			requestID = requestIDFromHeader(c.GetHeader("Request-ID"))
+		}
+		if requestID == "" {
+			requestID = bson.NewObjectID().Hex()
+		}
 		requestlog.SetRequestID(c, requestID)
 		c.Header("X-Request-ID", requestID)
 
@@ -35,33 +40,38 @@ func Logger() gin.HandlerFunc {
 		if displayPath == "" {
 			displayPath = path
 		}
-		message := fmt.Sprintf("%s %s %d %dms", c.Request.Method, displayPath, status, latency.Milliseconds())
 		attrs := []any{
 			"request_id", requestID,
+			"method", c.Request.Method,
+			"path", displayPath,
+			"status", status,
+			"duration", latency,
+		}
+		if appCode != 0 {
+			attrs = append(attrs, "code", appCode)
 		}
 		if principal, ok := principalFromContext(c); ok {
 			attrs = append(attrs,
-				"principal", fmt.Sprintf("%s:%s:%s", principal.Terminal, principal.PrincipalType, maskPhone(principal.Phone)),
+				"principal", compactPrincipal(principal),
 			)
 		}
 
 		switch {
 		case status >= 500 || appCode >= 50000:
-			slog.Error(message, append(attrs, diagnosticAttrs(c, path, query, appCode, appError, errorDetail)...)...)
+			slog.Error("http.request", append(attrs, diagnosticAttrs(c, path, query, appError, errorDetail)...)...)
 		case status >= 400 || appCode > 0:
-			slog.Warn(message, append(attrs, diagnosticAttrs(c, path, query, appCode, appError, errorDetail)...)...)
+			slog.Warn("http.request", append(attrs, diagnosticAttrs(c, path, query, appError, errorDetail)...)...)
 		default:
-			slog.Info(message, attrs...)
+			slog.Info("http.request", attrs...)
 		}
 	}
 }
 
-func diagnosticAttrs(c *gin.Context, path, query string, appCode int, appError, errorDetail string) []any {
+func diagnosticAttrs(c *gin.Context, path, query string, appError, errorDetail string) []any {
 	attrs := []any{
-		"path", path,
-		"handler", c.HandlerName(),
-		"app_code", appCode,
 		"client_ip", c.ClientIP(),
+		"raw_path", path,
+		"handler", c.HandlerName(),
 	}
 	if query != "" {
 		attrs = append(attrs, "query", query)
@@ -96,7 +106,7 @@ func requestIDFromHeader(value string) string {
 	if value != "" {
 		return value
 	}
-	return bson.NewObjectID().Hex()
+	return ""
 }
 
 func maskPhone(phone string) string {
@@ -105,4 +115,17 @@ func maskPhone(phone string) string {
 		return phone
 	}
 	return phone[:3] + "****" + phone[len(phone)-4:]
+}
+
+func compactPrincipal(principal session.Principal) string {
+	parts := []string{
+		strings.TrimSpace(principal.Terminal),
+		strings.TrimSpace(principal.PrincipalType),
+	}
+	if phone := maskPhone(principal.Phone); phone != "" {
+		parts = append(parts, phone)
+	} else if principal.PrincipalID != "" {
+		parts = append(parts, principal.PrincipalID)
+	}
+	return strings.Join(parts, ":")
 }

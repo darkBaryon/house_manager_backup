@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"strings"
 
 	"house-manager/pkg/requestlog"
 	"house-manager/pkg/session"
@@ -13,14 +14,7 @@ func Attrs(ctx context.Context, attrs ...any) []any {
 		base = append(base, "request_id", requestID)
 	}
 	if principal, ok := session.PrincipalFromContext(ctx); ok {
-		base = append(base,
-			"terminal", principal.Terminal,
-			"principal_type", principal.PrincipalType,
-			"principal_id", principal.PrincipalID,
-		)
-		if principal.Phone != "" {
-			base = append(base, "principal_phone", MaskPhone(principal.Phone))
-		}
+		base = append(base, "principal", CompactPrincipal(principal))
 	}
 	base = append(base, attrs...)
 	return base
@@ -31,4 +25,17 @@ func MaskPhone(phone string) string {
 		return phone
 	}
 	return phone[:3] + "****" + phone[len(phone)-4:]
+}
+
+func CompactPrincipal(principal session.Principal) string {
+	parts := []string{
+		strings.TrimSpace(principal.Terminal),
+		strings.TrimSpace(principal.PrincipalType),
+	}
+	if phone := MaskPhone(principal.Phone); phone != "" {
+		parts = append(parts, phone)
+	} else if principal.PrincipalID != "" {
+		parts = append(parts, strings.TrimSpace(principal.PrincipalID))
+	}
+	return strings.Join(parts, ":")
 }

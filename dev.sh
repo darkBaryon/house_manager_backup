@@ -88,7 +88,7 @@ fi
 
 if ! check_redis_ready; then
     echo "🔌 正在打通 Redis 隧道 ($REDIS_PORT)..."
-    kubectl port-forward -n ai-house svc/redis-svc $REDIS_PORT:6379 > /dev/null 2>&1 &
+    kubectl114 port-forward -n ai-house svc/redis-svc $REDIS_PORT:6379 > /dev/null 2>&1 &
     
     COUNT=0
     while ! check_redis_ready; do

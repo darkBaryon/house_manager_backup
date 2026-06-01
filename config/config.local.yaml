@@ -1,6 +1,6 @@
 server:
   port: 8080
-  mode: debug
+  mode: release
 
 mongodb:
   addrs:
@@ -36,9 +36,18 @@ wechat:
   secret: ""
   api_base: "https://api.weixin.qq.com"
 
+ai_chat:
+  python_base_url: "http://127.0.0.1:5000"
+  internal_token: "da9de158320983c2172229db811ceb86f3eb9e4eea7fafb60c6c4a5dda5b8d87"
+  respond_timeout: "25s"
+  tool_timeout: "5s"
+  session_idle_timeout: "30m"
+  recent_message_limit: 20
+  runtime_context_ttl: "24h"
+
 log:
   level: "info"
   format: "text"
   add_source: true
-  service: "house-manager"
-  env: "local"
+  service: ""
+  env: ""
