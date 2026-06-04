@@ -13,10 +13,10 @@ type request struct {
 	ProjectID       string                      `json:"project_id"`
 	BuildingID      string                      `json:"building_id"`
 	RoomTypeName    string                      `json:"room_type_name" binding:"required"`
-	RoomCount       int                         `json:"room_count"`
-	HallCount       int                         `json:"hall_count"`
-	BathroomCount   int                         `json:"bathroom_count"`
-	KitchenCount    int                         `json:"kitchen_count"`
+	RoomCount       *int                        `json:"room_count"`
+	HallCount       *int                        `json:"hall_count"`
+	BathroomCount   *int                        `json:"bathroom_count"`
+	KitchenCount    *int                        `json:"kitchen_count"`
 	AreaSize        int                         `json:"area_size"`
 	Orientation     string                      `json:"orientation"`
 	DecorationLevel string                      `json:"decoration_level"`

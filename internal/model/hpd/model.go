@@ -50,6 +50,10 @@ type HpdMiniappListing struct {
 	Price                   int                        `bson:"price" json:"price"`
 	PriceText               string                     `bson:"price_text" json:"priceText"`
 	LayoutText              string                     `bson:"layout_text" json:"layoutText"`
+	RoomCount               int                        `bson:"room_count" json:"roomCount"`
+	HallCount               int                        `bson:"hall_count" json:"hallCount"`
+	BathroomCount           int                        `bson:"bathroom_count" json:"bathroomCount"`
+	KitchenCount            int                        `bson:"kitchen_count" json:"kitchenCount"`
 	AreaSize                int                        `bson:"area_size" json:"areaSize"`
 	Orientation             hmdmodel.Orientation       `bson:"orientation" json:"orientation"`
 	FloorText               string                     `bson:"floor_text" json:"floorText"`
@@ -98,6 +102,10 @@ type HpdAdminListing struct {
 	Price                int                 `bson:"price" json:"price"`
 	PriceText            string              `bson:"price_text" json:"priceText"`
 	LayoutText           string              `bson:"layout_text" json:"layoutText"`
+	RoomCount            int                 `bson:"room_count" json:"roomCount"`
+	HallCount            int                 `bson:"hall_count" json:"hallCount"`
+	BathroomCount        int                 `bson:"bathroom_count" json:"bathroomCount"`
+	KitchenCount         int                 `bson:"kitchen_count" json:"kitchenCount"`
 	AreaSize             int                 `bson:"area_size" json:"areaSize"`
 	RoomStatus           hmdmodel.RoomStatus `bson:"room_status" json:"roomStatus"`
 	ListingStatus        HpdListingStatus    `bson:"listing_status" json:"listingStatus"`
@@ -144,6 +152,10 @@ type HpdPublisherListing struct {
 	Price                int                        `bson:"price" json:"price"`
 	PriceText            string                     `bson:"price_text" json:"priceText"`
 	LayoutText           string                     `bson:"layout_text" json:"layoutText"`
+	RoomCount            int                        `bson:"room_count" json:"roomCount"`
+	HallCount            int                        `bson:"hall_count" json:"hallCount"`
+	BathroomCount        int                        `bson:"bathroom_count" json:"bathroomCount"`
+	KitchenCount         int                        `bson:"kitchen_count" json:"kitchenCount"`
 	AreaSize             int                        `bson:"area_size" json:"areaSize"`
 	Orientation          hmdmodel.Orientation       `bson:"orientation" json:"orientation"`
 	DecorationLevel      hmdmodel.DecorationLevel   `bson:"decoration_level" json:"decorationLevel"`

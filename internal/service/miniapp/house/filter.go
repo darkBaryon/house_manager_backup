@@ -35,6 +35,10 @@ func searchFilter(input SearchInput) (repohpd.MiniappListingSearchFilter, int, i
 	if input.MaxPrice > 0 && input.MinPrice > input.MaxPrice {
 		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("min_price must be less than or equal to max_price")
 	}
+	if searchCountValueInvalid(input.RoomCount) || searchCountValueInvalid(input.HallCount) ||
+		searchCountValueInvalid(input.BathroomCount) || searchCountValueInvalid(input.KitchenCount) {
+		return repohpd.MiniappListingSearchFilter{}, 0, 0, errcode.InvalidParam.WithErrorf("layout counts must be non-negative")
+	}
 
 	rentMode := hmdmodel.RentMode(strings.TrimSpace(input.RentMode))
 	if rentMode != "" && !rentMode.Valid() {
@@ -47,19 +51,27 @@ func searchFilter(input SearchInput) (repohpd.MiniappListingSearchFilter, int, i
 	}
 
 	filter := repohpd.MiniappListingSearchFilter{
-		City:         strings.TrimSpace(input.City),
-		District:     strings.TrimSpace(input.District),
-		BizArea:      strings.TrimSpace(input.BizArea),
-		RentMode:     rentMode,
-		AssetMode:    assetMode,
-		Keyword:      strings.TrimSpace(input.Keyword),
-		FeatureFlags: compactStrings(input.FeatureFlags),
-		PriceMin:     input.MinPrice,
-		PriceMax:     input.MaxPrice,
-		Skip:         int64((page - 1) * pageSize),
-		Limit:        int64(pageSize),
+		City:          strings.TrimSpace(input.City),
+		District:      strings.TrimSpace(input.District),
+		BizArea:       strings.TrimSpace(input.BizArea),
+		RentMode:      rentMode,
+		AssetMode:     assetMode,
+		Keyword:       strings.TrimSpace(input.Keyword),
+		FeatureFlags:  compactStrings(input.FeatureFlags),
+		PriceMin:      input.MinPrice,
+		PriceMax:      input.MaxPrice,
+		RoomCount:     input.RoomCount,
+		HallCount:     input.HallCount,
+		BathroomCount: input.BathroomCount,
+		KitchenCount:  input.KitchenCount,
+		Skip:          int64((page - 1) * pageSize),
+		Limit:         int64(pageSize),
 	}
 	return filter, page, pageSize, nil
+}
+
+func searchCountValueInvalid(value *int) bool {
+	return value != nil && *value < 0
 }
 
 func compactStrings(values []string) []string {

@@ -13,6 +13,7 @@ func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentral
 		return nil, err
 	}
 
+	roomCount, hallCount, bathroomCount, kitchenCount := centralizedRoomShape(input.RoomCount, input.HallCount, input.BathroomCount, input.KitchenCount, roomType)
 	entity := &hmdmodel.HmdRoomCentralized{
 		ProjectID:         project.ID,
 		BuildingID:        building.ID,
@@ -21,6 +22,10 @@ func (s *Service) CreateCentralizedRoom(ctx context.Context, input CreateCentral
 		FloorNo:           input.FloorNo,
 		RentMode:          hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		LayoutText:        strings.TrimSpace(input.LayoutText),
+		RoomCount:         roomCount,
+		HallCount:         hallCount,
+		BathroomCount:     bathroomCount,
+		KitchenCount:      kitchenCount,
 		AreaSize:          input.AreaSize,
 		Orientation:       hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
 		DecorationLevel:   hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
@@ -96,6 +101,13 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 			roomTypeID = roomType.ID
 		}
 	}
+	var roomType *hmdmodel.HmdRoomTypeCentralized
+	if !roomTypeID.IsZero() {
+		roomType, err = s.roomTypeCentralizedRepo.FindByID(ctx, roomTypeID)
+		if err != nil {
+			return nil, databasef("update centralized room: find room type: %w", err)
+		}
+	}
 
 	roomNo := strings.TrimSpace(input.RoomNo)
 	existing, err := s.roomCentralizedRepo.FindByBuildingAndRoomNo(ctx, room.BuildingID, roomNo)
@@ -106,12 +118,17 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 		return nil, alreadyExistsf("当前楼栋下已存在相同房间号")
 	}
 
+	roomCount, hallCount, bathroomCount, kitchenCount := centralizedRoomShape(input.RoomCount, input.HallCount, input.BathroomCount, input.KitchenCount, roomType)
 	fields := bsonFields(
 		"room_type_id", roomTypeID,
 		"room_no", roomNo,
 		"floor_no", input.FloorNo,
 		"rent_mode", hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
 		"layout_text", strings.TrimSpace(input.LayoutText),
+		"room_count", roomCount,
+		"hall_count", hallCount,
+		"bathroom_count", bathroomCount,
+		"kitchen_count", kitchenCount,
 		"area_size", input.AreaSize,
 		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
 		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
@@ -135,6 +152,16 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 		return nil, err
 	}
 	return hmdMutationResult(updated, centralizedRoomChange(HmdChangeUpdated, updated)), nil
+}
+
+func centralizedRoomShape(roomCount, hallCount, bathroomCount, kitchenCount *int, roomType *hmdmodel.HmdRoomTypeCentralized) (int, int, int, int) {
+	if roomType == nil {
+		return layoutCountValue(roomCount), layoutCountValue(hallCount), layoutCountValue(bathroomCount), layoutCountValue(kitchenCount)
+	}
+	return layoutCountValueOrFallback(roomCount, roomType.RoomCount),
+		layoutCountValueOrFallback(hallCount, roomType.HallCount),
+		layoutCountValueOrFallback(bathroomCount, roomType.BathroomCount),
+		layoutCountValueOrFallback(kitchenCount, roomType.KitchenCount)
 }
 
 func (s *Service) UpdateCentralizedRoomStatus(ctx context.Context, input UpdateCentralizedRoomStatusInput) (*HmdMutationResult[hmdmodel.HmdRoomCentralized], error) {

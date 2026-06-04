@@ -25,6 +25,10 @@ type listingItemResponse struct {
 	Price                   int                   `json:"price"`
 	PriceText               string                `json:"price_text"`
 	LayoutText              string                `json:"layout_text"`
+	RoomCount               int                   `json:"room_count"`
+	HallCount               int                   `json:"hall_count"`
+	BathroomCount           int                   `json:"bathroom_count"`
+	KitchenCount            int                   `json:"kitchen_count"`
 	AreaSize                int                   `json:"area_size"`
 	Orientation             string                `json:"orientation"`
 	FloorText               string                `json:"floor_text"`
@@ -74,6 +78,10 @@ func listingItemResponses(items []housesvc.ListItem) []listingItemResponse {
 			Price:                   item.Price,
 			PriceText:               item.PriceText,
 			LayoutText:              item.LayoutText,
+			RoomCount:               item.RoomCount,
+			HallCount:               item.HallCount,
+			BathroomCount:           item.BathroomCount,
+			KitchenCount:            item.KitchenCount,
 			AreaSize:                item.AreaSize,
 			Orientation:             item.Orientation,
 			FloorText:               item.FloorText,

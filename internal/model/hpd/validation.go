@@ -59,6 +59,10 @@ func (m *HpdMiniappListing) ValidateForCreate() error {
 	return validateHpdMiniappListingFields(
 		m.Price,
 		m.SubwayDistanceM,
+		m.RoomCount,
+		m.HallCount,
+		m.BathroomCount,
+		m.KitchenCount,
 		m.AreaSize,
 		m.WeightScore,
 		m.Orientation,
@@ -107,6 +111,10 @@ func (m *HpdPublisherListing) ValidateForCreate() error {
 	}
 	return validateHpdPublisherListingFields(
 		m.Price,
+		m.RoomCount,
+		m.HallCount,
+		m.BathroomCount,
+		m.KitchenCount,
 		m.AreaSize,
 		m.FloorNo,
 		m.Deposit,
@@ -167,6 +175,16 @@ func (m *HpdAdminListing) ValidateForCreate() error {
 	}
 	if err := validateNonNegativeInt("price", m.Price); err != nil {
 		return err
+	}
+	for name, value := range map[string]int{
+		"roomCount":     m.RoomCount,
+		"hallCount":     m.HallCount,
+		"bathroomCount": m.BathroomCount,
+		"kitchenCount":  m.KitchenCount,
+	} {
+		if err := validateLayoutCount(name, value); err != nil {
+			return err
+		}
 	}
 	if err := validateNonNegativeInt("areaSize", m.AreaSize); err != nil {
 		return err
@@ -265,6 +283,12 @@ func validateHpdUpdateField(key string, value any) error {
 		if text, ok := value.(string); !ok || commonmodel.IsBlank(text) {
 			return fmt.Errorf("%s is required", key)
 		}
+	case "room_count", "hall_count", "bathroom_count", "kitchen_count":
+		intValue, ok := hpdAnyInt(value)
+		if !ok {
+			return fmt.Errorf("%s must be int", key)
+		}
+		return validateLayoutCount(key, intValue)
 	case "price", "subway_distance_m", "area_size", "weight_score", "floor_no", "deposit", "service_fee", "agency_fee_value":
 		intValue, ok := hpdAnyInt(value)
 		if !ok {
@@ -337,6 +361,10 @@ func validateHpdUpdateField(key string, value any) error {
 func validateHpdMiniappListingFields(
 	price int,
 	subwayDistanceM int,
+	roomCount int,
+	hallCount int,
+	bathroomCount int,
+	kitchenCount int,
 	areaSize int,
 	weightScore int,
 	orientation hmdmodel.Orientation,
@@ -347,6 +375,16 @@ func validateHpdMiniappListingFields(
 	costItems []HpdCostItem,
 	isOnline HpdOnlineStatus,
 ) error {
+	for name, value := range map[string]int{
+		"roomCount":     roomCount,
+		"hallCount":     hallCount,
+		"bathroomCount": bathroomCount,
+		"kitchenCount":  kitchenCount,
+	} {
+		if err := validateLayoutCount(name, value); err != nil {
+			return err
+		}
+	}
 	for name, value := range map[string]int{
 		"price":           price,
 		"subwayDistanceM": subwayDistanceM,
@@ -410,6 +448,10 @@ func validateHpdTaggedImages(images []hmdmodel.TaggedImage) error {
 
 func validateHpdPublisherListingFields(
 	price int,
+	roomCount int,
+	hallCount int,
+	bathroomCount int,
+	kitchenCount int,
 	areaSize int,
 	floorNo int,
 	deposit int,
@@ -426,6 +468,16 @@ func validateHpdPublisherListingFields(
 	images []hmdmodel.TaggedImage,
 	isOnline HpdOnlineStatus,
 ) error {
+	for name, value := range map[string]int{
+		"roomCount":     roomCount,
+		"hallCount":     hallCount,
+		"bathroomCount": bathroomCount,
+		"kitchenCount":  kitchenCount,
+	} {
+		if err := validateLayoutCount(name, value); err != nil {
+			return err
+		}
+	}
 	for name, value := range map[string]int{
 		"price":          price,
 		"areaSize":       areaSize,
@@ -483,6 +535,13 @@ func validateHpdCostItems(costItems []HpdCostItem) error {
 func validateNonNegativeInt(name string, value int) error {
 	if value < 0 {
 		return fmt.Errorf("%s must be non-negative", name)
+	}
+	return nil
+}
+
+func validateLayoutCount(name string, value int) error {
+	if value < hmdmodel.UnknownLayoutCount {
+		return fmt.Errorf("%s must be greater than or equal to %d", name, hmdmodel.UnknownLayoutCount)
 	}
 	return nil
 }

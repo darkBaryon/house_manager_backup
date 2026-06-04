@@ -25,6 +25,20 @@ func bsonFields(kv ...any) bson.M {
 	return fields
 }
 
+func layoutCountValue(input *int) int {
+	if input == nil {
+		return hmdmodel.UnknownLayoutCount
+	}
+	return *input
+}
+
+func layoutCountValueOrFallback(input *int, fallback int) int {
+	if input != nil {
+		return *input
+	}
+	return fallback
+}
+
 func toGeoPoint(input *GeoPointInput) *hmdmodel.GeoPoint {
 	if input == nil {
 		return nil

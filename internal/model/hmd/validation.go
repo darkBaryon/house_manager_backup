@@ -88,10 +88,10 @@ func (m *HmdRoomCentralized) ValidateForCreate() error {
 		return fmt.Errorf("房间状态不合法")
 	}
 	return validateHmdRoomShapeAndPrice(
-		0,
-		0,
-		0,
-		0,
+		m.RoomCount,
+		m.HallCount,
+		m.BathroomCount,
+		m.KitchenCount,
 		m.AreaSize,
 		m.Rent,
 		m.Deposit,
@@ -123,10 +123,10 @@ func (m *HmdRoomDecentralized) ValidateForCreate() error {
 		return fmt.Errorf("房间状态不合法")
 	}
 	return validateHmdRoomShapeAndPrice(
-		0,
-		0,
-		0,
-		0,
+		m.RoomCount,
+		m.HallCount,
+		m.BathroomCount,
+		m.KitchenCount,
 		m.AreaSize,
 		m.Rent,
 		m.Deposit,
@@ -168,8 +168,13 @@ func validateHmdUpdateField(key string, value any) error {
 		if objectID.IsZero() {
 			return fmt.Errorf("room_type_id 不能为空")
 		}
-	case "floor_total", "room_count", "hall_count", "bathroom_count", "kitchen_count",
-		"floor_no", "area_size", "rent", "deposit", "service_fee", "agency_fee_value":
+	case "room_count", "hall_count", "bathroom_count", "kitchen_count":
+		intValue, ok := anyInt(value)
+		if !ok {
+			return fmt.Errorf("%s 必须是整数", key)
+		}
+		return validateLayoutCount(key, intValue)
+	case "floor_total", "floor_no", "area_size", "rent", "deposit", "service_fee", "agency_fee_value":
 		intValue, ok := anyInt(value)
 		if !ok {
 			return fmt.Errorf("%s 必须是整数", key)
@@ -261,7 +266,7 @@ func validateHmdRoomShapeAndPrice(
 		"serviceFee":     serviceFee,
 		"agencyFeeValue": agencyFeeValue,
 	} {
-		if err := validateNonNegativeInt(name, value); err != nil {
+		if err := validateLayoutCount(name, value); err != nil {
 			return err
 		}
 	}
@@ -295,6 +300,13 @@ func validateHmdRoomShapeAndPrice(
 func validateNonNegativeInt(name string, value int) error {
 	if value < 0 {
 		return fmt.Errorf("%s 不能小于 0", name)
+	}
+	return nil
+}
+
+func validateLayoutCount(name string, value int) error {
+	if value < UnknownLayoutCount {
+		return fmt.Errorf("%s 不能小于 %d", name, UnknownLayoutCount)
 	}
 	return nil
 }

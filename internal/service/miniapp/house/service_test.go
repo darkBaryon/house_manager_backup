@@ -37,17 +37,20 @@ func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 	svc := &HouseService{miniappListings: repo}
 
 	result, err := svc.Search(context.Background(), SearchInput{
-		City:         " 深圳 ",
-		District:     "南山区",
-		BizArea:      "科技园",
-		RentMode:     string(hmdmodel.RentModeWhole),
-		AssetMode:    string(hpdmodel.HpdAssetModeCentralized),
-		MinPrice:     3000,
-		MaxPrice:     8000,
-		Keyword:      " 公寓 ",
-		FeatureFlags: []string{"near_subway", " "},
-		Page:         2,
-		PageSize:     10,
+		City:          " 深圳 ",
+		District:      "南山区",
+		BizArea:       "科技园",
+		RentMode:      string(hmdmodel.RentModeWhole),
+		AssetMode:     string(hpdmodel.HpdAssetModeCentralized),
+		MinPrice:      3000,
+		MaxPrice:      8000,
+		RoomCount:     testIntPtr(1),
+		HallCount:     testIntPtr(1),
+		BathroomCount: testIntPtr(1),
+		Keyword:       " 公寓 ",
+		FeatureFlags:  []string{"near_subway", " "},
+		Page:          2,
+		PageSize:      10,
 	})
 	if err != nil {
 		t.Fatalf("Search returned error: %v", err)
@@ -60,6 +63,9 @@ func TestHouseSearchBuildsFilterAndMapsResult(t *testing.T) {
 	}
 	if repo.searchFilter.Skip != 10 || repo.searchFilter.Limit != 10 {
 		t.Fatalf("unexpected pagination filter: %#v", repo.searchFilter)
+	}
+	if intPtrValue(repo.searchFilter.RoomCount) != 1 || intPtrValue(repo.searchFilter.HallCount) != 1 || intPtrValue(repo.searchFilter.BathroomCount) != 1 {
+		t.Fatalf("unexpected room shape filter: %#v", repo.searchFilter)
 	}
 	if len(repo.searchFilter.FeatureFlags) != 1 || repo.searchFilter.FeatureFlags[0] != "near_subway" {
 		t.Fatalf("unexpected feature flags: %#v", repo.searchFilter.FeatureFlags)
@@ -239,4 +245,15 @@ func (f *fakeFavoriteChecker) IsFavorited(ctx context.Context, userID, listingID
 	f.userID = userID
 	f.listingID = listingID
 	return f.favorited, f.err
+}
+
+func testIntPtr(value int) *int {
+	return &value
+}
+
+func intPtrValue(value *int) int {
+	if value == nil {
+		return -999
+	}
+	return *value
 }

@@ -255,6 +255,9 @@ func TestDurationParsing(t *testing.T) {
 			ReadTimeout:  "3s",
 			WriteTimeout: "4s",
 		},
+		Auth: AuthConfig{
+			SessionTTL: "168h",
+		},
 	}
 
 	got, err := cfg.MongoDB.ConnectTimeoutDuration()
@@ -269,6 +272,10 @@ func TestDurationParsing(t *testing.T) {
 	assertDuration(t, got, err, 3*time.Second)
 	got, err = cfg.Redis.WriteTimeoutDuration()
 	assertDuration(t, got, err, 4*time.Second)
+	got, err = cfg.Auth.SessionTTLDuration()
+	assertDuration(t, got, err, 168*time.Hour)
+	got, err = AuthConfig{}.SessionTTLDuration()
+	assertDuration(t, got, err, 168*time.Hour)
 }
 
 func writeConfigFile(t *testing.T, content string) string {

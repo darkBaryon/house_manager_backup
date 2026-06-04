@@ -36,10 +36,13 @@ wechat:
   secret: ""
   api_base: "https://api.weixin.qq.com"
 
+auth:
+  session_ttl: "168h"
+
 ai_chat:
   python_base_url: "http://127.0.0.1:8000"
   internal_token: "test-internal-token"
-  respond_timeout: "25s"
+  respond_timeout: "120s"
   tool_timeout: "5s"
   session_idle_timeout: "30m"
   recent_message_limit: 20

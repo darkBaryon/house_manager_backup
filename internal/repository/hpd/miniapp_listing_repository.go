@@ -17,17 +17,21 @@ import (
 )
 
 type MiniappListingSearchFilter struct {
-	City         string
-	District     string
-	BizArea      string
-	RentMode     hmdmodel.RentMode
-	AssetMode    hpdmodel.HpdAssetMode
-	Keyword      string
-	FeatureFlags []string
-	PriceMin     int
-	PriceMax     int
-	Skip         int64
-	Limit        int64
+	City          string
+	District      string
+	BizArea       string
+	RentMode      hmdmodel.RentMode
+	AssetMode     hpdmodel.HpdAssetMode
+	Keyword       string
+	FeatureFlags  []string
+	PriceMin      int
+	PriceMax      int
+	RoomCount     *int
+	HallCount     *int
+	BathroomCount *int
+	KitchenCount  *int
+	Skip          int64
+	Limit         int64
 }
 
 type MiniappListingRepository struct {
@@ -175,6 +179,10 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	if search.PriceMax > 0 && search.PriceMin > search.PriceMax {
 		return nil, fmt.Errorf("priceMin must be less than or equal to priceMax")
 	}
+	if searchCountValueInvalid(search.RoomCount) || searchCountValueInvalid(search.HallCount) ||
+		searchCountValueInvalid(search.BathroomCount) || searchCountValueInvalid(search.KitchenCount) {
+		return nil, fmt.Errorf("layout counts must be non-negative")
+	}
 	if search.RentMode != "" && !search.RentMode.Valid() {
 		return nil, fmt.Errorf("rentMode is invalid")
 	}
@@ -197,6 +205,18 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	}
 	if search.AssetMode != "" {
 		fields["asset_mode"] = search.AssetMode
+	}
+	if search.RoomCount != nil {
+		fields["room_count"] = *search.RoomCount
+	}
+	if search.HallCount != nil {
+		fields["hall_count"] = *search.HallCount
+	}
+	if search.BathroomCount != nil {
+		fields["bathroom_count"] = *search.BathroomCount
+	}
+	if search.KitchenCount != nil {
+		fields["kitchen_count"] = *search.KitchenCount
 	}
 	if len(search.FeatureFlags) > 0 {
 		flags := make([]string, 0, len(search.FeatureFlags))
@@ -231,4 +251,8 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 		fields["price"] = priceFilter
 	}
 	return activeFilter(fields), nil
+}
+
+func searchCountValueInvalid(value *int) bool {
+	return value != nil && *value < 0
 }

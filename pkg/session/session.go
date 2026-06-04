@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -69,7 +70,11 @@ func (s *Store) CreatePrincipal(ctx context.Context, principal Principal) (strin
 		return "", err
 	}
 	normalized := principal.normalized()
-	normalized.SessionVersion = s.currentVersion(ctx, normalized)
+	version, err := s.currentVersion(ctx, normalized)
+	if err != nil {
+		return "", fmt.Errorf("get session version: %w", err)
+	}
+	normalized.SessionVersion = version
 	token, err := generateToken()
 	if err != nil {
 		return "", fmt.Errorf("generate token: %w", err)
@@ -110,27 +115,33 @@ func (s *Store) GetPrincipal(ctx context.Context, token string) (*Principal, err
 	key := keyPrefix + token
 	val, err := s.client.Get(ctx, key)
 	if err != nil {
-		return nil, nil
+		if errors.Is(err, cache.ErrNil) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get session: %w", err)
 	}
 	var principal Principal
 	if err := json.Unmarshal([]byte(val), &principal); err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("decode session: %w", err)
 	}
 	if err := principal.Validate(); err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("validate session: %w", err)
 	}
 	normalized := principal.normalized()
-	currentVersion := s.currentVersion(ctx, normalized)
+	currentVersion, err := s.currentVersion(ctx, normalized)
+	if err != nil {
+		return nil, fmt.Errorf("get session version: %w", err)
+	}
 	if currentVersion != "" && normalized.SessionVersion != currentVersion {
 		return nil, nil
 	}
 	if s.ttl > 0 {
 		payload, err := json.Marshal(normalized)
 		if err != nil {
-			return nil, nil
+			return nil, fmt.Errorf("marshal session: %w", err)
 		}
 		if err := s.client.Set(ctx, key, string(payload), s.ttl); err != nil {
-			return nil, nil
+			return nil, fmt.Errorf("refresh session: %w", err)
 		}
 	}
 	return &normalized, nil
@@ -199,12 +210,15 @@ func (p Principal) normalized() Principal {
 	return p
 }
 
-func (s *Store) currentVersion(ctx context.Context, principal Principal) string {
+func (s *Store) currentVersion(ctx context.Context, principal Principal) (string, error) {
 	version, err := s.client.Get(ctx, versionKey(principal.normalized()))
 	if err != nil {
-		return ""
+		if errors.Is(err, cache.ErrNil) {
+			return "", nil
+		}
+		return "", err
 	}
-	return strings.TrimSpace(version)
+	return strings.TrimSpace(version), nil
 }
 
 func versionKey(principal Principal) string {

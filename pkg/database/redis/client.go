@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"house-manager/pkg/cache"
+
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -33,7 +35,7 @@ func (c *Client) Raw() goredis.UniversalClient {
 func (c *Client) Get(ctx context.Context, key string) (string, error) {
 	val, err := c.raw.Get(ctx, key).Result()
 	if err == goredis.Nil {
-		return "", err
+		return "", cache.ErrNil
 	}
 	return val, err
 }

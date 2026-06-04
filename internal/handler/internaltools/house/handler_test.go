@@ -70,7 +70,7 @@ func TestSearchMapsInternalToolResponse(t *testing.T) {
 
 	body := []byte(`{
 		"session_id":"sess-1",
-		"payload":{"district":"南山","keyword":"单间","page":1,"page_size":99}
+		"payload":{"district":"南山","room_count":1,"page":1,"page_size":99}
 	}`)
 	req := httptest.NewRequest(http.MethodPost, "/tools/house/search", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -83,6 +83,9 @@ func TestSearchMapsInternalToolResponse(t *testing.T) {
 	}
 	if service.searchInput.PageSize != internalToolMaxPageSize {
 		t.Fatalf("page size = %d", service.searchInput.PageSize)
+	}
+	if service.searchInput.RoomCount == nil || *service.searchInput.RoomCount != 1 {
+		t.Fatalf("room count = %#v", service.searchInput.RoomCount)
 	}
 	var got response.Response
 	if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {

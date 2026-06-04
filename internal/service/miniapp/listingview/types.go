@@ -16,6 +16,10 @@ type Item struct {
 	Price                   int
 	PriceText               string
 	LayoutText              string
+	RoomCount               int
+	HallCount               int
+	BathroomCount           int
+	KitchenCount            int
 	AreaSize                int
 	Orientation             string
 	FloorText               string

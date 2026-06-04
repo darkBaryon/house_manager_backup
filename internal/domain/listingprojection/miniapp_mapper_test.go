@@ -21,6 +21,10 @@ func TestMapCentralizedMiniappListingBuildsOnlineSnapshot(t *testing.T) {
 		RoomNo:            "1201",
 		FloorNo:           12,
 		RentMode:          hmdmodel.RentModeWhole,
+		RoomCount:         hmdmodel.UnknownLayoutCount,
+		HallCount:         hmdmodel.UnknownLayoutCount,
+		BathroomCount:     hmdmodel.UnknownLayoutCount,
+		KitchenCount:      hmdmodel.UnknownLayoutCount,
 		AreaSize:          35,
 		Orientation:       hmdmodel.OrientationSouth,
 		PaymentCycle:      hmdmodel.PaymentCycleMonthly,
@@ -58,6 +62,9 @@ func TestMapCentralizedMiniappListingBuildsOnlineSnapshot(t *testing.T) {
 	if got.LayoutText != "1室1厅1卫" {
 		t.Fatalf("expected layout fallback from room type, got %s", got.LayoutText)
 	}
+	if got.RoomCount != 1 || got.HallCount != 1 || got.BathroomCount != 1 || got.KitchenCount != 0 {
+		t.Fatalf("expected room shape fallback from room type, got %#v", got)
+	}
 	if got.IsOnline != hpdmodel.HpdOnlineStatusYes {
 		t.Fatalf("expected online listing, got %d", got.IsOnline)
 	}
@@ -83,6 +90,10 @@ func TestMapDecentralizedMiniappListingKeepsOfflineWhenRoomUnavailable(t *testin
 		FloorNo:        8,
 		RentMode:       hmdmodel.RentModeWhole,
 		LayoutText:     "两室一厅",
+		RoomCount:      2,
+		HallCount:      1,
+		BathroomCount:  1,
+		KitchenCount:   1,
 		AreaSize:       68,
 		Orientation:    hmdmodel.OrientationSouthNorth,
 		PaymentCycle:   hmdmodel.PaymentCycleQuarterly,
@@ -107,6 +118,9 @@ func TestMapDecentralizedMiniappListingKeepsOfflineWhenRoomUnavailable(t *testin
 	}
 	if got.BuildingOrCommunityName != community.CommunityName {
 		t.Fatalf("expected community name copied, got %s", got.BuildingOrCommunityName)
+	}
+	if got.RoomCount != 2 || got.HallCount != 1 || got.BathroomCount != 1 || got.KitchenCount != 1 {
+		t.Fatalf("expected room shape copied from decentralized room, got %#v", got)
 	}
 	if len(got.FeatureFlags) != 1 || got.FeatureFlags[0] != string(hmdmodel.RoomFacilityFridge) {
 		t.Fatalf("expected room facility flags, got %#v", got.FeatureFlags)

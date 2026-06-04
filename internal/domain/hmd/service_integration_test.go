@@ -104,6 +104,9 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 
 	roomType := mustCreateRoomType(t, f, project.Entity.ID, building.Entity.ID, f.prefix+"_room_type_a")
 	assertChange(t, roomType.Changes, HmdChangeCreated, HmdEntityRoomTypeCentralized, HmdScopeRoomTypeCentralized)
+	if roomType.Entity.KitchenCount != hmdmodel.UnknownLayoutCount {
+		t.Fatalf("expected omitted kitchen count to be unknown, got %d", roomType.Entity.KitchenCount)
+	}
 
 	_, err = f.svc.CreateRoomType(f.ctx, CreateRoomTypeInput{
 		ProjectID:    project.Entity.ID,
@@ -131,6 +134,12 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 	assertChange(t, centralizedRoom.Changes, HmdChangeCreated, HmdEntityRoomCentralized, HmdScopeCentralizedRoom)
 	if centralizedRoom.Entity.RoomStatus != hmdmodel.RoomStatusAvailable {
 		t.Fatalf("expected default available room status, got %d", centralizedRoom.Entity.RoomStatus)
+	}
+	if centralizedRoom.Entity.RoomCount != 1 || centralizedRoom.Entity.HallCount != 1 || centralizedRoom.Entity.BathroomCount != 1 {
+		t.Fatalf("expected centralized room to inherit room type shape, got %#v", centralizedRoom.Entity)
+	}
+	if centralizedRoom.Entity.KitchenCount != hmdmodel.UnknownLayoutCount {
+		t.Fatalf("expected centralized room to inherit unknown kitchen count, got %d", centralizedRoom.Entity.KitchenCount)
 	}
 
 	_, err = f.svc.CreateCentralizedRoom(f.ctx, CreateCentralizedRoomInput{
@@ -223,6 +232,12 @@ func TestServiceIntegrationDecentralizedFlow(t *testing.T) {
 	room := mustCreateDecentralizedRoom(t, f, community.Entity.ID, f.prefix+"_de_room_1")
 	assertChange(t, room.Changes, HmdChangeCreated, HmdEntityRoomDecentralized, HmdScopeDecentralizedRoom)
 	assertDecentralizedRoomHasNoRoomTypeID(t, f, room.Entity.ID)
+	if room.Entity.RoomCount != 2 || room.Entity.HallCount != 1 || room.Entity.BathroomCount != 1 {
+		t.Fatalf("expected decentralized room shape saved, got %#v", room.Entity)
+	}
+	if room.Entity.KitchenCount != hmdmodel.UnknownLayoutCount {
+		t.Fatalf("expected omitted decentralized kitchen count to be unknown, got %d", room.Entity.KitchenCount)
+	}
 
 	_, err = f.svc.CreateDecentralizedRoom(f.ctx, CreateDecentralizedRoomInput{
 		DecentralizedID: community.Entity.ID,
@@ -431,9 +446,9 @@ func mustCreateRoomType(t *testing.T, f *integrationFixture, projectID, building
 		ProjectID:       projectID,
 		BuildingID:      buildingID,
 		RoomTypeName:    name,
-		RoomCount:       1,
-		HallCount:       1,
-		BathroomCount:   1,
+		RoomCount:       testIntPtr(1),
+		HallCount:       testIntPtr(1),
+		BathroomCount:   testIntPtr(1),
 		AreaSize:        35,
 		Orientation:     string(hmdmodel.OrientationSouth),
 		DecorationLevel: string(hmdmodel.DecorationLevelFine),
@@ -506,6 +521,9 @@ func mustCreateDecentralizedRoom(t *testing.T, f *integrationFixture, communityI
 		FloorNo:           8,
 		RentMode:          string(hmdmodel.RentModeWhole),
 		LayoutText:        "两室一厅",
+		RoomCount:         testIntPtr(2),
+		HallCount:         testIntPtr(1),
+		BathroomCount:     testIntPtr(1),
 		AreaSize:          72,
 		Orientation:       string(hmdmodel.OrientationSouth),
 		DecorationLevel:   string(hmdmodel.DecorationLevelFine),
@@ -545,6 +563,10 @@ func assertChange(t *testing.T, changes []HmdChange, action HmdChangeAction, ent
 	if change.Action != action || change.EntityType != entityType || change.Scope != scope || change.EntityID.IsZero() {
 		t.Fatalf("unexpected change: %#v", change)
 	}
+}
+
+func testIntPtr(value int) *int {
+	return &value
 }
 
 func assertContainsCentralizedProject(t *testing.T, items []hmdmodel.HmdCentralized, id bson.ObjectID) {

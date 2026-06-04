@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"house-manager/pkg/cache"
 	dbredis "house-manager/pkg/database/redis"
 
-	goredis "github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -35,7 +35,7 @@ func (s *RuntimeContextStore) Get(ctx context.Context, sessionID bson.ObjectID) 
 		return nil, fmt.Errorf("get runtime context: redis client is nil")
 	}
 	raw, err := s.redis.Get(ctx, runtimeContextKey(sessionID))
-	if err == goredis.Nil {
+	if err == cache.ErrNil {
 		return defaultRuntimeContext(), nil
 	}
 	if err != nil {
@@ -81,5 +81,6 @@ func defaultRuntimeContext() map[string]any {
 		"requirement":                   map[string]any{},
 		"last_recommended_listing_refs": []any{},
 		"focused_listing_ref":           nil,
+		"pending_action":                nil,
 	}
 }

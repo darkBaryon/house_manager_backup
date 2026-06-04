@@ -100,17 +100,20 @@ func TestHouseSearchReturnsSnakeCasePagedData(t *testing.T) {
 func TestHouseSearchBindsFullRequest(t *testing.T) {
 	svc := &fakeHouseService{searchResult: &housesvc.SearchResult{Page: 3, PageSize: 15}}
 	body := mustHouseJSON(t, map[string]any{
-		"city":          "深圳",
-		"district":      "南山",
-		"biz_area":      "科技园",
-		"rent_mode":     "whole",
-		"asset_mode":    "centralized",
-		"min_price":     3000,
-		"max_price":     6000,
-		"keyword":       "高新园",
-		"feature_flags": []string{"subway", "elevator"},
-		"page":          3,
-		"page_size":     15,
+		"city":           "深圳",
+		"district":       "南山",
+		"biz_area":       "科技园",
+		"rent_mode":      "whole",
+		"asset_mode":     "centralized",
+		"min_price":      3000,
+		"max_price":      6000,
+		"room_count":     2,
+		"hall_count":     1,
+		"bathroom_count": 1,
+		"keyword":        "高新园",
+		"feature_flags":  []string{"subway", "elevator"},
+		"page":           3,
+		"page_size":      15,
 	})
 
 	resp := performHouseRequest(t, svc, "/api/v1/house/search", body)
@@ -124,6 +127,12 @@ func TestHouseSearchBindsFullRequest(t *testing.T) {
 		input.AssetMode != "centralized" ||
 		input.MinPrice != 3000 ||
 		input.MaxPrice != 6000 ||
+		input.RoomCount == nil ||
+		*input.RoomCount != 2 ||
+		input.HallCount == nil ||
+		*input.HallCount != 1 ||
+		input.BathroomCount == nil ||
+		*input.BathroomCount != 1 ||
 		input.Keyword != "高新园" ||
 		input.Page != 3 ||
 		input.PageSize != 15 {

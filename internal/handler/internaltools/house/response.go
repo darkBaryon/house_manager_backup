@@ -14,6 +14,10 @@ type houseItemResponse struct {
 	District        string                `json:"district"`
 	BizArea         string                `json:"biz_area"`
 	LayoutText      string                `json:"layout_text"`
+	RoomCount       int                   `json:"room_count"`
+	HallCount       int                   `json:"hall_count"`
+	BathroomCount   int                   `json:"bathroom_count"`
+	KitchenCount    int                   `json:"kitchen_count"`
 	SubwayDistanceM int                   `json:"subway_distance_m"`
 	Images          []taggedImageResponse `json:"images"`
 }
@@ -31,6 +35,10 @@ type publicDetailResponse struct {
 	District        string                `json:"district"`
 	BizArea         string                `json:"biz_area"`
 	LayoutText      string                `json:"layout_text"`
+	RoomCount       int                   `json:"room_count"`
+	HallCount       int                   `json:"hall_count"`
+	BathroomCount   int                   `json:"bathroom_count"`
+	KitchenCount    int                   `json:"kitchen_count"`
 	SubwayDistanceM int                   `json:"subway_distance_m"`
 	AddressText     string                `json:"address_text"`
 	Description     string                `json:"description"`
@@ -58,6 +66,10 @@ func houseItemResponses(items []housesvc.ListItem) []houseItemResponse {
 			District:        item.District,
 			BizArea:         item.BizArea,
 			LayoutText:      item.LayoutText,
+			RoomCount:       item.RoomCount,
+			HallCount:       item.HallCount,
+			BathroomCount:   item.BathroomCount,
+			KitchenCount:    item.KitchenCount,
 			SubwayDistanceM: item.SubwayDistanceM,
 			Images:          taggedImageResponses(item.Images),
 		})
@@ -78,6 +90,10 @@ func toPublicDetailResponse(result *housesvc.DetailResult) publicDetailResponse 
 		District:        house.District,
 		BizArea:         house.BizArea,
 		LayoutText:      house.LayoutText,
+		RoomCount:       house.RoomCount,
+		HallCount:       house.HallCount,
+		BathroomCount:   house.BathroomCount,
+		KitchenCount:    house.KitchenCount,
 		SubwayDistanceM: house.SubwayDistanceM,
 		AddressText:     house.AddressText,
 		Description:     house.Description,

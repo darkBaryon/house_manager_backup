@@ -6,10 +6,10 @@ type CreateRoomTypeInput struct {
 	ProjectID       bson.ObjectID
 	BuildingID      bson.ObjectID
 	RoomTypeName    string
-	RoomCount       int
-	HallCount       int
-	BathroomCount   int
-	KitchenCount    int
+	RoomCount       *int
+	HallCount       *int
+	BathroomCount   *int
+	KitchenCount    *int
 	AreaSize        int
 	Orientation     string
 	DecorationLevel string
@@ -26,10 +26,10 @@ type CreateRoomTypeInput struct {
 type UpdateRoomTypeInput struct {
 	ID              bson.ObjectID
 	RoomTypeName    string
-	RoomCount       int
-	HallCount       int
-	BathroomCount   int
-	KitchenCount    int
+	RoomCount       *int
+	HallCount       *int
+	BathroomCount   *int
+	KitchenCount    *int
 	AreaSize        int
 	Orientation     string
 	DecorationLevel string

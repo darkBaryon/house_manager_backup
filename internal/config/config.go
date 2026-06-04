@@ -14,6 +14,7 @@ type Config struct {
 	MongoDB MongoConfig  `mapstructure:"mongodb"`
 	Redis   RedisConfig  `mapstructure:"redis"`
 	Wechat  WechatConfig `mapstructure:"wechat"`
+	Auth    AuthConfig   `mapstructure:"auth"`
 	AIChat  AIChatConfig `mapstructure:"ai_chat"`
 	Log     LogConfig    `mapstructure:"log"`
 }
@@ -58,6 +59,10 @@ type WechatConfig struct {
 	APIBase string `mapstructure:"api_base"`
 }
 
+type AuthConfig struct {
+	SessionTTL string `mapstructure:"session_ttl"`
+}
+
 type AIChatConfig struct {
 	PythonBaseURL      string `mapstructure:"python_base_url"`
 	InternalToken      string `mapstructure:"internal_token"`
@@ -69,7 +74,8 @@ type AIChatConfig struct {
 }
 
 const (
-	defaultAIChatRespondTimeout     = 25 * time.Second
+	defaultAuthSessionTTL           = 7 * 24 * time.Hour
+	defaultAIChatRespondTimeout     = 120 * time.Second
 	defaultAIChatToolTimeout        = 5 * time.Second
 	defaultAIChatSessionIdleTimeout = 30 * time.Minute
 	defaultAIChatRuntimeContextTTL  = 24 * time.Hour
@@ -127,6 +133,13 @@ func (c RedisConfig) WriteTimeoutDuration() (time.Duration, error) {
 	return parseDuration("redis.write_timeout", c.WriteTimeout)
 }
 
+func (c AuthConfig) SessionTTLDuration() (time.Duration, error) {
+	if strings.TrimSpace(c.SessionTTL) == "" {
+		return defaultAuthSessionTTL, nil
+	}
+	return parseDuration("auth.session_ttl", c.SessionTTL)
+}
+
 func (c AIChatConfig) RespondTimeoutDuration() (time.Duration, error) {
 	if strings.TrimSpace(c.RespondTimeout) == "" {
 		return defaultAIChatRespondTimeout, nil
@@ -166,6 +179,7 @@ func bindSensitiveEnv(v *viper.Viper) {
 	_ = v.BindEnv("wechat.appid", "WECHAT_APPID")
 	_ = v.BindEnv("wechat.secret", "WECHAT_SECRET")
 	_ = v.BindEnv("wechat.api_base", "WECHAT_API_BASE")
+	_ = v.BindEnv("auth.session_ttl", "AUTH_SESSION_TTL")
 	_ = v.BindEnv("ai_chat.python_base_url", "AI_CHAT_PYTHON_BASE_URL")
 	_ = v.BindEnv("ai_chat.internal_token", "AI_CHAT_INTERNAL_TOKEN")
 	_ = v.BindEnv("ai_chat.respond_timeout", "AI_CHAT_RESPOND_TIMEOUT")

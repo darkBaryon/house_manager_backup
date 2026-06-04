@@ -16,6 +16,7 @@ func mapCentralizedPublisherListing(
 	owner *hpdmodel.HpdRootScopeRelation,
 ) *hpdmodel.HpdPublisherListing {
 	layoutText := firstNonBlank(room.LayoutText, roomTypeLayoutText(roomType))
+	roomCount, hallCount, bathroomCount, kitchenCount := centralizedProjectionShape(room, roomType)
 	areaSize := firstPositiveInt(room.AreaSize, roomTypeAreaSize(roomType))
 	orientation := firstOrientation(room.Orientation, roomTypeOrientation(roomType))
 	paymentCycle := firstPaymentCycle(room.PaymentCycle, roomTypePaymentCycle(roomType))
@@ -54,6 +55,10 @@ func mapCentralizedPublisherListing(
 		Price:              price,
 		PriceText:          priceText(price),
 		LayoutText:         layoutText,
+		RoomCount:          roomCount,
+		HallCount:          hallCount,
+		BathroomCount:      bathroomCount,
+		KitchenCount:       kitchenCount,
 		AreaSize:           areaSize,
 		Orientation:        orientation,
 		DecorationLevel:    decorationLevel,
@@ -105,6 +110,10 @@ func mapDecentralizedPublisherListing(
 		Price:              room.Rent,
 		PriceText:          priceText(room.Rent),
 		LayoutText:         room.LayoutText,
+		RoomCount:          room.RoomCount,
+		HallCount:          room.HallCount,
+		BathroomCount:      room.BathroomCount,
+		KitchenCount:       room.KitchenCount,
 		AreaSize:           room.AreaSize,
 		Orientation:        room.Orientation,
 		DecorationLevel:    room.DecorationLevel,

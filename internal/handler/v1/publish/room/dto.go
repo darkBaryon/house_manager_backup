@@ -17,6 +17,10 @@ type centralizedRequest struct {
 	FloorNo           int                         `json:"floor_no"`
 	RentMode          string                      `json:"rent_mode" binding:"required"`
 	LayoutText        string                      `json:"layout_text"`
+	RoomCount         *int                        `json:"room_count"`
+	HallCount         *int                        `json:"hall_count"`
+	BathroomCount     *int                        `json:"bathroom_count"`
+	KitchenCount      *int                        `json:"kitchen_count"`
 	AreaSize          int                         `json:"area_size"`
 	Orientation       string                      `json:"orientation"`
 	DecorationLevel   string                      `json:"decoration_level"`
@@ -42,6 +46,10 @@ func (r centralizedRequest) toCreateInput(projectID, buildingID, roomTypeID bson
 		FloorNo:           r.FloorNo,
 		RentMode:          r.RentMode,
 		LayoutText:        r.LayoutText,
+		RoomCount:         r.RoomCount,
+		HallCount:         r.HallCount,
+		BathroomCount:     r.BathroomCount,
+		KitchenCount:      r.KitchenCount,
 		AreaSize:          r.AreaSize,
 		Orientation:       r.Orientation,
 		DecorationLevel:   r.DecorationLevel,
@@ -68,6 +76,10 @@ func (r centralizedRequest) toUpdateInput(id bson.ObjectID, roomTypeID *bson.Obj
 		FloorNo:           input.FloorNo,
 		RentMode:          input.RentMode,
 		LayoutText:        input.LayoutText,
+		RoomCount:         input.RoomCount,
+		HallCount:         input.HallCount,
+		BathroomCount:     input.BathroomCount,
+		KitchenCount:      input.KitchenCount,
 		AreaSize:          input.AreaSize,
 		Orientation:       input.Orientation,
 		DecorationLevel:   input.DecorationLevel,
@@ -92,6 +104,10 @@ type decentralizedRequest struct {
 	FloorNo           int                         `json:"floor_no"`
 	RentMode          string                      `json:"rent_mode" binding:"required"`
 	LayoutText        string                      `json:"layout_text"`
+	RoomCount         *int                        `json:"room_count"`
+	HallCount         *int                        `json:"hall_count"`
+	BathroomCount     *int                        `json:"bathroom_count"`
+	KitchenCount      *int                        `json:"kitchen_count"`
 	AreaSize          int                         `json:"area_size"`
 	Orientation       string                      `json:"orientation"`
 	DecorationLevel   string                      `json:"decoration_level"`
@@ -115,6 +131,10 @@ func (r decentralizedRequest) toCreateInput(decentralizedID bson.ObjectID) publi
 		FloorNo:           r.FloorNo,
 		RentMode:          r.RentMode,
 		LayoutText:        r.LayoutText,
+		RoomCount:         r.RoomCount,
+		HallCount:         r.HallCount,
+		BathroomCount:     r.BathroomCount,
+		KitchenCount:      r.KitchenCount,
 		AreaSize:          r.AreaSize,
 		Orientation:       r.Orientation,
 		DecorationLevel:   r.DecorationLevel,
@@ -140,6 +160,10 @@ func (r decentralizedRequest) toUpdateInput(id bson.ObjectID) publishsvc.UpdateD
 		FloorNo:           input.FloorNo,
 		RentMode:          input.RentMode,
 		LayoutText:        input.LayoutText,
+		RoomCount:         input.RoomCount,
+		HallCount:         input.HallCount,
+		BathroomCount:     input.BathroomCount,
+		KitchenCount:      input.KitchenCount,
 		AreaSize:          input.AreaSize,
 		Orientation:       input.Orientation,
 		DecorationLevel:   input.DecorationLevel,
@@ -167,6 +191,10 @@ type centralizedResponse struct {
 	FloorNo           int                          `json:"floor_no"`
 	RentMode          string                       `json:"rent_mode"`
 	LayoutText        string                       `json:"layout_text"`
+	RoomCount         int                          `json:"room_count"`
+	HallCount         int                          `json:"hall_count"`
+	BathroomCount     int                          `json:"bathroom_count"`
+	KitchenCount      int                          `json:"kitchen_count"`
 	AreaSize          int                          `json:"area_size"`
 	Orientation       string                       `json:"orientation"`
 	DecorationLevel   string                       `json:"decoration_level"`
@@ -192,6 +220,10 @@ type decentralizedResponse struct {
 	FloorNo           int                          `json:"floor_no"`
 	RentMode          string                       `json:"rent_mode"`
 	LayoutText        string                       `json:"layout_text"`
+	RoomCount         int                          `json:"room_count"`
+	HallCount         int                          `json:"hall_count"`
+	BathroomCount     int                          `json:"bathroom_count"`
+	KitchenCount      int                          `json:"kitchen_count"`
 	AreaSize          int                          `json:"area_size"`
 	Orientation       string                       `json:"orientation"`
 	DecorationLevel   string                       `json:"decoration_level"`
@@ -222,6 +254,10 @@ func toCentralizedResponse(room *hmdmodel.HmdRoomCentralized) *centralizedRespon
 		FloorNo:            room.FloorNo,
 		RentMode:           string(room.RentMode),
 		LayoutText:         room.LayoutText,
+		RoomCount:          room.RoomCount,
+		HallCount:          room.HallCount,
+		BathroomCount:      room.BathroomCount,
+		KitchenCount:       room.KitchenCount,
 		AreaSize:           room.AreaSize,
 		Orientation:        string(room.Orientation),
 		DecorationLevel:    string(room.DecorationLevel),
@@ -262,6 +298,10 @@ func toDecentralizedResponse(room *hmdmodel.HmdRoomDecentralized) *decentralized
 		FloorNo:            room.FloorNo,
 		RentMode:           string(room.RentMode),
 		LayoutText:         room.LayoutText,
+		RoomCount:          room.RoomCount,
+		HallCount:          room.HallCount,
+		BathroomCount:      room.BathroomCount,
+		KitchenCount:       room.KitchenCount,
 		AreaSize:           room.AreaSize,
 		Orientation:        string(room.Orientation),
 		DecorationLevel:    string(room.DecorationLevel),

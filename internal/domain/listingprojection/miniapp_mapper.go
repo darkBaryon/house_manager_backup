@@ -15,6 +15,7 @@ func mapCentralizedMiniappListing(
 	roomType *hmdmodel.HmdRoomTypeCentralized,
 ) *hpdmodel.HpdMiniappListing {
 	layoutText := firstNonBlank(room.LayoutText, roomTypeLayoutText(roomType))
+	roomCount, hallCount, bathroomCount, kitchenCount := centralizedProjectionShape(room, roomType)
 	areaSize := firstPositiveInt(room.AreaSize, roomTypeAreaSize(roomType))
 	orientation := firstOrientation(room.Orientation, roomTypeOrientation(roomType))
 	paymentCycle := firstPaymentCycle(room.PaymentCycle, roomTypePaymentCycle(roomType))
@@ -37,6 +38,10 @@ func mapCentralizedMiniappListing(
 		Price:                   room.Rent,
 		PriceText:               priceText(room.Rent),
 		LayoutText:              layoutText,
+		RoomCount:               roomCount,
+		HallCount:               hallCount,
+		BathroomCount:           bathroomCount,
+		KitchenCount:            kitchenCount,
 		AreaSize:                areaSize,
 		Orientation:             orientation,
 		FloorText:               floorText(room.FloorNo),
@@ -73,6 +78,10 @@ func mapDecentralizedMiniappListing(
 		Price:                   room.Rent,
 		PriceText:               priceText(room.Rent),
 		LayoutText:              room.LayoutText,
+		RoomCount:               room.RoomCount,
+		HallCount:               room.HallCount,
+		BathroomCount:           room.BathroomCount,
+		KitchenCount:            room.KitchenCount,
 		AreaSize:                room.AreaSize,
 		Orientation:             room.Orientation,
 		FloorText:               floorText(room.FloorNo),
@@ -83,6 +92,34 @@ func mapDecentralizedMiniappListing(
 		Images:                  cloneImages(room.Images),
 		IsOnline:                hpdmodel.HpdMiniappOnlineStatus(listing.ListingStatus, room.RoomStatus),
 	}
+}
+
+func centralizedProjectionShape(room *hmdmodel.HmdRoomCentralized, roomType *hmdmodel.HmdRoomTypeCentralized) (int, int, int, int) {
+	if roomType == nil {
+		return layoutCountFromRoom(room, func(r *hmdmodel.HmdRoomCentralized) int { return r.RoomCount }),
+			layoutCountFromRoom(room, func(r *hmdmodel.HmdRoomCentralized) int { return r.HallCount }),
+			layoutCountFromRoom(room, func(r *hmdmodel.HmdRoomCentralized) int { return r.BathroomCount }),
+			layoutCountFromRoom(room, func(r *hmdmodel.HmdRoomCentralized) int { return r.KitchenCount })
+	}
+	return layoutCountWithFallback(room, roomType.RoomCount, func(r *hmdmodel.HmdRoomCentralized) int { return r.RoomCount }),
+		layoutCountWithFallback(room, roomType.HallCount, func(r *hmdmodel.HmdRoomCentralized) int { return r.HallCount }),
+		layoutCountWithFallback(room, roomType.BathroomCount, func(r *hmdmodel.HmdRoomCentralized) int { return r.BathroomCount }),
+		layoutCountWithFallback(room, roomType.KitchenCount, func(r *hmdmodel.HmdRoomCentralized) int { return r.KitchenCount })
+}
+
+func layoutCountFromRoom(room *hmdmodel.HmdRoomCentralized, pick func(*hmdmodel.HmdRoomCentralized) int) int {
+	if room == nil {
+		return hmdmodel.UnknownLayoutCount
+	}
+	return pick(room)
+}
+
+func layoutCountWithFallback(room *hmdmodel.HmdRoomCentralized, fallback int, pick func(*hmdmodel.HmdRoomCentralized) int) int {
+	value := layoutCountFromRoom(room, pick)
+	if value != hmdmodel.UnknownLayoutCount {
+		return value
+	}
+	return fallback
 }
 
 func roomTypeLayoutText(roomType *hmdmodel.HmdRoomTypeCentralized) string {
