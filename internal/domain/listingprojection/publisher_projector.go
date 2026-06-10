@@ -3,6 +3,7 @@ package listingprojection
 import (
 	"context"
 	"fmt"
+	"house-manager/internal/domain/hmd"
 	"log/slog"
 
 	hmdmodel "house-manager/internal/model/hmd"
@@ -176,4 +177,17 @@ func (p *PublisherProjector) findRootOwner(ctx context.Context, rootType hpdmode
 		return nil, fmt.Errorf("hpd root scope relation not found")
 	}
 	return owner, nil
+}
+
+// Refresh 实现 projector 窄接口：声明本端 scope→实体方法的绑定，
+// 路由与未知 scope 兜底由包内共享的 dispatchRefresh 完成。
+func (p *PublisherProjector) Refresh(ctx context.Context, change hmd.HmdChange) error {
+	return dispatchRefresh(ctx, "publisher", change, refreshFuncs{
+		CentralizedProject:     p.RefreshCentralizedProject,
+		Building:               p.RefreshBuilding,
+		RoomTypeCentralized:    p.RefreshRoomTypeCentralized,
+		CentralizedRoom:        p.RefreshCentralizedRoom,
+		DecentralizedCommunity: p.RefreshDecentralizedCommunity,
+		DecentralizedRoom:      p.RefreshDecentralizedRoom,
+	})
 }

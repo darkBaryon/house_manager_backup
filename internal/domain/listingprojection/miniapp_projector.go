@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"house-manager/internal/domain/hmd"
 	hmdmodel "house-manager/internal/model/hmd"
 	hpdmodel "house-manager/internal/model/hpd"
 	"log/slog"
@@ -147,4 +148,17 @@ func (p *MiniappProjector) RefreshDecentralizedRoom(ctx context.Context, roomID 
 	}
 	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_decentralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
+}
+
+// Refresh 实现 projector 窄接口：声明本端 scope→实体方法的绑定，
+// 路由与未知 scope 兜底由包内共享的 dispatchRefresh 完成。
+func (p *MiniappProjector) Refresh(ctx context.Context, change hmd.HmdChange) error {
+	return dispatchRefresh(ctx, "miniapp", change, refreshFuncs{
+		CentralizedProject:     p.RefreshCentralizedProject,
+		Building:               p.RefreshBuilding,
+		RoomTypeCentralized:    p.RefreshRoomTypeCentralized,
+		CentralizedRoom:        p.RefreshCentralizedRoom,
+		DecentralizedCommunity: p.RefreshDecentralizedCommunity,
+		DecentralizedRoom:      p.RefreshDecentralizedRoom,
+	})
 }
