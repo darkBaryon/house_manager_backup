@@ -42,7 +42,7 @@ func TestDispatchRefreshCoversAllProjectionScopes(t *testing.T) {
 	for _, scope := range hmd.AllProjectionScopes {
 		t.Run(string(scope), func(t *testing.T) {
 			var calls []string
-			err := dispatchRefresh(context.Background(), "miniapp",
+			err := dispatchRefresh(context.Background(), "listingprojection.miniapp.refresh.unhandled_scope",
 				hmd.HmdChange{Scope: scope, EntityID: bson.NewObjectID()}, recordingFuncs(&calls))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -63,7 +63,7 @@ func TestDispatchRefreshUnknownScope(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
 	var calls []string
-	err := dispatchRefresh(context.Background(), "miniapp",
+	err := dispatchRefresh(context.Background(), "listingprojection.miniapp.refresh.unhandled_scope",
 		hmd.HmdChange{Scope: "bogus_scope", EntityID: bson.NewObjectID()}, recordingFuncs(&calls))
 	if err != nil {
 		t.Fatalf("unknown scope should return nil (semantic parity with old switch), got %v", err)

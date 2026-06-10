@@ -23,8 +23,8 @@ type refreshFuncs struct {
 
 // dispatchRefresh 按 change.Scope 路由到对应实体刷新函数。
 // 未知 scope 返回 nil：与旧 Apply switch（无 default）的静默跳过语义保真，
-// 仅补充 Warn 可观测性（事件 listingprojection.<terminal>.refresh.unhandled_scope）。
-func dispatchRefresh(ctx context.Context, terminal string, change hmd.HmdChange, funcs refreshFuncs) error {
+// 仅补充 Warn 可观测性；unhandledEvent 由各 projector 传入完整字面量，保证事件名可检索。
+func dispatchRefresh(ctx context.Context, unhandledEvent string, change hmd.HmdChange, funcs refreshFuncs) error {
 	switch change.Scope {
 	case hmd.HmdScopeCentralizedProject:
 		return funcs.CentralizedProject(ctx, change.EntityID)
@@ -39,7 +39,7 @@ func dispatchRefresh(ctx context.Context, terminal string, change hmd.HmdChange,
 	case hmd.HmdScopeDecentralizedRoom:
 		return funcs.DecentralizedRoom(ctx, change.EntityID)
 	default:
-		slog.WarnContext(ctx, "listingprojection."+terminal+".refresh.unhandled_scope", "scope", change.Scope, "entity_id", change.EntityID.Hex())
+		slog.WarnContext(ctx, unhandledEvent, "scope", change.Scope, "entity_id", change.EntityID.Hex())
 		return nil
 	}
 }
