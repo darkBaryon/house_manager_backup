@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
 	hpdmodel "house-manager/internal/model/hpd"
+	"log/slog"
 )
 
 type MiniappProjector struct {
@@ -45,7 +46,7 @@ func (p *MiniappProjector) RefreshByListing(ctx context.Context, listing *hpdmod
 	if listing == nil {
 		return fmt.Errorf("hpd listing is nil")
 	}
-	logProjectionInfo(ctx, "listingprojection.miniapp.refresh_by_listing.start", "listing_id", listing.ID.Hex(), "source_type", listing.SourceType, "source_id", listing.SourceID.Hex())
+	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_by_listing.start", "listing_id", listing.ID.Hex(), "source_type", listing.SourceType, "source_id", listing.SourceID.Hex())
 	switch listing.SourceType {
 	case hpdmodel.HpdSourceTypeCentralizedRoom:
 		return p.RefreshCentralizedRoom(ctx, listing.SourceID)
@@ -57,7 +58,7 @@ func (p *MiniappProjector) RefreshByListing(ctx context.Context, listing *hpdmod
 }
 
 func (p *MiniappProjector) RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
-	logProjectionInfo(ctx, "listingprojection.miniapp.refresh_centralized_room.start", "room_id", roomID.Hex())
+	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_centralized_room.start", "room_id", roomID.Hex())
 	room, err := p.hmdRoomCentralizedRepo.FindByID(ctx, roomID)
 	if err != nil {
 		return fmt.Errorf("find hmd centralized room: %w", err)
@@ -106,12 +107,12 @@ func (p *MiniappProjector) RefreshCentralizedRoom(ctx context.Context, roomID bs
 	if _, err := p.hpdMiniappListingRepo.UpsertByListingID(ctx, miniappListing); err != nil {
 		return fmt.Errorf("upsert hpd miniapp listing: %w", err)
 	}
-	logProjectionInfo(ctx, "listingprojection.miniapp.refresh_centralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
+	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_centralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
 }
 
 func (p *MiniappProjector) RefreshDecentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
-	logProjectionInfo(ctx, "listingprojection.miniapp.refresh_decentralized_room.start", "room_id", roomID.Hex())
+	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_decentralized_room.start", "room_id", roomID.Hex())
 	room, err := p.hmdRoomDecentralizedRepo.FindByID(ctx, roomID)
 	if err != nil {
 		return fmt.Errorf("find hmd decentralized room: %w", err)
@@ -144,6 +145,6 @@ func (p *MiniappProjector) RefreshDecentralizedRoom(ctx context.Context, roomID 
 	if _, err := p.hpdMiniappListingRepo.UpsertByListingID(ctx, miniappListing); err != nil {
 		return fmt.Errorf("upsert hpd miniapp listing: %w", err)
 	}
-	logProjectionInfo(ctx, "listingprojection.miniapp.refresh_decentralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
+	slog.InfoContext(ctx, "listingprojection.miniapp.refresh_decentralized_room.success", "room_id", roomID.Hex(), "listing_id", listing.ID.Hex())
 	return nil
 }
