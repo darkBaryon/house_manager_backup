@@ -5,7 +5,7 @@ import (
 	"fmt"
 	authmodel "house-manager/internal/model/auth"
 	miniappauthrepo "house-manager/internal/repository/miniapp_auth"
-	miniapplog "house-manager/internal/service/miniapp/logging"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/errcode"
 	"log/slog"
 	"time"
@@ -39,51 +39,44 @@ func (s *IdentityService) WechatLogin(ctx context.Context, code, loginIP string)
 	if code == "" {
 		return bson.NilObjectID, errcode.InvalidParam.WithError(fmt.Errorf("code is required"))
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_login.start", miniapplog.Attrs(ctx,
-		"login_ip", loginIP,
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_login.start", "login_ip", loginIP)
 
 	openID, _, err := s.wechatClient.ExchangeLoginCode(ctx, code)
 	if err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", miniapplog.Attrs(ctx,
-			"step", "exchange_login_code",
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", "step", "exchange_login_code",
 			"login_ip", loginIP,
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.InternalError.WithError(err)
 	}
 
 	authRecord, err := s.authRepo.FindByOpenID(ctx, authmodel.AuthProviderWechat, openID)
 	if err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", miniapplog.Attrs(ctx,
-			"step", "find_auth_by_openid",
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", "step", "find_auth_by_openid",
 			"login_ip", loginIP,
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
 	}
 	if authRecord == nil {
-		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_login.failed", miniapplog.Attrs(ctx,
-			"step", "find_auth_by_openid",
+		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_login.failed", "step", "find_auth_by_openid",
 			"login_ip", loginIP,
 			"reason", "wechat account is not registered",
-		)...)
+		)
 		return bson.NilObjectID, errcode.Unauthorized.WithError(fmt.Errorf("wechat account is not registered"))
 	}
 
 	if err := s.authRepo.TouchLastLogin(ctx, authRecord.ID, time.Now().Unix(), loginIP); err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", miniapplog.Attrs(ctx,
-			"step", "touch_last_login",
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_login.failed", "step", "touch_last_login",
 			"user_id", authRecord.UserID.Hex(),
 			"login_ip", loginIP,
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_login.success", miniapplog.Attrs(ctx,
-		"user_id", authRecord.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_login.success", "user_id", authRecord.UserID.Hex(),
 		"login_ip", loginIP,
-	)...)
+	)
 	return authRecord.UserID, nil
 }
 
@@ -94,74 +87,64 @@ func (s *IdentityService) WechatRegister(ctx context.Context, code, phoneCode, l
 	if phoneCode == "" {
 		return bson.NilObjectID, errcode.InvalidParam.WithError(fmt.Errorf("phone code is required"))
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.start", miniapplog.Attrs(ctx,
-		"login_ip", loginIP,
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.start", "login_ip", loginIP)
 
 	openID, unionID, err := s.wechatClient.ExchangeLoginCode(ctx, code)
 	if err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-			"step", "exchange_login_code",
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "exchange_login_code",
 			"login_ip", loginIP,
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.InternalError.WithError(err)
 	}
 	phone, err := s.wechatClient.ExchangePhoneCode(ctx, phoneCode)
 	if err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-			"step", "exchange_phone_code",
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "exchange_phone_code",
 			"login_ip", loginIP,
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.InternalError.WithError(err)
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.phone_resolved", miniapplog.Attrs(ctx,
-		"login_ip", loginIP,
-		"phone", miniapplog.MaskPhone(phone),
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.phone_resolved", "login_ip", loginIP,
+		"phone", applog.Phone(phone),
 		"union_id_present", unionID != "",
-	)...)
+	)
 
 	now := time.Now().Unix()
 
 	wechatAuth, err := s.authRepo.FindByOpenID(ctx, authmodel.AuthProviderWechat, openID)
 	if err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-			"step", "find_auth_by_openid",
-			"phone", miniapplog.MaskPhone(phone),
+		slog.ErrorContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "find_auth_by_openid",
+			"phone", applog.Phone(phone),
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, errcode.DatabaseError.WithError(err)
 	}
 	if wechatAuth != nil {
-		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.reuse_openid_binding", miniapplog.Attrs(ctx,
-			"user_id", wechatAuth.UserID.Hex(),
-			"phone", miniapplog.MaskPhone(phone),
-		)...)
+		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.reuse_openid_binding", "user_id", wechatAuth.UserID.Hex(),
+			"phone", applog.Phone(phone),
+		)
 		if err := s.ensureAuthPhoneMatches(ctx, wechatAuth, phone); err != nil {
-			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-				"step", "ensure_auth_phone_matches",
+			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "ensure_auth_phone_matches",
 				"user_id", wechatAuth.UserID.Hex(),
-				"phone", miniapplog.MaskPhone(phone),
+				"phone", applog.Phone(phone),
 				"error", err,
-			)...)
+			)
 			return bson.NilObjectID, err
 		}
 		userID, err := s.touchWechatAuth(ctx, wechatAuth, now, loginIP)
 		if err != nil {
-			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-				"step", "touch_wechat_auth",
+			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "touch_wechat_auth",
 				"user_id", wechatAuth.UserID.Hex(),
-				"phone", miniapplog.MaskPhone(phone),
+				"phone", applog.Phone(phone),
 				"error", err,
-			)...)
+			)
 			return bson.NilObjectID, err
 		}
-		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", miniapplog.Attrs(ctx,
-			"user_id", userID.Hex(),
-			"phone", miniapplog.MaskPhone(phone),
+		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", "user_id", userID.Hex(),
+			"phone", applog.Phone(phone),
 			"path", "existing_openid_binding",
-		)...)
+		)
 		return userID, nil
 	}
 
@@ -170,66 +153,58 @@ func (s *IdentityService) WechatRegister(ctx context.Context, code, phoneCode, l
 		return bson.NilObjectID, err
 	}
 	if unionAuth != nil {
-		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.reuse_unionid_binding", miniapplog.Attrs(ctx,
-			"user_id", unionAuth.UserID.Hex(),
-			"phone", miniapplog.MaskPhone(phone),
-		)...)
+		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.reuse_unionid_binding", "user_id", unionAuth.UserID.Hex(),
+			"phone", applog.Phone(phone),
+		)
 		if err := s.ensureAuthPhoneMatches(ctx, unionAuth, phone); err != nil {
-			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-				"step", "ensure_auth_phone_matches",
+			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "ensure_auth_phone_matches",
 				"user_id", unionAuth.UserID.Hex(),
-				"phone", miniapplog.MaskPhone(phone),
+				"phone", applog.Phone(phone),
 				"error", err,
-			)...)
+			)
 			return bson.NilObjectID, err
 		}
 		userID, err := s.updateWechatAuthOpenID(ctx, unionAuth, phone, openID, unionID, now, loginIP)
 		if err != nil {
-			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-				"step", "update_wechat_auth_openid",
+			slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "update_wechat_auth_openid",
 				"user_id", unionAuth.UserID.Hex(),
-				"phone", miniapplog.MaskPhone(phone),
+				"phone", applog.Phone(phone),
 				"error", err,
-			)...)
+			)
 			return bson.NilObjectID, err
 		}
-		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", miniapplog.Attrs(ctx,
-			"user_id", userID.Hex(),
-			"phone", miniapplog.MaskPhone(phone),
+		slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", "user_id", userID.Hex(),
+			"phone", applog.Phone(phone),
 			"path", "existing_unionid_binding",
-		)...)
+		)
 		return userID, nil
 	}
 
 	userID, err := s.findOrCreateUserByPhone(ctx, phone)
 	if err != nil {
-		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-			"step", "find_or_create_user_by_phone",
-			"phone", miniapplog.MaskPhone(phone),
+		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "find_or_create_user_by_phone",
+			"phone", applog.Phone(phone),
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, err
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.user_resolved", miniapplog.Attrs(ctx,
-		"user_id", userID.Hex(),
-		"phone", miniapplog.MaskPhone(phone),
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.user_resolved", "user_id", userID.Hex(),
+		"phone", applog.Phone(phone),
+	)
 
 	boundUserID, err := s.ensureWechatBound(ctx, userID, phone, openID, unionID, now, loginIP)
 	if err != nil {
-		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", miniapplog.Attrs(ctx,
-			"step", "ensure_wechat_bound",
+		slog.WarnContext(ctx, "miniapp.auth.identity.wechat_register.failed", "step", "ensure_wechat_bound",
 			"user_id", userID.Hex(),
-			"phone", miniapplog.MaskPhone(phone),
+			"phone", applog.Phone(phone),
 			"error", err,
-		)...)
+		)
 		return bson.NilObjectID, err
 	}
-	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", miniapplog.Attrs(ctx,
-		"user_id", boundUserID.Hex(),
-		"phone", miniapplog.MaskPhone(phone),
+	slog.InfoContext(ctx, "miniapp.auth.identity.wechat_register.success", "user_id", boundUserID.Hex(),
+		"phone", applog.Phone(phone),
 		"path", "new_or_existing_phone_user",
-	)...)
+	)
 	return boundUserID, nil
 }
 

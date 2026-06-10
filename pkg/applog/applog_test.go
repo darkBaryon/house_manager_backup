@@ -148,6 +148,28 @@ func TestContextHandlerWithAttrsChain(t *testing.T) {
 	}
 }
 
+// TestContextHandlerWithGroupChain 验证 WithGroup 透传后注入仍生效（代码评审 #1 建议 2）。
+func TestContextHandlerWithGroupChain(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(ContextHandler(slog.NewJSONHandler(&buf, nil))).WithGroup("biz")
+
+	ctx := requestlog.ContextWithRequestID(context.Background(), "req-789")
+	logger.InfoContext(ctx, "evt", "k", "v")
+
+	entry := decodeLine(t, &buf)
+	biz, ok := entry["biz"].(map[string]any)
+	if !ok {
+		t.Fatalf("biz group missing: %v", entry)
+	}
+	if biz["k"] != "v" {
+		t.Errorf("grouped business attr lost: %v", biz)
+	}
+	// 注入字段随当前实现落在已打开的 group 内（见 ContextHandler 注释），断言注入未丢失
+	if biz["request_id"] != "req-789" {
+		t.Errorf("injection lost after WithGroup: %v", entry)
+	}
+}
+
 func setDefault(t *testing.T, opts *slog.HandlerOptions) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer

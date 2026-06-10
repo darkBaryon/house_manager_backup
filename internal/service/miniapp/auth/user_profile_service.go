@@ -5,7 +5,7 @@ import (
 	"fmt"
 	authmodel "house-manager/internal/model/auth"
 	miniappauthrepo "house-manager/internal/repository/miniapp_auth"
-	miniapplog "house-manager/internal/service/miniapp/logging"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/errcode"
 	"log/slog"
 	"time"
@@ -30,9 +30,7 @@ func (s *UserProfileService) CreateUserProfile(ctx context.Context, phone string
 	if phone == "" {
 		return nil, errcode.InvalidParam.WithError(fmt.Errorf("phone is required"))
 	}
-	slog.InfoContext(ctx, "miniapp.auth.user_profile.create.start", miniapplog.Attrs(ctx,
-		"phone", miniapplog.MaskPhone(phone),
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.user_profile.create.start", "phone", applog.Phone(phone))
 
 	now := time.Now().Unix()
 	user := &authmodel.User{
@@ -41,28 +39,25 @@ func (s *UserProfileService) CreateUserProfile(ctx context.Context, phone string
 		LastActiveAt:  now,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.user_profile.create.failed", miniapplog.Attrs(ctx,
-			"phone", miniapplog.MaskPhone(phone),
+		slog.ErrorContext(ctx, "miniapp.auth.user_profile.create.failed", "phone", applog.Phone(phone),
 			"step", "create_user",
 			"error", err,
-		)...)
+		)
 		return nil, errcode.DatabaseError.WithError(err)
 	}
 
 	profile := &authmodel.UserProfileExt{UserID: user.ID}
 	if err := s.profileExtRepo.Create(ctx, profile); err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.user_profile.create.failed", miniapplog.Attrs(ctx,
-			"phone", miniapplog.MaskPhone(phone),
+		slog.ErrorContext(ctx, "miniapp.auth.user_profile.create.failed", "phone", applog.Phone(phone),
 			"user_id", user.ID.Hex(),
 			"step", "create_profile_ext",
 			"error", err,
-		)...)
+		)
 		return nil, errcode.DatabaseError.WithError(err)
 	}
-	slog.InfoContext(ctx, "miniapp.auth.user_profile.create.success", miniapplog.Attrs(ctx,
-		"phone", miniapplog.MaskPhone(phone),
+	slog.InfoContext(ctx, "miniapp.auth.user_profile.create.success", "phone", applog.Phone(phone),
 		"user_id", user.ID.Hex(),
-	)...)
+	)
 	return user, nil
 }
 
@@ -70,19 +65,14 @@ func (s *UserProfileService) EnsureUserProfileExt(ctx context.Context, userID bs
 	if userID.IsZero() {
 		return errcode.InvalidParam.WithError(fmt.Errorf("userID is required"))
 	}
-	slog.InfoContext(ctx, "miniapp.auth.user_profile.ensure_ext.start", miniapplog.Attrs(ctx,
-		"user_id", userID.Hex(),
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.user_profile.ensure_ext.start", "user_id", userID.Hex())
 	if _, err := s.profileExtRepo.UpsertByUserID(ctx, userID, bson.M{}); err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.user_profile.ensure_ext.failed", miniapplog.Attrs(ctx,
-			"user_id", userID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.auth.user_profile.ensure_ext.failed", "user_id", userID.Hex(),
 			"error", err,
-		)...)
+		)
 		return errcode.DatabaseError.WithError(err)
 	}
-	slog.InfoContext(ctx, "miniapp.auth.user_profile.ensure_ext.success", miniapplog.Attrs(ctx,
-		"user_id", userID.Hex(),
-	)...)
+	slog.InfoContext(ctx, "miniapp.auth.user_profile.ensure_ext.success", "user_id", userID.Hex())
 	return nil
 }
 
@@ -91,10 +81,9 @@ func (s *UserProfileService) TouchUserLastActive(ctx context.Context, userID bso
 		return errcode.InvalidParam.WithError(fmt.Errorf("userID is required"))
 	}
 	if err := s.userRepo.TouchLastActive(ctx, userID, time.Now().Unix()); err != nil {
-		slog.ErrorContext(ctx, "miniapp.auth.user_profile.touch_last_active.failed", miniapplog.Attrs(ctx,
-			"user_id", userID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.auth.user_profile.touch_last_active.failed", "user_id", userID.Hex(),
 			"error", err,
-		)...)
+		)
 		return errcode.DatabaseError.WithError(err)
 	}
 	return nil
