@@ -7,6 +7,7 @@ import (
 
 	hmdmodel "house-manager/internal/model/hmd"
 	publishsvc "house-manager/internal/service/publish"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/requestlog"
 	"house-manager/pkg/response"
@@ -209,7 +210,7 @@ func appendFieldSummary(fields map[string]any, key string, value reflect.Value) 
 			return
 		}
 		if strings.Contains(key, "phone") {
-			fields[key] = middlewareMaskPhone(text)
+			fields[key] = applog.MaskPhone(text)
 			return
 		}
 		fields[key] = truncateText(text, 64)
@@ -235,11 +236,4 @@ func truncateText(value string, max int) string {
 		return value
 	}
 	return value[:max] + "..."
-}
-
-func middlewareMaskPhone(phone string) string {
-	if len(phone) < 7 {
-		return phone
-	}
-	return phone[:3] + "****" + phone[len(phone)-4:]
 }

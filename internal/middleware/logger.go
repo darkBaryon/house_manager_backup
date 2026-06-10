@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"house-manager/pkg/applog"
 	"house-manager/pkg/requestlog"
 	"house-manager/pkg/session"
 
@@ -51,9 +52,7 @@ func Logger() gin.HandlerFunc {
 			attrs = append(attrs, "code", appCode)
 		}
 		if principal, ok := principalFromContext(c); ok {
-			attrs = append(attrs,
-				"principal", compactPrincipal(principal),
-			)
+			attrs = append(attrs, applog.PrincipalGroup(principal))
 		}
 
 		switch {
@@ -107,25 +106,4 @@ func requestIDFromHeader(value string) string {
 		return value
 	}
 	return ""
-}
-
-func maskPhone(phone string) string {
-	phone = strings.TrimSpace(phone)
-	if len(phone) < 7 {
-		return phone
-	}
-	return phone[:3] + "****" + phone[len(phone)-4:]
-}
-
-func compactPrincipal(principal session.Principal) string {
-	parts := []string{
-		strings.TrimSpace(principal.Terminal),
-		strings.TrimSpace(principal.PrincipalType),
-	}
-	if phone := maskPhone(principal.Phone); phone != "" {
-		parts = append(parts, phone)
-	} else if principal.PrincipalID != "" {
-		parts = append(parts, principal.PrincipalID)
-	}
-	return strings.Join(parts, ":")
 }

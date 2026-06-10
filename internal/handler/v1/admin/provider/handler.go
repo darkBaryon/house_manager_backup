@@ -8,6 +8,7 @@ import (
 	"house-manager/internal/handler"
 	"house-manager/internal/middleware"
 	providersvc "house-manager/internal/service/admin/provider"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/requestlog"
 	"house-manager/pkg/response"
@@ -56,7 +57,7 @@ func (h *Handler) Create(c *gin.Context) {
 		response.Err(c, errcode.InvalidParam.WithError(fmt.Errorf("请求参数格式不正确")))
 		return
 	}
-	requestlog.AddField(c, "phone", maskPhone(req.Phone))
+	requestlog.AddField(c, "phone", applog.MaskPhone(req.Phone))
 
 	result, err := h.service.Create(c.Request.Context(), providersvc.CreateInput{
 		OperatorStaffID: principal.PrincipalID,
@@ -118,7 +119,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	requestlog.AddField(c, "provider_id", req.ProviderID)
-	requestlog.AddField(c, "phone", maskPhone(req.Phone))
+	requestlog.AddField(c, "phone", applog.MaskPhone(req.Phone))
 
 	result, err := h.service.Update(c.Request.Context(), providersvc.UpdateInput{
 		OperatorStaffID: principal.PrincipalID,
@@ -159,13 +160,6 @@ func (h *Handler) Disable(c *gin.Context) {
 
 var _ handler.RouteRegistrar = (*Handler)(nil)
 var _ Service = (*providersvc.Service)(nil)
-
-func maskPhone(phone string) string {
-	if len(phone) < 7 {
-		return phone
-	}
-	return phone[:3] + "****" + phone[len(phone)-4:]
-}
 
 func bindOptionalJSON(c *gin.Context, dst any) error {
 	if c.Request.Body == nil || c.Request.ContentLength == 0 {
