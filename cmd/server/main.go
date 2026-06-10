@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"house-manager/internal/config"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/configpath"
 	"house-manager/pkg/logger"
 	"house-manager/wire"
@@ -38,7 +39,7 @@ func main() {
 		Service:   cfg.Log.Service,
 		Env:       cfg.Log.Env,
 		Fields:    cfg.Log.Fields,
-	}, os.Stdout); err != nil {
+	}, os.Stdout, applog.ContextHandler); err != nil {
 		slog.Error("failed to initialize logger", "error", err)
 		os.Exit(1)
 	}

@@ -51,6 +51,6 @@ ai_chat:
 log:
   level: "info"
   format: "json"
-  add_source: false
+  add_source: true
   service: "house-manager"
   env: "test"
