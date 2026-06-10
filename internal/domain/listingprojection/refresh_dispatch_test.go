@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -73,6 +74,25 @@ func TestDispatchRefreshUnknownScope(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "listingprojection.miniapp.refresh.unhandled_scope") {
 		t.Fatalf("expected unhandled_scope warn, got log: %s", buf.String())
+	}
+}
+
+// TestProjectorBindingsComplete 反射断言三个 projector 的 bindings() 每个字段
+// 均非 nil（代码评审 #1 阻塞 1：keyed 字面量漏绑定可编译、运行时才 panic，
+// 此护栏与共享 dispatch 的穷举测试共同覆盖「scope×projector」两个轴）。
+func TestProjectorBindingsComplete(t *testing.T) {
+	cases := map[string]refreshFuncs{
+		"miniapp":   (&MiniappProjector{}).bindings(),
+		"publisher": (&PublisherProjector{}).bindings(),
+		"admin":     (&AdminProjector{}).bindings(),
+	}
+	for name, funcs := range cases {
+		v := reflect.ValueOf(funcs)
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).IsNil() {
+				t.Errorf("%s projector: binding %s is nil", name, v.Type().Field(i).Name)
+			}
+		}
 	}
 }
 

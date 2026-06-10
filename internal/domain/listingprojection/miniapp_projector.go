@@ -153,12 +153,18 @@ func (p *MiniappProjector) RefreshDecentralizedRoom(ctx context.Context, roomID 
 // Refresh 实现 projector 窄接口：声明本端 scope→实体方法的绑定，
 // 路由与未知 scope 兜底由包内共享的 dispatchRefresh 完成。
 func (p *MiniappProjector) Refresh(ctx context.Context, change hmd.HmdChange) error {
-	return dispatchRefresh(ctx, "listingprojection.miniapp.refresh.unhandled_scope", change, refreshFuncs{
+	return dispatchRefresh(ctx, "listingprojection.miniapp.refresh.unhandled_scope", change, p.bindings())
+}
+
+// bindings 声明本端 scope→实体方法绑定；完整性由 TestProjectorBindingsComplete
+// 反射护栏保证（keyed 字面量漏绑定可编译、运行时才暴露，故须测试兜底）。
+func (p *MiniappProjector) bindings() refreshFuncs {
+	return refreshFuncs{
 		CentralizedProject:     p.RefreshCentralizedProject,
 		Building:               p.RefreshBuilding,
 		RoomTypeCentralized:    p.RefreshRoomTypeCentralized,
 		CentralizedRoom:        p.RefreshCentralizedRoom,
 		DecentralizedCommunity: p.RefreshDecentralizedCommunity,
 		DecentralizedRoom:      p.RefreshDecentralizedRoom,
-	})
+	}
 }
