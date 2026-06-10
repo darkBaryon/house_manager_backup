@@ -26,3 +26,10 @@ bin/
 
 # Local notes
 .local-notes/
+
+# Claude Code local config and notes
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.claude.json
+.claude.json.backup
