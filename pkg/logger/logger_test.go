@@ -143,14 +143,19 @@ func TestNew_TextOutput(t *testing.T) {
 	mustContain := []string{
 		"DEBUG",
 		"hello",
-		"service=user-api",
-		"env=test",
 		"user_id=123",
 	}
 
 	for _, s := range mustContain {
 		if !strings.Contains(out, s) {
 			t.Fatalf("output %q does not contain %q", out, s)
+		}
+	}
+
+	// 进程级常量字段在本地 text 模式不渲染（展示层约定，JSON 模式仍输出）
+	for _, s := range []string{"service=", "env="} {
+		if strings.Contains(out, s) {
+			t.Fatalf("output %q should not contain process-level constant %q", out, s)
 		}
 	}
 }
