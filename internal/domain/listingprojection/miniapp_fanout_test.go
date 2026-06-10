@@ -84,10 +84,6 @@ func (f *fanoutHpdListingRepo) FindByID(ctx context.Context, id bson.ObjectID) (
 	return nil, nil
 }
 
-func (f *fanoutHpdListingRepo) FindBySource(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID) (*hpdmodel.HpdListing, error) {
-	return nil, nil
-}
-
 func (f *fanoutHpdListingRepo) UpsertBySource(ctx context.Context, entity *hpdmodel.HpdListing) (*hpdmodel.HpdListing, error) {
 	f.upsertedSources = append(f.upsertedSources, entity.SourceID)
 	return &hpdmodel.HpdListing{
@@ -97,14 +93,6 @@ func (f *fanoutHpdListingRepo) UpsertBySource(ctx context.Context, entity *hpdmo
 		AssetMode:     entity.AssetMode,
 		ListingStatus: hpdmodel.HpdListingStatusPublished,
 	}, nil
-}
-
-func (f *fanoutHpdListingRepo) UpdateLifecycleFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
-	return nil
-}
-
-func (f *fanoutHpdListingRepo) UpdateStatus(ctx context.Context, id bson.ObjectID, listingStatus hpdmodel.HpdListingStatus) error {
-	return nil
 }
 
 type fanoutMiniappListingRepo struct {

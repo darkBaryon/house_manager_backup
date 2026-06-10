@@ -48,21 +48,6 @@ func NewAdminProjector(
 	}
 }
 
-func (p *AdminProjector) RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error {
-	if listing == nil {
-		return fmt.Errorf("hpd listing is nil")
-	}
-	slog.InfoContext(ctx, "listingprojection.admin.refresh_by_listing.start", "listing_id", listing.ID.Hex(), "source_type", listing.SourceType, "source_id", listing.SourceID.Hex())
-	switch listing.SourceType {
-	case hpdmodel.HpdSourceTypeCentralizedRoom:
-		return p.RefreshCentralizedRoom(ctx, listing.SourceID)
-	case hpdmodel.HpdSourceTypeDecentralizedRoom:
-		return p.RefreshDecentralizedRoom(ctx, listing.SourceID)
-	default:
-		return fmt.Errorf("unsupported hpd listing source type: %s", listing.SourceType)
-	}
-}
-
 func (p *AdminProjector) RefreshCentralizedRoom(ctx context.Context, roomID bson.ObjectID) error {
 	slog.InfoContext(ctx, "listingprojection.admin.refresh_centralized_room.start", "room_id", roomID.Hex())
 	room, err := p.hmdRoomCentralizedRepo.FindByID(ctx, roomID)

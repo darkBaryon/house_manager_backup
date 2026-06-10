@@ -85,30 +85,6 @@ func (r *ListingRepository) UpsertBySource(ctx context.Context, entity *hpdmodel
 	return r.FindBySource(ctx, entity.SourceType, entity.SourceID)
 }
 
-func (r *ListingRepository) UpdateLifecycleFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
-	if id.IsZero() {
-		return fmt.Errorf("update hpd listing lifecycle fields: id is required")
-	}
-	safeFields, err := pickAllowedFields(fields, listingLifecycleFields)
-	if err != nil {
-		return fmt.Errorf("update hpd listing lifecycle fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd listing lifecycle fields: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
-}
-
-func (r *ListingRepository) UpdateStatus(ctx context.Context, id bson.ObjectID, listingStatus hpdmodel.HpdListingStatus) error {
-	if id.IsZero() {
-		return fmt.Errorf("update hpd listing status: id is required")
-	}
-	if listingStatus == hpdmodel.HpdListingStatusUnspecified || !listingStatus.Valid() {
-		return fmt.Errorf("update hpd listing status: listingStatus is invalid")
-	}
-	return r.UpdateFieldsByID(ctx, id, listingStatusUpdateFields(listingStatus))
-}
-
 func compactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
 	compacted := make([]bson.ObjectID, 0, len(ids))
 	seen := make(map[bson.ObjectID]struct{}, len(ids))

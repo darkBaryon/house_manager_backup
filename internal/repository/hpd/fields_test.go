@@ -21,24 +21,8 @@ func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
 	}
 }
 
-func TestListingUpdateLifecycleRejectsIdentityField(t *testing.T) {
-	repo := &ListingRepository{}
-	err := repo.UpdateLifecycleFields(context.Background(), bson.NewObjectID(), bson.M{"source_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "source_id") {
-		t.Fatalf("expected source_id to be rejected, got %v", err)
-	}
-}
-
 func testIntPtr(value int) *int {
 	return &value
-}
-
-func TestListingUpdateStatusRejectsUnspecified(t *testing.T) {
-	repo := &ListingRepository{}
-	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), hpdmodel.HpdListingStatusUnspecified)
-	if err == nil || !strings.Contains(err.Error(), "listingStatus is invalid") {
-		t.Fatalf("expected invalid listingStatus error, got %v", err)
-	}
 }
 
 func TestListingFieldsDoNotIncludeLifecycleFields(t *testing.T) {

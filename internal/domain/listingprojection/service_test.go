@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"house-manager/internal/domain/hmd"
-	commonmodel "house-manager/internal/model/common"
-	hpdmodel "house-manager/internal/model/hpd"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -16,11 +14,10 @@ import (
 // fakeProjector 实现窄接口 projector；calls 共享一份序列，
 // 用于断言 Apply 的路由顺序（装配顺序 × change 顺序）与 fail-fast。
 type fakeProjector struct {
-	name              string
-	log               *[]string
-	failOnScope       hmd.HmdProjectionScope
-	failErr           error
-	refreshedListings []*hpdmodel.HpdListing
+	name        string
+	log         *[]string
+	failOnScope hmd.HmdProjectionScope
+	failErr     error
 }
 
 func (f *fakeProjector) Refresh(ctx context.Context, change hmd.HmdChange) error {
@@ -28,11 +25,6 @@ func (f *fakeProjector) Refresh(ctx context.Context, change hmd.HmdChange) error
 	if f.failOnScope != "" && change.Scope == f.failOnScope {
 		return f.failErr
 	}
-	return nil
-}
-
-func (f *fakeProjector) RefreshByListing(ctx context.Context, listing *hpdmodel.HpdListing) error {
-	f.refreshedListings = append(f.refreshedListings, listing)
 	return nil
 }
 
@@ -96,60 +88,4 @@ func TestServiceApplyFailFast(t *testing.T) {
 	if len(log) != 2 {
 		t.Fatalf("expected fail-fast after 2 calls, got %#v", log)
 	}
-}
-
-func TestServiceUpdateListingStatusRefreshesAllProjections(t *testing.T) {
-	listingID := bson.NewObjectID()
-	listing := &hpdmodel.HpdListing{
-		CommonFields:  commonmodel.CommonFields{ID: listingID},
-		SourceType:    hpdmodel.HpdSourceTypeCentralizedRoom,
-		SourceID:      bson.NewObjectID(),
-		AssetMode:     hpdmodel.HpdAssetModeCentralized,
-		ListingStatus: hpdmodel.HpdListingStatusPublished,
-	}
-	repo := &fakeHpdListingRepo{listing: listing}
-	var log []string
-	m := &fakeProjector{name: "miniapp", log: &log}
-	p := &fakeProjector{name: "publisher", log: &log}
-	a := &fakeProjector{name: "admin", log: &log}
-	service := &Service{listingRepo: repo, projectors: []projector{m, p, a}}
-
-	if err := service.UpdateListingStatus(context.Background(), listingID, hpdmodel.HpdListingStatusPublished); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if repo.updatedStatus != hpdmodel.HpdListingStatusPublished {
-		t.Fatalf("expected listing status update, got %d", repo.updatedStatus)
-	}
-	for _, f := range []*fakeProjector{m, p, a} {
-		if len(f.refreshedListings) != 1 || f.refreshedListings[0] != listing {
-			t.Fatalf("expected %s listing refresh, got %#v", f.name, f.refreshedListings)
-		}
-	}
-}
-
-type fakeHpdListingRepo struct {
-	listing       *hpdmodel.HpdListing
-	updatedStatus hpdmodel.HpdListingStatus
-}
-
-func (f *fakeHpdListingRepo) FindByID(ctx context.Context, id bson.ObjectID) (*hpdmodel.HpdListing, error) {
-	return f.listing, nil
-}
-
-func (f *fakeHpdListingRepo) FindBySource(ctx context.Context, sourceType hpdmodel.HpdSourceType, sourceID bson.ObjectID) (*hpdmodel.HpdListing, error) {
-	return f.listing, nil
-}
-
-func (f *fakeHpdListingRepo) UpsertBySource(ctx context.Context, entity *hpdmodel.HpdListing) (*hpdmodel.HpdListing, error) {
-	return f.listing, nil
-}
-
-func (f *fakeHpdListingRepo) UpdateLifecycleFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
-	return nil
-}
-
-func (f *fakeHpdListingRepo) UpdateStatus(ctx context.Context, id bson.ObjectID, listingStatus hpdmodel.HpdListingStatus) error {
-	f.updatedStatus = listingStatus
-	return nil
 }

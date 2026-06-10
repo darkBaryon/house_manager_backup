@@ -8,12 +8,6 @@ import (
 )
 
 var (
-	listingLifecycleFields = allowedFields(
-		"listing_status",
-		"published_at",
-		"offline_at",
-	)
-
 	miniappProjectionFields = allowedFields(
 		"rent_mode",
 		"city",
@@ -339,10 +333,6 @@ func adminListingFields(entity *hpdmodel.HpdAdminListing) bson.M {
 		"latest_reviewed_at":     entity.LatestReviewedAt,
 		"reviewer_staff_id":      entity.ReviewerStaffID,
 	}
-}
-
-func listingStatusUpdateFields(listingStatus hpdmodel.HpdListingStatus) bson.M {
-	return bson.M{"listing_status": listingStatus}
 }
 
 func rootScopeRelationFields(entity *hpdmodel.HpdRootScopeRelation) bson.M {
