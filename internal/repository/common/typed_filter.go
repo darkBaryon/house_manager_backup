@@ -1,6 +1,10 @@
 package common
 
-import "go.mongodb.org/mongo-driver/v2/bson"
+import (
+	commonmodel "house-manager/internal/model/common"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 // Field marks repository-owned Mongo field names used by typed builders.
 type Field string
@@ -28,6 +32,16 @@ func Eq(field Field, value any) Filter {
 // Ne builds a not-equal condition.
 func Ne(field Field, value any) Filter {
 	return Filter{doc: bson.M{string(field): bson.M{"$ne": value}}}
+}
+
+// Active matches documents whose common status is active.
+func Active() Filter {
+	return Eq(Field("status"), commonmodel.StatusActive)
+}
+
+// NotDeleted matches documents whose common status is not deleted.
+func NotDeleted() Filter {
+	return Ne(Field("status"), commonmodel.StatusDeleted)
 }
 
 // In builds an $in condition.

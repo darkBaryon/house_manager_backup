@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	commonmodel "house-manager/internal/model/common"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -39,14 +37,15 @@ func (r *Repository[T]) ExistsBy(ctx context.Context, filter Filter) (bool, erro
 	return total > 0, nil
 }
 
-// UpdateByID updates one active document by ID.
+// UpdateByID updates one non-deleted document by ID.
+// Common default predicate = not deleted; stricter status constraints must be explicit at call sites.
 func (r *Repository[T]) UpdateByID(ctx context.Context, id bson.ObjectID, update UpdateDoc) error {
 	if id.IsZero() {
 		return fmt.Errorf("update by id: id is required")
 	}
 	matched, err := r.UpdateOneBy(ctx, And(
 		Eq(Field("_id"), id),
-		Eq(Field("status"), commonmodel.StatusActive),
+		NotDeleted(),
 	), update)
 	if err != nil {
 		return err

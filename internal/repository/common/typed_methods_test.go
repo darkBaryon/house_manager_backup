@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -16,6 +17,16 @@ func TestUpdateByIDRejectsZeroID(t *testing.T) {
 	err := repo.UpdateByID(context.Background(), bson.ObjectID{}, NewUpdateDoc().Set(Field("role_name"), "管理员"))
 	if err == nil || !strings.Contains(err.Error(), "id is required") {
 		t.Fatalf("expected zero id error, got %v", err)
+	}
+}
+
+func TestUpdateByIDDefaultPredicateContractComment(t *testing.T) {
+	source, err := os.ReadFile("typed_methods.go")
+	if err != nil {
+		t.Fatalf("read typed_methods.go: %v", err)
+	}
+	if !strings.Contains(string(source), "Common default predicate = not deleted") {
+		t.Fatal("expected UpdateByID contract comment to document not-deleted default predicate")
 	}
 }
 

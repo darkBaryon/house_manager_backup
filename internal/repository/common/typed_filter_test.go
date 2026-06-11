@@ -3,6 +3,8 @@ package common
 import (
 	"testing"
 
+	commonmodel "house-manager/internal/model/common"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -40,5 +42,18 @@ func TestTypedFilterBSONDoesNotMutateSource(t *testing.T) {
 
 	if got := filter.BSON()["role_code"]; got != "admin" {
 		t.Fatalf("expected filter source to remain unchanged, got %v", got)
+	}
+}
+
+func TestStatusPredicateFragments(t *testing.T) {
+	active := Active().BSON()
+	if got := active["status"]; got != commonmodel.StatusActive {
+		t.Fatalf("expected active status predicate, got %v", got)
+	}
+
+	notDeleted := NotDeleted().BSON()
+	status := notDeleted["status"].(bson.M)
+	if got := status["$ne"]; got != commonmodel.StatusDeleted {
+		t.Fatalf("expected not-deleted status predicate, got %v", got)
 	}
 }
