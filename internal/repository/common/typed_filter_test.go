@@ -35,6 +35,15 @@ func TestTypedFilterBuilders(t *testing.T) {
 	}
 }
 
+func TestNinFilterBuilder(t *testing.T) {
+	values := []string{"a", "b"}
+	filter := Nin(Field("role_code"), values).BSON()
+	condition := filter["role_code"].(bson.M)
+	if got := condition["$nin"]; len(got.([]string)) != 2 {
+		t.Fatalf("expected $nin values, got %#v", got)
+	}
+}
+
 func TestTypedFilterBSONDoesNotMutateSource(t *testing.T) {
 	filter := Eq(Field("role_code"), "admin")
 	doc := filter.BSON()

@@ -49,6 +49,11 @@ func In(field Field, values any) Filter {
 	return Filter{doc: bson.M{string(field): bson.M{"$in": values}}}
 }
 
+// Nin builds a $nin condition.
+func Nin(field Field, values any) Filter {
+	return Filter{doc: bson.M{string(field): bson.M{"$nin": values}}}
+}
+
 // Regex builds a regex condition.
 func Regex(field Field, pattern string, opts string) Filter {
 	return Filter{doc: bson.M{string(field): bson.Regex{Pattern: pattern, Options: opts}}}

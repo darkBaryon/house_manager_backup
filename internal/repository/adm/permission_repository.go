@@ -17,6 +17,12 @@ type PermissionRepository struct {
 	*common.Repository[authmodel.AdmPermission]
 }
 
+const (
+	permissionFieldPermissionCode common.Field = "permission_code"
+	permissionFieldModule         common.Field = "module"
+	permissionFieldStatus         common.Field = "status"
+)
+
 func NewPermissionRepository(client *dbmongo.Client) *PermissionRepository {
 	return &PermissionRepository{
 		Repository: common.NewRepository[authmodel.AdmPermission](client.Collection(authmodel.CollectionAdmPermission)),

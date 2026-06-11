@@ -18,6 +18,12 @@ type StaffAuthRepository struct {
 	*common.Repository[authmodel.AdmStaffAuth]
 }
 
+const (
+	staffAuthFieldStaffID  common.Field = "staff_id"
+	staffAuthFieldAuthType common.Field = "auth_type"
+	staffAuthFieldStatus   common.Field = "status"
+)
+
 func NewStaffAuthRepository(client *dbmongo.Client) *StaffAuthRepository {
 	return &StaffAuthRepository{
 		Repository: common.NewRepository[authmodel.AdmStaffAuth](client.Collection(authmodel.CollectionAdmStaffAuth)),
@@ -77,7 +83,7 @@ func (r *StaffAuthRepository) RollbackCreateByStaffID(ctx context.Context, staff
 	if staffID.IsZero() {
 		return fmt.Errorf("rollback staff auth create: staffID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"staff_id": staffID}); err != nil {
+	if err := r.DeleteAllBy(ctx, common.Eq(staffAuthFieldStaffID, staffID)); err != nil {
 		return fmt.Errorf("rollback staff auth create: %w", err)
 	}
 	return nil

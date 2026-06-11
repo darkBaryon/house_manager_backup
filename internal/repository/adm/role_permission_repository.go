@@ -17,6 +17,16 @@ type RolePermissionRepository struct {
 	*common.Repository[authmodel.AdmRolePermission]
 }
 
+const (
+	rolePermissionFieldRoleID       common.Field = "role_id"
+	rolePermissionFieldPermissionID common.Field = "permission_id"
+	rolePermissionFieldStatus       common.Field = "status"
+	rolePermissionFieldUpdatedAt    common.Field = "updated_at"
+	rolePermissionFieldVersion      common.Field = "version"
+	rolePermissionFieldAssignedBy   common.Field = "assigned_by"
+	rolePermissionFieldAssignedAt   common.Field = "assigned_at"
+)
+
 func NewRolePermissionRepository(client *dbmongo.Client) *RolePermissionRepository {
 	return &RolePermissionRepository{
 		Repository: common.NewRepository[authmodel.AdmRolePermission](client.Collection(authmodel.CollectionAdmRolePermission)),
@@ -71,20 +81,18 @@ func (r *RolePermissionRepository) ReplaceByRoleID(ctx context.Context, roleID b
 	permissionIDs = compactObjectIDs(permissionIDs)
 	now := time.Now().Unix()
 
-	disableFilter := bson.M{
-		"role_id": roleID,
-		"status":  commonmodel.StatusActive,
+	disableFilters := []common.Filter{
+		common.Eq(rolePermissionFieldRoleID, roleID),
+		common.Active(),
 	}
 	if len(permissionIDs) > 0 {
-		disableFilter["permission_id"] = bson.M{"$nin": permissionIDs}
+		disableFilters = append(disableFilters, common.Nin(rolePermissionFieldPermissionID, permissionIDs))
 	}
-	if _, err := r.Collection.UpdateMany(ctx, disableFilter, bson.M{
-		"$set": bson.M{
-			"status":     commonmodel.StatusDeleted,
-			"updated_at": now,
-		},
-		"$inc": bson.M{"version": 1},
-	}); err != nil {
+	if _, err := r.UpdateManyBy(ctx, common.And(disableFilters...), common.NewUpdateDoc().
+		Set(rolePermissionFieldStatus, commonmodel.StatusDeleted).
+		Set(rolePermissionFieldUpdatedAt, now).
+		Inc(rolePermissionFieldVersion, 1),
+	); err != nil {
 		return fmt.Errorf("replace role permissions: %w", err)
 	}
 
@@ -110,7 +118,7 @@ func (r *RolePermissionRepository) RollbackCreateByRoleID(ctx context.Context, r
 	if roleID.IsZero() {
 		return fmt.Errorf("rollback role permissions create: roleID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"role_id": roleID}); err != nil {
+	if err := r.DeleteAllBy(ctx, common.Eq(rolePermissionFieldRoleID, roleID)); err != nil {
 		return fmt.Errorf("rollback role permissions create: %w", err)
 	}
 	return nil

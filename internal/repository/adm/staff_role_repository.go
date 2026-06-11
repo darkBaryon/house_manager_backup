@@ -17,6 +17,16 @@ type StaffRoleRepository struct {
 	*common.Repository[authmodel.AdmStaffRole]
 }
 
+const (
+	staffRoleFieldStaffID    common.Field = "staff_id"
+	staffRoleFieldRoleID     common.Field = "role_id"
+	staffRoleFieldStatus     common.Field = "status"
+	staffRoleFieldUpdatedAt  common.Field = "updated_at"
+	staffRoleFieldVersion    common.Field = "version"
+	staffRoleFieldAssignedBy common.Field = "assigned_by"
+	staffRoleFieldAssignedAt common.Field = "assigned_at"
+)
+
 func NewStaffRoleRepository(client *dbmongo.Client) *StaffRoleRepository {
 	return &StaffRoleRepository{
 		Repository: common.NewRepository[authmodel.AdmStaffRole](client.Collection(authmodel.CollectionAdmStaffRole)),
@@ -99,20 +109,18 @@ func (r *StaffRoleRepository) ReplaceByStaffID(ctx context.Context, staffID bson
 	roleIDs = compactObjectIDs(roleIDs)
 	now := time.Now().Unix()
 
-	disableFilter := bson.M{
-		"staff_id": staffID,
-		"status":   commonmodel.StatusActive,
+	disableFilters := []common.Filter{
+		common.Eq(staffRoleFieldStaffID, staffID),
+		common.Active(),
 	}
 	if len(roleIDs) > 0 {
-		disableFilter["role_id"] = bson.M{"$nin": roleIDs}
+		disableFilters = append(disableFilters, common.Nin(staffRoleFieldRoleID, roleIDs))
 	}
-	if _, err := r.Collection.UpdateMany(ctx, disableFilter, bson.M{
-		"$set": bson.M{
-			"status":     commonmodel.StatusDeleted,
-			"updated_at": now,
-		},
-		"$inc": bson.M{"version": 1},
-	}); err != nil {
+	if _, err := r.UpdateManyBy(ctx, common.And(disableFilters...), common.NewUpdateDoc().
+		Set(staffRoleFieldStatus, commonmodel.StatusDeleted).
+		Set(staffRoleFieldUpdatedAt, now).
+		Inc(staffRoleFieldVersion, 1),
+	); err != nil {
 		return fmt.Errorf("replace staff roles: %w", err)
 	}
 
@@ -138,7 +146,7 @@ func (r *StaffRoleRepository) RollbackCreateByStaffID(ctx context.Context, staff
 	if staffID.IsZero() {
 		return fmt.Errorf("rollback staff roles create: staffID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"staff_id": staffID}); err != nil {
+	if err := r.DeleteAllBy(ctx, common.Eq(staffRoleFieldStaffID, staffID)); err != nil {
 		return fmt.Errorf("rollback staff roles create: %w", err)
 	}
 	return nil

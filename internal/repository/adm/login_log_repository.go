@@ -14,6 +14,11 @@ type LoginLogRepository struct {
 	*common.Repository[authmodel.AdmLoginLog]
 }
 
+const (
+	loginLogFieldStaffID common.Field = "staff_id"
+	loginLogFieldLoginAt common.Field = "login_at"
+)
+
 func NewLoginLogRepository(client *dbmongo.Client) *LoginLogRepository {
 	return &LoginLogRepository{
 		Repository: common.NewRepository[authmodel.AdmLoginLog](client.Collection(authmodel.CollectionAdmLoginLog)),
