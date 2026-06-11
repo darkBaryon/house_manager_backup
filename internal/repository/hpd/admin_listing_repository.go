@@ -8,10 +8,8 @@ import (
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -99,33 +97,6 @@ func (r *AdminListingRepository) UpsertByListingID(ctx context.Context, entity *
 		return nil, fmt.Errorf("upsert hpd admin listing by listingID: %w", err)
 	}
 	return r.FindByListingID(ctx, entity.ListingID)
-}
-
-func (r *AdminListingRepository) UpdateProjectionFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
-	if listingID.IsZero() {
-		return fmt.Errorf("update hpd admin listing projection fields: listingID is required")
-	}
-	safeFields, err := pickAllowedFields(fields, adminProjectionFields)
-	if err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-
-	setFields := cloneBsonM(safeFields)
-	setFields["updated_at"] = time.Now().Unix()
-	matched, err := r.UpdateOneBy(ctx, common.And(
-		common.Eq(hpdFieldListingID, listingID),
-		common.Active(),
-	), updateDocFromSetFields(setFields))
-	if err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-	if !matched {
-		return mongo.ErrNoDocuments
-	}
-	return nil
 }
 
 func adminListingListFilter(input AdminListingListFilter) (bson.M, error) {

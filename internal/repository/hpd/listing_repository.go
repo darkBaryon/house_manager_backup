@@ -48,7 +48,7 @@ func (r *ListingRepository) FindBySource(ctx context.Context, sourceType hpdmode
 }
 
 func (r *ListingRepository) ListByIDs(ctx context.Context, ids []bson.ObjectID) ([]hpdmodel.HpdListing, error) {
-	ids = compactObjectIDs(ids)
+	ids = common.CompactObjectIDs(ids)
 	if len(ids) == 0 {
 		return []hpdmodel.HpdListing{}, nil
 	}
@@ -81,20 +81,4 @@ func (r *ListingRepository) UpsertBySource(ctx context.Context, entity *hpdmodel
 		return nil, fmt.Errorf("upsert hpd listing by source: %w", err)
 	}
 	return r.FindBySource(ctx, entity.SourceType, entity.SourceID)
-}
-
-func compactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
-	compacted := make([]bson.ObjectID, 0, len(ids))
-	seen := make(map[bson.ObjectID]struct{}, len(ids))
-	for _, id := range ids {
-		if id.IsZero() {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		compacted = append(compacted, id)
-	}
-	return compacted
 }

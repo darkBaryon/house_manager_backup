@@ -6,10 +6,8 @@ import (
 	hpdmodel "house-manager/internal/model/hpd"
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type PublisherListingRepository struct {
@@ -59,33 +57,6 @@ func (r *PublisherListingRepository) UpsertByListingID(ctx context.Context, enti
 		return nil, fmt.Errorf("upsert hpd publisher listing by listingID: %w", err)
 	}
 	return r.FindByListingID(ctx, entity.ListingID)
-}
-
-func (r *PublisherListingRepository) UpdateProjectionFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
-	if listingID.IsZero() {
-		return fmt.Errorf("update hpd publisher listing projection fields: listingID is required")
-	}
-	safeFields, err := pickAllowedFields(fields, publisherProjectionFields)
-	if err != nil {
-		return fmt.Errorf("update hpd publisher listing projection fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd publisher listing projection fields: %w", err)
-	}
-
-	setFields := cloneBsonM(safeFields)
-	setFields["updated_at"] = time.Now().Unix()
-	matched, err := r.UpdateOneBy(ctx, common.And(
-		common.Eq(hpdFieldListingID, listingID),
-		common.Active(),
-	), updateDocFromSetFields(setFields))
-	if err != nil {
-		return fmt.Errorf("update hpd publisher listing projection fields: %w", err)
-	}
-	if !matched {
-		return mongo.ErrNoDocuments
-	}
-	return nil
 }
 
 func (r *PublisherListingRepository) ListByRoot(ctx context.Context, rootType hpdmodel.HpdRootScopeType, rootID bson.ObjectID) ([]hpdmodel.HpdPublisherListing, error) {

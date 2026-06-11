@@ -9,10 +9,8 @@ import (
 	dbmongo "house-manager/pkg/database/mongo"
 	"regexp"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -110,33 +108,6 @@ func (r *MiniappListingRepository) UpsertByListingID(ctx context.Context, entity
 		return nil, fmt.Errorf("upsert hpd miniapp listing by listingID: %w", err)
 	}
 	return r.FindByListingID(ctx, entity.ListingID)
-}
-
-func (r *MiniappListingRepository) UpdateProjectionFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
-	if listingID.IsZero() {
-		return fmt.Errorf("update hpd miniapp listing projection fields: listingID is required")
-	}
-	safeFields, err := pickAllowedFields(fields, miniappProjectionFields)
-	if err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-
-	setFields := cloneBsonM(safeFields)
-	setFields["updated_at"] = time.Now().Unix()
-	matched, err := r.UpdateOneBy(ctx, common.And(
-		common.Eq(hpdFieldListingID, listingID),
-		common.Active(),
-	), updateDocFromSetFields(setFields))
-	if err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-	if !matched {
-		return mongo.ErrNoDocuments
-	}
-	return nil
 }
 
 func (r *MiniappListingRepository) SearchMiniapp(ctx context.Context, search MiniappListingSearchFilter) ([]hpdmodel.HpdMiniappListing, error) {

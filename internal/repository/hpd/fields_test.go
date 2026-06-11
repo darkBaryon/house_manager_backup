@@ -42,14 +42,6 @@ func TestListingFieldsDoNotIncludeLifecycleFields(t *testing.T) {
 	}
 }
 
-func TestMiniappUpdateProjectionRejectsIdentityField(t *testing.T) {
-	repo := &MiniappListingRepository{}
-	err := repo.UpdateProjectionFields(context.Background(), bson.NewObjectID(), bson.M{"listing_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "listing_id") {
-		t.Fatalf("expected listing_id to be rejected, got %v", err)
-	}
-}
-
 func TestMiniappSearchFilterBuildsOnlinePriceRange(t *testing.T) {
 	filter, err := miniappSearchFilter(MiniappListingSearchFilter{
 		City:          "深圳",
@@ -272,13 +264,5 @@ func TestAdminListingFieldsIncludeAuditAndOwnerFields(t *testing.T) {
 	}
 	if got := fields["owner_phone_snapshot"]; got != "13800000000" {
 		t.Fatalf("expected owner phone snapshot, got %v", got)
-	}
-}
-
-func TestAdminUpdateProjectionRejectsIdentityField(t *testing.T) {
-	repo := &AdminListingRepository{}
-	err := repo.UpdateProjectionFields(context.Background(), bson.NewObjectID(), bson.M{"listing_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "listing_id") {
-		t.Fatalf("expected listing_id to be rejected, got %v", err)
 	}
 }
