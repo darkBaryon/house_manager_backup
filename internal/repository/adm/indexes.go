@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"house-manager/internal/repository/common"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -44,17 +46,14 @@ func (r *StaffAuthRepository) EnsureIndexes(ctx context.Context) error {
 }
 
 func (r *RoleRepository) EnsureIndexes(ctx context.Context) error {
-	models := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "role_code", Value: 1}},
-			Options: options.Index().SetName("role_code_1").SetUnique(true),
-		},
-		{
-			Keys:    bson.D{{Key: "status", Value: 1}, {Key: "updated_at", Value: -1}},
-			Options: options.Index().SetName("status_1_updated_at_-1"),
-		},
-	}
-	if _, err := r.Collection.Indexes().CreateMany(ctx, models); err != nil {
+	if err := r.Repository.EnsureIndexes(ctx,
+		common.NewIndex("role_code_1", common.IndexKey(roleFieldRoleCode, common.SortAsc)).WithUnique(),
+		common.NewIndex(
+			"status_1_updated_at_-1",
+			common.IndexKey(roleFieldStatus, common.SortAsc),
+			common.IndexKey(roleFieldUpdatedAt, common.SortDesc),
+		),
+	); err != nil {
 		return fmt.Errorf("ensure admin role indexes: %w", err)
 	}
 	return nil
