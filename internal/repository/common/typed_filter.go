@@ -25,6 +25,9 @@ func EmptyFilter() Filter {
 }
 
 // FilterFromBSON wraps a repository-owned Mongo filter document.
+// Use it only as a transition for existing complex repository filters that
+// cannot be moved to field-constant builders in the current phase. New code
+// should use Eq/In/Nin/Active/NotDeleted/Regex/And/Or instead of this wrapper.
 func FilterFromBSON(doc bson.M) Filter {
 	return Filter{doc: cloneBsonM(doc)}
 }
