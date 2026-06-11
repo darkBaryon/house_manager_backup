@@ -62,14 +62,6 @@ func TestPickAllowedFieldsRejectsSystemField(t *testing.T) {
 	}
 }
 
-func TestBuildingUpdateBaseInfoRejectsOwnershipField(t *testing.T) {
-	repo := &BuildingRepository{}
-	err := repo.UpdateBaseInfo(context.Background(), bson.NewObjectID(), bson.M{"project_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "project_id") {
-		t.Fatalf("expected project_id to be rejected, got %v", err)
-	}
-}
-
 func TestRoomCentralizedUpdateBaseInfoRejectsStatusField(t *testing.T) {
 	repo := &RoomCentralizedRepository{}
 	err := repo.UpdateBaseInfo(context.Background(), bson.NewObjectID(), bson.M{"room_status": 2})

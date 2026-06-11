@@ -4,6 +4,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	repohmd "house-manager/internal/repository/hmd"
 	"strings"
 )
 
@@ -67,15 +68,15 @@ func (s *Service) UpdateBuilding(ctx context.Context, input UpdateBuildingInput)
 		return nil, err
 	}
 
-	fields := bsonFields(
-		"building_name", strings.TrimSpace(input.BuildingName),
-		"floor_total", input.FloorTotal,
-		"manager_name", strings.TrimSpace(input.ManagerName),
-		"manager_phone", strings.TrimSpace(input.ManagerPhone),
-		"photos", cloneStringSlice(input.Photos),
-		"listing_facilities", toListingFacilities(input.ListingFacilities),
-	)
-	if err := s.buildingRepo.UpdateBaseInfo(ctx, building.ID, fields); err != nil {
+	update := repohmd.BuildingBaseInfoUpdate{
+		BuildingName:      strings.TrimSpace(input.BuildingName),
+		FloorTotal:        input.FloorTotal,
+		ManagerName:       strings.TrimSpace(input.ManagerName),
+		ManagerPhone:      strings.TrimSpace(input.ManagerPhone),
+		Photos:            cloneStringSlice(input.Photos),
+		ListingFacilities: toListingFacilities(input.ListingFacilities),
+	}
+	if err := s.buildingRepo.UpdateBaseInfo(ctx, building.ID, update); err != nil {
 		return nil, mutationError("update building", err)
 	}
 	updated, err := s.requireBuilding(ctx, building.ID, "update building")
