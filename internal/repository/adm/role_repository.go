@@ -37,6 +37,11 @@ type RoleListFilter struct {
 	Limit   int64
 }
 
+type RoleUpdate struct {
+	RoleName    *string
+	Description *string
+}
+
 func NewRoleRepository(client *dbmongo.Client) *RoleRepository {
 	return &RoleRepository{
 		Repository: common.NewRepository[authmodel.AdmRole](client.Collection(authmodel.CollectionAdmRole)),
@@ -128,25 +133,28 @@ func (r *RoleRepository) List(ctx context.Context, input RoleListFilter) ([]auth
 	return items, total, nil
 }
 
-func (r *RoleRepository) UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *RoleRepository) Update(ctx context.Context, id bson.ObjectID, input RoleUpdate) error {
 	if id.IsZero() {
-		return fmt.Errorf("update role fields: id is required")
+		return fmt.Errorf("update role: id is required")
 	}
-	if len(fields) == 0 {
-		return fmt.Errorf("update role fields: fields is required")
+	if input.RoleName == nil && input.Description == nil {
+		return fmt.Errorf("update role: fields is required")
 	}
-	fields = cloneBsonM(fields)
-	fields["updated_at"] = time.Now().Unix()
-	update := common.NewUpdateDoc().Inc(roleFieldVersion, 1)
-	for key, value := range fields {
-		update = update.Set(common.Field(key), value)
+	update := common.NewUpdateDoc().
+		Set(roleFieldUpdatedAt, time.Now().Unix()).
+		Inc(roleFieldVersion, 1)
+	if input.RoleName != nil {
+		update = update.Set(roleFieldRoleName, *input.RoleName)
+	}
+	if input.Description != nil {
+		update = update.Set(roleFieldDescription, *input.Description)
 	}
 	matched, err := r.UpdateOneBy(ctx, common.And(
 		common.Eq(roleFieldID, id),
 		common.Eq(roleFieldStatus, commonmodel.StatusActive),
 	), update)
 	if err != nil {
-		return fmt.Errorf("update role fields: %w", err)
+		return fmt.Errorf("update role: %w", err)
 	}
 	if !matched {
 		return mongo.ErrNoDocuments
