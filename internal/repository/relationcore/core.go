@@ -117,10 +117,7 @@ func (c *Core[T]) ReplaceByLeft(ctx context.Context, leftID bson.ObjectID, right
 }
 
 func (c *Core[T]) ListActiveByLeft(ctx context.Context, leftID bson.ObjectID) ([]T, error) {
-	return c.repo.FindManyBy(ctx, common.And(
-		common.Eq(c.leftField, leftID),
-		common.Active(),
-	))
+	return c.listActiveByField(ctx, c.leftField, leftID)
 }
 
 func (c *Core[T]) ListActiveByLefts(ctx context.Context, leftIDs []bson.ObjectID) ([]T, error) {
@@ -135,14 +132,18 @@ func (c *Core[T]) ListActiveByLefts(ctx context.Context, leftIDs []bson.ObjectID
 }
 
 func (c *Core[T]) ListActiveByRight(ctx context.Context, rightID bson.ObjectID) ([]T, error) {
-	return c.repo.FindManyBy(ctx, common.And(
-		common.Eq(c.rightField, rightID),
-		common.Active(),
-	))
+	return c.listActiveByField(ctx, c.rightField, rightID)
 }
 
 func (c *Core[T]) RollbackByLeft(ctx context.Context, leftID bson.ObjectID) error {
 	return c.repo.DeleteAllBy(ctx, common.Eq(c.leftField, leftID))
+}
+
+func (c *Core[T]) listActiveByField(ctx context.Context, field common.Field, id bson.ObjectID) ([]T, error) {
+	return c.repo.FindManyBy(ctx, common.And(
+		common.Eq(field, id),
+		common.Active(),
+	))
 }
 
 func (c *Core[T]) pairFilter(leftID, rightID bson.ObjectID) common.Filter {
