@@ -20,6 +20,15 @@ type LandlordRepository struct {
 	*common.Repository[authmodel.Landlord]
 }
 
+const (
+	landlordFieldID        common.Field = "_id"
+	landlordFieldPhone     common.Field = "phone"
+	landlordFieldStatus    common.Field = "status"
+	landlordFieldCreatedAt common.Field = "created_at"
+	landlordFieldUpdatedAt common.Field = "updated_at"
+	landlordFieldVersion   common.Field = "version"
+)
+
 type ListFilter struct {
 	Phone  string
 	Status int
@@ -112,22 +121,26 @@ func (r *LandlordRepository) FindByID(ctx context.Context, id bson.ObjectID) (*a
 }
 
 func (r *LandlordRepository) List(ctx context.Context, input ListFilter) ([]authmodel.Landlord, int64, error) {
-	filter := bson.M{"status": input.Status}
+	filters := []common.Filter{common.Eq(landlordFieldStatus, input.Status)}
 	if input.Phone = strings.TrimSpace(input.Phone); input.Phone != "" {
-		filter["phone"] = input.Phone
+		filters = append(filters, common.Eq(landlordFieldPhone, input.Phone))
 	}
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	filter := common.And(filters...)
+	total, err := r.CountBy(ctx, filter)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count landlords: %w", err)
 	}
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
+	opts := []common.QueryOption{
+		common.SortBy(landlordFieldCreatedAt, common.SortDesc),
+		common.SortBy(landlordFieldID, common.SortDesc),
+	}
 	if input.Skip > 0 {
-		opts.SetSkip(input.Skip)
+		opts = append(opts, common.Skip(input.Skip))
 	}
 	if input.Limit > 0 {
-		opts.SetLimit(input.Limit)
+		opts = append(opts, common.Limit(input.Limit))
 	}
-	items, err := r.FindMany(ctx, filter, opts)
+	items, err := r.FindManyBy(ctx, filter, opts...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list landlords: %w", err)
 	}
@@ -143,20 +156,21 @@ func (r *LandlordRepository) UpdateFields(ctx context.Context, id bson.ObjectID,
 	}
 	fields = cloneBsonM(fields)
 	fields["updated_at"] = time.Now().Unix()
-	res, err := r.Collection.UpdateOne(ctx, bson.M{
-		"_id": id,
-		"status": bson.M{"$in": []int{
+	update := common.NewUpdateDoc().Inc(landlordFieldVersion, 1)
+	for key, value := range fields {
+		update = update.Set(common.Field(key), value)
+	}
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(landlordFieldID, id),
+		common.In(landlordFieldStatus, []int{
 			commonmodel.StatusActive,
 			commonmodel.StatusDeleted,
-		}},
-	}, bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-	})
+		}),
+	), update)
 	if err != nil {
 		return fmt.Errorf("update landlord fields: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil
@@ -166,7 +180,7 @@ func (r *LandlordRepository) RollbackCreate(ctx context.Context, id bson.ObjectI
 	if id.IsZero() {
 		return fmt.Errorf("rollback landlord create: id is required")
 	}
-	if _, err := r.Collection.DeleteOne(ctx, bson.M{"_id": id}); err != nil {
+	if err := r.DeleteOneBy(ctx, common.Eq(landlordFieldID, id)); err != nil {
 		return fmt.Errorf("rollback landlord create: %w", err)
 	}
 	return nil

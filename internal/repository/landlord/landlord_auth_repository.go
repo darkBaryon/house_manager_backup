@@ -18,6 +18,12 @@ type LandlordAuthRepository struct {
 	*common.Repository[authmodel.LandlordAuth]
 }
 
+const (
+	landlordAuthFieldLandlordID common.Field = "landlord_id"
+	landlordAuthFieldAuthType   common.Field = "auth_type"
+	landlordAuthFieldStatus     common.Field = "status"
+)
+
 func NewLandlordAuthRepository(client *dbmongo.Client) *LandlordAuthRepository {
 	return &LandlordAuthRepository{
 		Repository: common.NewRepository[authmodel.LandlordAuth](client.Collection(authmodel.CollectionLandlordAuth)),
@@ -77,7 +83,7 @@ func (r *LandlordAuthRepository) RollbackCreateByLandlordID(ctx context.Context,
 	if landlordID.IsZero() {
 		return fmt.Errorf("rollback landlord auth create: landlordID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"landlord_id": landlordID}); err != nil {
+	if err := r.DeleteAllBy(ctx, common.Eq(landlordAuthFieldLandlordID, landlordID)); err != nil {
 		return fmt.Errorf("rollback landlord auth create: %w", err)
 	}
 	return nil
