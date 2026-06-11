@@ -2,9 +2,37 @@ package hpd
 
 import (
 	"fmt"
-	"go.mongodb.org/mongo-driver/v2/bson"
 	commonmodel "house-manager/internal/model/common"
 	hpdmodel "house-manager/internal/model/hpd"
+	"house-manager/internal/repository/common"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
+
+const (
+	hpdFieldID              common.Field = "_id"
+	hpdFieldStatus          common.Field = "status"
+	hpdFieldCreatedAt       common.Field = "created_at"
+	hpdFieldUpdatedAt       common.Field = "updated_at"
+	hpdFieldVersion         common.Field = "version"
+	hpdFieldListingID       common.Field = "listing_id"
+	hpdFieldSourceType      common.Field = "source_type"
+	hpdFieldSourceID        common.Field = "source_id"
+	hpdFieldOwnerLandlordID common.Field = "owner_landlord_id"
+	hpdFieldRootType        common.Field = "root_type"
+	hpdFieldRootID          common.Field = "root_id"
+	hpdFieldRelationStatus  common.Field = "relation_status"
+	hpdFieldProjectID       common.Field = "project_id"
+	hpdFieldBuildingID      common.Field = "building_id"
+	hpdFieldDecentralizedID common.Field = "decentralized_id"
+	hpdFieldRoomStatus      common.Field = "room_status"
+	hpdFieldListingStatus   common.Field = "listing_status"
+	hpdFieldAuditStatus     common.Field = "audit_status"
+	hpdFieldAssetMode       common.Field = "asset_mode"
+	hpdFieldCity            common.Field = "city"
+	hpdFieldDistrict        common.Field = "district"
+	hpdFieldIsOnline        common.Field = "is_online"
+	hpdFieldWeightScore     common.Field = "weight_score"
 )
 
 var (
@@ -180,6 +208,14 @@ func cloneBsonM(src bson.M) bson.M {
 		cloned[k] = v
 	}
 	return cloned
+}
+
+func updateDocFromSetFields(fields bson.M) common.UpdateDoc {
+	update := common.NewUpdateDoc().Inc(hpdFieldVersion, 1)
+	for key, value := range fields {
+		update = update.Set(common.Field(key), value)
+	}
+	return update
 }
 
 func listingFields(entity *hpdmodel.HpdListing) bson.M {

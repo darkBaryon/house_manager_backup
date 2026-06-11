@@ -75,15 +75,14 @@ func (r *PublisherListingRepository) UpdateProjectionFields(ctx context.Context,
 
 	setFields := cloneBsonM(safeFields)
 	setFields["updated_at"] = time.Now().Unix()
-	update := bson.M{
-		"$set": setFields,
-		"$inc": bson.M{"version": 1},
-	}
-	res, err := r.Collection.UpdateOne(ctx, activeFilter(bson.M{"listing_id": listingID}), update)
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(hpdFieldListingID, listingID),
+		common.Active(),
+	), updateDocFromSetFields(setFields))
 	if err != nil {
 		return fmt.Errorf("update hpd publisher listing projection fields: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil

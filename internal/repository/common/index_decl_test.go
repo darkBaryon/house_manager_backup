@@ -12,7 +12,7 @@ func TestIndexDeclModel(t *testing.T) {
 		"status_1_updated_at_-1",
 		IndexKey(Field("status"), SortAsc),
 		IndexKey(Field("updated_at"), SortDesc),
-	).WithUnique()
+	).WithUnique().WithPartialFilter(bson.M{"status": 1})
 
 	model := decl.model()
 	keys := model.Keys.(bson.D)
@@ -34,5 +34,9 @@ func TestIndexDeclModel(t *testing.T) {
 	}
 	if indexOptions.Unique == nil || !*indexOptions.Unique {
 		t.Fatalf("expected unique index, got %v", indexOptions.Unique)
+	}
+	partial := indexOptions.PartialFilterExpression.(bson.M)
+	if got := partial["status"]; got != 1 {
+		t.Fatalf("expected partial filter status=1, got %v", got)
 	}
 }

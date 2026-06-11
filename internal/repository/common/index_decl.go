@@ -24,9 +24,10 @@ func IndexKey(field Field, dir int) IndexField {
 
 // IndexDecl describes a Mongo index without exposing Collection.Indexes.
 type IndexDecl struct {
-	Name   string
-	Keys   []IndexField
-	Unique bool
+	Name          string
+	Keys          []IndexField
+	Unique        bool
+	PartialFilter bson.M
 }
 
 // NewIndex creates a named index declaration.
@@ -40,6 +41,12 @@ func (d IndexDecl) WithUnique() IndexDecl {
 	return d
 }
 
+// WithPartialFilter adds a partialFilterExpression option.
+func (d IndexDecl) WithPartialFilter(filter bson.M) IndexDecl {
+	d.PartialFilter = cloneBsonM(filter)
+	return d
+}
+
 func (d IndexDecl) model() mongo.IndexModel {
 	keys := make(bson.D, 0, len(d.Keys))
 	for _, key := range d.Keys {
@@ -49,6 +56,9 @@ func (d IndexDecl) model() mongo.IndexModel {
 	opts := options.Index().SetName(d.Name)
 	if d.Unique {
 		opts.SetUnique(true)
+	}
+	if len(d.PartialFilter) > 0 {
+		opts.SetPartialFilterExpression(cloneBsonM(d.PartialFilter))
 	}
 	return mongo.IndexModel{Keys: keys, Options: opts}
 }

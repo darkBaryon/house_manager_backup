@@ -44,6 +44,16 @@ func TestNinFilterBuilder(t *testing.T) {
 	}
 }
 
+func TestFilterFromBSONDoesNotMutateSource(t *testing.T) {
+	src := bson.M{"status": commonmodel.StatusActive}
+	filter := FilterFromBSON(src)
+	src["status"] = commonmodel.StatusDeleted
+
+	if got := filter.BSON()["status"]; got != commonmodel.StatusActive {
+		t.Fatalf("expected wrapped filter source to remain unchanged, got %v", got)
+	}
+}
+
 func TestTypedFilterBSONDoesNotMutateSource(t *testing.T) {
 	filter := Eq(Field("role_code"), "admin")
 	doc := filter.BSON()

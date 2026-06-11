@@ -24,6 +24,11 @@ func EmptyFilter() Filter {
 	return Filter{doc: bson.M{}}
 }
 
+// FilterFromBSON wraps a repository-owned Mongo filter document.
+func FilterFromBSON(doc bson.M) Filter {
+	return Filter{doc: cloneBsonM(doc)}
+}
+
 // Eq builds an equality condition.
 func Eq(field Field, value any) Filter {
 	return Filter{doc: bson.M{string(field): value}}
