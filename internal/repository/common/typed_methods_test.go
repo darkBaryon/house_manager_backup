@@ -30,6 +30,17 @@ func TestUpdateByIDDefaultPredicateContractComment(t *testing.T) {
 	}
 }
 
+func TestFindOneAndUpdateByReturnContractComment(t *testing.T) {
+	source, err := os.ReadFile("typed_methods.go")
+	if err != nil {
+		t.Fatalf("read typed_methods.go: %v", err)
+	}
+	if !strings.Contains(string(source), "returns the document before update by default") ||
+		!strings.Contains(string(source), "pass ReturnAfter()") {
+		t.Fatal("expected FindOneAndUpdateBy contract comment to document before/after behavior")
+	}
+}
+
 func TestUpdateOneByRejectsEmptyFilter(t *testing.T) {
 	repo := &Repository[authmodel.AdmRole]{}
 	_, err := repo.UpdateOneBy(context.Background(), EmptyFilter(), NewUpdateDoc().Set(Field("role_name"), "管理员"))

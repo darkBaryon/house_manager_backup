@@ -87,7 +87,8 @@ func (r *Repository[T]) UpdateManyBy(ctx context.Context, filter Filter, update 
 }
 
 // FindOneAndUpdateBy updates one document and returns the matched document.
-func (r *Repository[T]) FindOneAndUpdateBy(ctx context.Context, filter Filter, update UpdateDoc) (*T, error) {
+// It returns the document before update by default; pass ReturnAfter() when the updated document is required.
+func (r *Repository[T]) FindOneAndUpdateBy(ctx context.Context, filter Filter, update UpdateDoc, opts ...FindOneAndUpdateOption) (*T, error) {
 	if len(filter.BSON()) == 0 {
 		return nil, fmt.Errorf("find one and update by: filter is required")
 	}
@@ -95,7 +96,7 @@ func (r *Repository[T]) FindOneAndUpdateBy(ctx context.Context, filter Filter, u
 		return nil, fmt.Errorf("find one and update by: update is required")
 	}
 	var entity T
-	if err := r.Collection.FindOneAndUpdate(ctx, filter.BSON(), update.BSON()).Decode(&entity); err != nil {
+	if err := r.Collection.FindOneAndUpdate(ctx, filter.BSON(), update.BSON(), buildFindOneAndUpdateOptions(opts...)...).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
