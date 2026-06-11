@@ -13,18 +13,6 @@ func roomTypeID(roomType *hmdmodel.HmdRoomTypeCentralized) bson.ObjectID {
 	return roomType.ID
 }
 
-func bsonFields(kv ...any) bson.M {
-	fields := make(bson.M, len(kv)/2)
-	for i := 0; i+1 < len(kv); i += 2 {
-		key, ok := kv[i].(string)
-		if !ok || key == "" {
-			continue
-		}
-		fields[key] = kv[i+1]
-	}
-	return fields
-}
-
 func layoutCountValue(input *int) int {
 	if input == nil {
 		return hmdmodel.UnknownLayoutCount

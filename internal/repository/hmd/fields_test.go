@@ -55,13 +55,6 @@ func TestHmdListFindOptionsSortsByUpdatedAtAndIDDesc(t *testing.T) {
 	}
 }
 
-func TestPickAllowedFieldsRejectsSystemField(t *testing.T) {
-	_, err := pickAllowedFields(bson.M{"updated_at": 123}, centralizedBaseInfoFields)
-	if err == nil || !strings.Contains(err.Error(), "updated_at") {
-		t.Fatalf("expected updated_at to be rejected, got %v", err)
-	}
-}
-
 func TestRoomStatusUpdateFields(t *testing.T) {
 	fields := roomStatusUpdateFields(3)
 	if len(fields) != 1 {

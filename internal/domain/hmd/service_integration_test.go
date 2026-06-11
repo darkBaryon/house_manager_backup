@@ -69,7 +69,7 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 
 	_, err = f.svc.CreateBuilding(f.ctx, CreateBuildingInput{
 		ProjectID:    project.Entity.ID,
-		BuildingName: f.prefix + "_building_dup",
+		BuildingName: f.prefix + "_building_a",
 	})
 	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
@@ -128,7 +128,6 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 		RoomCount:       testIntPtr(1),
 		HallCount:       testIntPtr(1),
 		BathroomCount:   testIntPtr(1),
-		KitchenCount:    testIntPtr(1),
 		AreaSize:        38,
 		Orientation:     string(hmdmodel.OrientationSouth),
 		DecorationLevel: string(hmdmodel.DecorationLevelFine),

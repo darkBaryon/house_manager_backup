@@ -2,11 +2,8 @@ package hmd
 
 import (
 	"fmt"
-	"strings"
 
 	commonmodel "house-manager/internal/model/common"
-
-	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func (m *HmdCentralized) ValidateForCreate() error {
@@ -142,97 +139,6 @@ func (m *HmdRoomDecentralized) ValidateForCreate() error {
 		m.RoomFacilities,
 		m.ListingFacilities,
 	)
-}
-
-func ValidateHmdUpdateFields(fields bson.M) error {
-	for key, value := range fields {
-		if err := validateHmdUpdateField(key, value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateHmdUpdateField(key string, value any) error {
-	switch key {
-	case "project_name", "city", "building_name", "community_name", "room_type_name", "room_no":
-		text, ok := value.(string)
-		if !ok || strings.TrimSpace(text) == "" {
-			return fmt.Errorf("%s 不能为空", key)
-		}
-	case "room_type_id":
-		objectID, ok := value.(bson.ObjectID)
-		if !ok {
-			return fmt.Errorf("room_type_id 必须是对象 ID")
-		}
-		if objectID.IsZero() {
-			return fmt.Errorf("room_type_id 不能为空")
-		}
-	case "room_count", "hall_count", "bathroom_count", "kitchen_count":
-		intValue, ok := anyInt(value)
-		if !ok {
-			return fmt.Errorf("%s 必须是整数", key)
-		}
-		return validateLayoutCount(key, intValue)
-	case "floor_total", "floor_no", "area_size", "rent", "deposit", "service_fee", "agency_fee_value":
-		intValue, ok := anyInt(value)
-		if !ok {
-			return fmt.Errorf("%s 必须是整数", key)
-		}
-		return validateNonNegativeInt(key, intValue)
-	case "rent_mode":
-		if !RentMode(fmt.Sprint(value)).Valid() {
-			return fmt.Errorf("出租方式不合法")
-		}
-	case "room_status":
-		intValue, ok := anyInt(value)
-		if !ok || !RoomStatus(intValue).Valid() {
-			return fmt.Errorf("房间状态不合法")
-		}
-	case "orientation":
-		if !Orientation(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("朝向不合法")
-		}
-	case "decoration_level":
-		if !DecorationLevel(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("装修等级不合法")
-		}
-	case "payment_cycle":
-		if !PaymentCycle(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("付款周期不合法")
-		}
-	case "agency_fee_mode":
-		if !AgencyFeeMode(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("中介费模式不合法")
-		}
-	case "viewing_time_rule":
-		if !ViewingTimeRule(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("看房时间规则不合法")
-		}
-	case "start_rent_rule":
-		if !StartRentRule(fmt.Sprint(value)).ValidOptional() {
-			return fmt.Errorf("起租规则不合法")
-		}
-	case "images":
-		images, ok := value.([]TaggedImage)
-		if !ok {
-			return fmt.Errorf("images 必须是图片数组")
-		}
-		return validateTaggedImages(images)
-	case "room_facilities":
-		facilities, ok := value.([]RoomFacility)
-		if !ok {
-			return fmt.Errorf("roomFacilities 必须是房间设施数组")
-		}
-		return validateRoomFacilities(facilities)
-	case "listing_facilities":
-		facilities, ok := value.([]ListingFacility)
-		if !ok {
-			return fmt.Errorf("listingFacilities 必须是房源设施数组")
-		}
-		return validateListingFacilities(facilities)
-	}
-	return nil
 }
 
 func validateHmdRoomShapeAndPrice(
