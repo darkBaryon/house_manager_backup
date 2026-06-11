@@ -13,7 +13,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type LandlordRepository struct {
@@ -55,20 +54,17 @@ func (r *LandlordRepository) FindActiveByPhone(ctx context.Context, phone string
 	if phone == "" {
 		return nil, fmt.Errorf("find landlord by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"phone":  phone,
-		"status": commonmodel.StatusActive,
-	}, options.Find().SetLimit(2))
+	landlord, err := r.FindUniqueBy(ctx, common.And(
+		common.Eq(landlordFieldPhone, phone),
+		common.Eq(landlordFieldStatus, commonmodel.StatusActive),
+	))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find landlord by phone: multiple active landlord records found")
+		}
 		return nil, fmt.Errorf("find landlord by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find landlord by phone: multiple active landlord records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return landlord, nil
 }
 
 func (r *LandlordRepository) FindByPhone(ctx context.Context, phone string) (*authmodel.Landlord, error) {
@@ -76,17 +72,14 @@ func (r *LandlordRepository) FindByPhone(ctx context.Context, phone string) (*au
 	if phone == "" {
 		return nil, fmt.Errorf("find landlord by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{"phone": phone}, options.Find().SetLimit(2))
+	landlord, err := r.FindUniqueBy(ctx, common.Eq(landlordFieldPhone, phone))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find landlord by phone: multiple landlord records found")
+		}
 		return nil, fmt.Errorf("find landlord by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find landlord by phone: multiple landlord records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return landlord, nil
 }
 
 func (r *LandlordRepository) FindActiveByID(ctx context.Context, id bson.ObjectID) (*authmodel.Landlord, error) {
@@ -154,7 +147,7 @@ func (r *LandlordRepository) UpdateFields(ctx context.Context, id bson.ObjectID,
 	if len(fields) == 0 {
 		return fmt.Errorf("update landlord fields: fields is required")
 	}
-	fields = cloneBsonM(fields)
+	fields = common.CloneBSONMap(fields)
 	fields["updated_at"] = time.Now().Unix()
 	update := common.NewUpdateDoc().Inc(landlordFieldVersion, 1)
 	for key, value := range fields {
@@ -191,15 +184,4 @@ func normalizeLandlord(landlord *authmodel.Landlord) {
 		return
 	}
 	landlord.Phone = strings.TrimSpace(landlord.Phone)
-}
-
-func cloneBsonM(src bson.M) bson.M {
-	if src == nil {
-		return nil
-	}
-	dst := make(bson.M, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
-	return dst
 }

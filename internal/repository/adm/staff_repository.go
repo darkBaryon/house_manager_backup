@@ -14,7 +14,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type StaffRepository struct {
@@ -59,19 +58,14 @@ func (r *StaffRepository) FindByPhone(ctx context.Context, phone string) (*authm
 	if phone == "" {
 		return nil, fmt.Errorf("find staff by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"phone": phone,
-	}, options.Find().SetLimit(2))
+	staff, err := r.FindUniqueBy(ctx, common.Eq(staffFieldPhone, phone))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find staff by phone: multiple staff records found")
+		}
 		return nil, fmt.Errorf("find staff by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find staff by phone: multiple staff records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return staff, nil
 }
 
 func (r *StaffRepository) FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error) {
@@ -79,20 +73,17 @@ func (r *StaffRepository) FindActiveByPhone(ctx context.Context, phone string) (
 	if phone == "" {
 		return nil, fmt.Errorf("find staff by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"phone":  phone,
-		"status": commonmodel.StatusActive,
-	}, options.Find().SetLimit(2))
+	staff, err := r.FindUniqueBy(ctx, common.And(
+		common.Eq(staffFieldPhone, phone),
+		common.Eq(staffFieldStatus, commonmodel.StatusActive),
+	))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find staff by phone: multiple active staff records found")
+		}
 		return nil, fmt.Errorf("find staff by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find staff by phone: multiple active staff records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return staff, nil
 }
 
 func (r *StaffRepository) FindActiveByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error) {
@@ -173,7 +164,7 @@ func (r *StaffRepository) UpdateFields(ctx context.Context, id bson.ObjectID, fi
 		return fmt.Errorf("update staff fields: fields is required")
 	}
 
-	fields = cloneBsonM(fields)
+	fields = common.CloneBSONMap(fields)
 	fields["updated_at"] = time.Now().Unix()
 	update := common.NewUpdateDoc().Inc(staffFieldVersion, 1)
 	for key, value := range fields {
@@ -215,15 +206,4 @@ func normalizeStaff(staff *authmodel.AdmStaff) {
 	staff.Department = strings.TrimSpace(staff.Department)
 	staff.JobTitle = strings.TrimSpace(staff.JobTitle)
 	staff.ContactQRCode = strings.TrimSpace(staff.ContactQRCode)
-}
-
-func cloneBsonM(src bson.M) bson.M {
-	if src == nil {
-		return nil
-	}
-	dst := make(bson.M, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
-	return dst
 }
