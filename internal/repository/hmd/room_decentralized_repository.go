@@ -51,18 +51,15 @@ func (r *RoomDecentralizedRepository) ListByDecentralizedID(ctx context.Context,
 	return r.FindMany(ctx, activeFilter(bson.M{"decentralized_id": decentralizedID}), hmdListFindOptions())
 }
 
-func (r *RoomDecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *RoomDecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, update RoomDecentralizedBaseInfoUpdate) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room decentralized base info: id is required")
 	}
-	safeFields, err := pickAllowedFields(fields, roomDecentralizedBaseInfoFields)
+	fields, err := roomDecentralizedBaseInfoUpdateFields(update)
 	if err != nil {
 		return fmt.Errorf("update hmd room decentralized base info: %w", err)
 	}
-	if err := hmdmodel.ValidateHmdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hmd room decentralized base info: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, fields)
 }
 
 func (r *RoomDecentralizedRepository) UpdateStatus(ctx context.Context, id bson.ObjectID, roomStatus int) error {

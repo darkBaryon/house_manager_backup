@@ -4,6 +4,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	repohmd "house-manager/internal/repository/hmd"
 	"strings"
 )
 
@@ -93,25 +94,25 @@ func (s *Service) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput)
 		return nil, err
 	}
 
-	fields := bsonFields(
-		"room_type_name", roomTypeName,
-		"room_count", layoutCountValue(input.RoomCount),
-		"hall_count", layoutCountValue(input.HallCount),
-		"bathroom_count", layoutCountValue(input.BathroomCount),
-		"kitchen_count", layoutCountValue(input.KitchenCount),
-		"area_size", input.AreaSize,
-		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
-		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		"payment_cycle", hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
-		"rent", input.Rent,
-		"deposit", input.Deposit,
-		"service_fee", input.ServiceFee,
-		"agency_fee_mode", hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
-		"agency_fee_value", input.AgencyFeeValue,
-		"images", toTaggedImages(input.Images),
-		"room_facilities", toRoomFacilities(input.RoomFacilities),
-	)
-	if err := s.roomTypeCentralizedRepo.UpdateBaseInfo(ctx, roomType.ID, fields); err != nil {
+	update := repohmd.RoomTypeCentralizedBaseInfoUpdate{
+		RoomTypeName:    roomTypeName,
+		RoomCount:       layoutCountValue(input.RoomCount),
+		HallCount:       layoutCountValue(input.HallCount),
+		BathroomCount:   layoutCountValue(input.BathroomCount),
+		KitchenCount:    layoutCountValue(input.KitchenCount),
+		AreaSize:        input.AreaSize,
+		Orientation:     hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		DecorationLevel: hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		PaymentCycle:    hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		Rent:            input.Rent,
+		Deposit:         input.Deposit,
+		ServiceFee:      input.ServiceFee,
+		AgencyFeeMode:   hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		AgencyFeeValue:  input.AgencyFeeValue,
+		Images:          toTaggedImages(input.Images),
+		RoomFacilities:  toRoomFacilities(input.RoomFacilities),
+	}
+	if err := s.roomTypeCentralizedRepo.UpdateBaseInfo(ctx, roomType.ID, update); err != nil {
 		return nil, mutationError("update room type", err)
 	}
 	updated, err := s.requireRoomType(ctx, roomType.ID, "update room type")

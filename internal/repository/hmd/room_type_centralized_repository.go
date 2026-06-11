@@ -55,16 +55,13 @@ func (r *RoomTypeCentralizedRepository) ListByBuildingID(ctx context.Context, bu
 	return r.FindMany(ctx, activeFilter(bson.M{"building_id": buildingID}), hmdListFindOptions())
 }
 
-func (r *RoomTypeCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *RoomTypeCentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, update RoomTypeCentralizedBaseInfoUpdate) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd room type centralized base info: id is required")
 	}
-	safeFields, err := pickAllowedFields(fields, roomTypeCentralizedBaseInfoFields)
+	fields, err := roomTypeCentralizedBaseInfoUpdateFields(update)
 	if err != nil {
 		return fmt.Errorf("update hmd room type centralized base info: %w", err)
 	}
-	if err := hmdmodel.ValidateHmdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hmd room type centralized base info: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, fields)
 }

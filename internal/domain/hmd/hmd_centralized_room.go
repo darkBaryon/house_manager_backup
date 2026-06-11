@@ -4,6 +4,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	repohmd "house-manager/internal/repository/hmd"
 	"strings"
 )
 
@@ -119,32 +120,32 @@ func (s *Service) UpdateCentralizedRoom(ctx context.Context, input UpdateCentral
 	}
 
 	roomCount, hallCount, bathroomCount, kitchenCount := centralizedRoomShape(input.RoomCount, input.HallCount, input.BathroomCount, input.KitchenCount, roomType)
-	fields := bsonFields(
-		"room_type_id", roomTypeID,
-		"room_no", roomNo,
-		"floor_no", input.FloorNo,
-		"rent_mode", hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
-		"layout_text", strings.TrimSpace(input.LayoutText),
-		"room_count", roomCount,
-		"hall_count", hallCount,
-		"bathroom_count", bathroomCount,
-		"kitchen_count", kitchenCount,
-		"area_size", input.AreaSize,
-		"orientation", hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
-		"decoration_level", hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
-		"payment_cycle", hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
-		"rent", input.Rent,
-		"deposit", input.Deposit,
-		"service_fee", input.ServiceFee,
-		"agency_fee_mode", hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
-		"agency_fee_value", input.AgencyFeeValue,
-		"viewing_time_rule", hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
-		"start_rent_rule", hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
-		"images", toTaggedImages(input.Images),
-		"room_facilities", toRoomFacilities(input.RoomFacilities),
-		"listing_facilities", toListingFacilities(input.ListingFacilities),
-	)
-	if err := s.roomCentralizedRepo.UpdateBaseInfo(ctx, room.ID, fields); err != nil {
+	update := repohmd.RoomCentralizedBaseInfoUpdate{
+		RoomTypeID:        roomTypeID,
+		RoomNo:            roomNo,
+		FloorNo:           input.FloorNo,
+		RentMode:          hmdmodel.RentMode(strings.TrimSpace(input.RentMode)),
+		LayoutText:        strings.TrimSpace(input.LayoutText),
+		RoomCount:         roomCount,
+		HallCount:         hallCount,
+		BathroomCount:     bathroomCount,
+		KitchenCount:      kitchenCount,
+		AreaSize:          input.AreaSize,
+		Orientation:       hmdmodel.Orientation(strings.TrimSpace(input.Orientation)),
+		DecorationLevel:   hmdmodel.DecorationLevel(strings.TrimSpace(input.DecorationLevel)),
+		PaymentCycle:      hmdmodel.PaymentCycle(strings.TrimSpace(input.PaymentCycle)),
+		Rent:              input.Rent,
+		Deposit:           input.Deposit,
+		ServiceFee:        input.ServiceFee,
+		AgencyFeeMode:     hmdmodel.AgencyFeeMode(strings.TrimSpace(input.AgencyFeeMode)),
+		AgencyFeeValue:    input.AgencyFeeValue,
+		ViewingTimeRule:   hmdmodel.ViewingTimeRule(strings.TrimSpace(input.ViewingTimeRule)),
+		StartRentRule:     hmdmodel.StartRentRule(strings.TrimSpace(input.StartRentRule)),
+		Images:            toTaggedImages(input.Images),
+		RoomFacilities:    toRoomFacilities(input.RoomFacilities),
+		ListingFacilities: toListingFacilities(input.ListingFacilities),
+	}
+	if err := s.roomCentralizedRepo.UpdateBaseInfo(ctx, room.ID, update); err != nil {
 		return nil, mutationError("update centralized room", err)
 	}
 	updated, err := s.requireCentralizedRoom(ctx, room.ID, "update centralized room")

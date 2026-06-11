@@ -52,6 +52,61 @@ func TestBuildingBaseInfoUpdateRejectsNegativeFloorTotal(t *testing.T) {
 	}
 }
 
+func TestCentralizedBaseInfoUpdateRejectsEmptyProjectName(t *testing.T) {
+	_, err := centralizedBaseInfoUpdateFields(CentralizedBaseInfoUpdate{City: "深圳"})
+	if err == nil || !strings.Contains(err.Error(), "project_name 不能为空") {
+		t.Fatalf("expected empty project_name to be rejected, got %v", err)
+	}
+}
+
+func TestDecentralizedBaseInfoUpdateRejectsEmptyCommunityName(t *testing.T) {
+	_, err := decentralizedBaseInfoUpdateFields(DecentralizedBaseInfoUpdate{City: "深圳"})
+	if err == nil || !strings.Contains(err.Error(), "community_name 不能为空") {
+		t.Fatalf("expected empty community_name to be rejected, got %v", err)
+	}
+}
+
+func TestRoomTypeCentralizedBaseInfoUpdateRejectsInvalidPaymentCycle(t *testing.T) {
+	_, err := roomTypeCentralizedBaseInfoUpdateFields(RoomTypeCentralizedBaseInfoUpdate{
+		RoomTypeName: "一室一厅",
+		PaymentCycle: hmdmodel.PaymentCycle("weekly"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "付款周期不合法") {
+		t.Fatalf("expected invalid payment_cycle to be rejected, got %v", err)
+	}
+}
+
+func TestRoomTypeCentralizedBaseInfoUpdateRejectsNegativeRent(t *testing.T) {
+	_, err := roomTypeCentralizedBaseInfoUpdateFields(RoomTypeCentralizedBaseInfoUpdate{
+		RoomTypeName: "一室一厅",
+		Rent:         -1,
+	})
+	if err == nil || !strings.Contains(err.Error(), "rent 不能小于 0") {
+		t.Fatalf("expected negative rent to be rejected, got %v", err)
+	}
+}
+
+func TestRoomCentralizedBaseInfoUpdateRejectsZeroRoomTypeID(t *testing.T) {
+	_, err := roomCentralizedBaseInfoUpdateFields(RoomCentralizedBaseInfoUpdate{
+		RoomNo:   "1201",
+		RentMode: hmdmodel.RentModeWhole,
+	})
+	if err == nil || !strings.Contains(err.Error(), "room_type_id 不能为空") {
+		t.Fatalf("expected empty room_type_id to be rejected, got %v", err)
+	}
+}
+
+func TestRoomDecentralizedBaseInfoUpdateRejectsNegativeRent(t *testing.T) {
+	_, err := roomDecentralizedBaseInfoUpdateFields(RoomDecentralizedBaseInfoUpdate{
+		RoomNo:   "801",
+		RentMode: hmdmodel.RentModeWhole,
+		Rent:     -1,
+	})
+	if err == nil || !strings.Contains(err.Error(), "rent 不能小于 0") {
+		t.Fatalf("expected negative rent to be rejected, got %v", err)
+	}
+}
+
 func equalValue(got any, want any) bool {
 	switch want := want.(type) {
 	case []string:

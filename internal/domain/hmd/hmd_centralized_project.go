@@ -4,6 +4,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	repohmd "house-manager/internal/repository/hmd"
 	"strings"
 )
 
@@ -69,15 +70,15 @@ func (s *Service) UpdateCentralizedProject(ctx context.Context, input UpdateCent
 		return nil, err
 	}
 
-	fields := bsonFields(
-		"project_name", strings.TrimSpace(input.ProjectName),
-		"city", strings.TrimSpace(input.City),
-		"district", strings.TrimSpace(input.District),
-		"address_text", strings.TrimSpace(input.AddressText),
-		"geo", toGeoPoint(input.Geo),
-		"brand_name", strings.TrimSpace(input.BrandName),
-	)
-	if err := s.centralizedRepo.UpdateBaseInfo(ctx, project.ID, fields); err != nil {
+	update := repohmd.CentralizedBaseInfoUpdate{
+		ProjectName: strings.TrimSpace(input.ProjectName),
+		City:        strings.TrimSpace(input.City),
+		District:    strings.TrimSpace(input.District),
+		AddressText: strings.TrimSpace(input.AddressText),
+		Geo:         toGeoPoint(input.Geo),
+		BrandName:   strings.TrimSpace(input.BrandName),
+	}
+	if err := s.centralizedRepo.UpdateBaseInfo(ctx, project.ID, update); err != nil {
 		return nil, mutationError("update centralized project", err)
 	}
 	updated, err := s.requireCentralizedProject(ctx, project.ID, "update centralized project")

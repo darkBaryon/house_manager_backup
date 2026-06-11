@@ -4,6 +4,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	repohmd "house-manager/internal/repository/hmd"
 	"strings"
 )
 
@@ -89,16 +90,16 @@ func (s *Service) UpdateDecentralizedCommunity(ctx context.Context, input Update
 		return nil, alreadyExistsf("当前城市和区域下已存在同名小区")
 	}
 
-	fields := bsonFields(
-		"community_name", communityName,
-		"city", city,
-		"district", district,
-		"biz_area", strings.TrimSpace(input.BizArea),
-		"address_text", strings.TrimSpace(input.AddressText),
-		"geo", toGeoPoint(input.Geo),
-		"subway_station", strings.TrimSpace(input.SubwayStation),
-	)
-	if err := s.decentralizedRepo.UpdateBaseInfo(ctx, community.ID, fields); err != nil {
+	update := repohmd.DecentralizedBaseInfoUpdate{
+		CommunityName: communityName,
+		City:          city,
+		District:      district,
+		BizArea:       strings.TrimSpace(input.BizArea),
+		AddressText:   strings.TrimSpace(input.AddressText),
+		Geo:           toGeoPoint(input.Geo),
+		SubwayStation: strings.TrimSpace(input.SubwayStation),
+	}
+	if err := s.decentralizedRepo.UpdateBaseInfo(ctx, community.ID, update); err != nil {
 		return nil, mutationError("update decentralized community", err)
 	}
 	updated, err := s.requireDecentralized(ctx, community.ID, "update decentralized community")
