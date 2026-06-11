@@ -21,7 +21,7 @@ func (r *Repository[T]) FindManyBy(ctx context.Context, filter Filter, opts ...Q
 
 // CountBy counts documents matching a typed filter.
 func (r *Repository[T]) CountBy(ctx context.Context, filter Filter) (int64, error) {
-	total, err := r.Collection.CountDocuments(ctx, filter.BSON())
+	total, err := r.collection.CountDocuments(ctx, filter.BSON())
 	if err != nil {
 		return 0, fmt.Errorf("count by: %w", err)
 	}
@@ -30,7 +30,7 @@ func (r *Repository[T]) CountBy(ctx context.Context, filter Filter) (int64, erro
 
 // ExistsBy reports whether at least one document matches a typed filter.
 func (r *Repository[T]) ExistsBy(ctx context.Context, filter Filter) (bool, error) {
-	total, err := r.Collection.CountDocuments(ctx, filter.BSON(), options.Count().SetLimit(1))
+	total, err := r.collection.CountDocuments(ctx, filter.BSON(), options.Count().SetLimit(1))
 	if err != nil {
 		return false, fmt.Errorf("exists by: %w", err)
 	}
@@ -64,7 +64,7 @@ func (r *Repository[T]) UpdateOneBy(ctx context.Context, filter Filter, update U
 	if update.IsEmpty() {
 		return false, fmt.Errorf("update one by: update is required")
 	}
-	res, err := r.Collection.UpdateOne(ctx, filter.BSON(), update.BSON())
+	res, err := r.collection.UpdateOne(ctx, filter.BSON(), update.BSON())
 	if err != nil {
 		return false, fmt.Errorf("update one by: %w", err)
 	}
@@ -79,7 +79,7 @@ func (r *Repository[T]) UpdateManyBy(ctx context.Context, filter Filter, update 
 	if update.IsEmpty() {
 		return 0, fmt.Errorf("update many by: update is required")
 	}
-	res, err := r.Collection.UpdateMany(ctx, filter.BSON(), update.BSON())
+	res, err := r.collection.UpdateMany(ctx, filter.BSON(), update.BSON())
 	if err != nil {
 		return 0, fmt.Errorf("update many by: %w", err)
 	}
@@ -96,7 +96,7 @@ func (r *Repository[T]) FindOneAndUpdateBy(ctx context.Context, filter Filter, u
 		return nil, fmt.Errorf("find one and update by: update is required")
 	}
 	var entity T
-	if err := r.Collection.FindOneAndUpdate(ctx, filter.BSON(), update.BSON(), buildFindOneAndUpdateOptions(opts...)...).Decode(&entity); err != nil {
+	if err := r.collection.FindOneAndUpdate(ctx, filter.BSON(), update.BSON(), buildFindOneAndUpdateOptions(opts...)...).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
@@ -114,7 +114,7 @@ func (r *Repository[T]) UpsertOneBy(ctx context.Context, filter Filter, update U
 	if update.IsEmpty() {
 		return false, fmt.Errorf("upsert one by: update is required")
 	}
-	res, err := r.Collection.UpdateOne(ctx, filter.BSON(), update.BSON(), options.UpdateOne().SetUpsert(true))
+	res, err := r.collection.UpdateOne(ctx, filter.BSON(), update.BSON(), options.UpdateOne().SetUpsert(true))
 	if err != nil {
 		return false, fmt.Errorf("upsert one by: %w", err)
 	}
@@ -126,7 +126,7 @@ func (r *Repository[T]) DeleteOneBy(ctx context.Context, filter Filter) error {
 	if len(filter.BSON()) == 0 {
 		return fmt.Errorf("delete one by: filter is required")
 	}
-	if _, err := r.Collection.DeleteOne(ctx, filter.BSON()); err != nil {
+	if _, err := r.collection.DeleteOne(ctx, filter.BSON()); err != nil {
 		return fmt.Errorf("delete one by: %w", err)
 	}
 	return nil
@@ -137,7 +137,7 @@ func (r *Repository[T]) DeleteAllBy(ctx context.Context, filter Filter) error {
 	if len(filter.BSON()) == 0 {
 		return fmt.Errorf("delete all by: filter is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, filter.BSON()); err != nil {
+	if _, err := r.collection.DeleteMany(ctx, filter.BSON()); err != nil {
 		return fmt.Errorf("delete all by: %w", err)
 	}
 	return nil
@@ -148,7 +148,7 @@ func (r *Repository[T]) EnsureIndexes(ctx context.Context, decls ...IndexDecl) e
 	if len(decls) == 0 {
 		return nil
 	}
-	if _, err := r.Collection.Indexes().CreateMany(ctx, indexModels(decls)); err != nil {
+	if _, err := r.collection.Indexes().CreateMany(ctx, indexModels(decls)); err != nil {
 		return fmt.Errorf("ensure indexes: %w", err)
 	}
 	return nil
@@ -162,7 +162,7 @@ func (r *Repository[T]) Aggregate(ctx context.Context, pipeline mongo.Pipeline, 
 	if into == nil {
 		return fmt.Errorf("aggregate: output is required")
 	}
-	cursor, err := r.Collection.Aggregate(ctx, pipeline)
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return fmt.Errorf("aggregate: %w", err)
 	}

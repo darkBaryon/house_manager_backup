@@ -24,7 +24,7 @@ func (r *Repository[T]) FindByIDIncludingDeleted(ctx context.Context, id bson.Ob
 	}
 
 	var entity T
-	if err := r.Collection.FindOne(ctx, bson.M{"_id": id}).Decode(&entity); err != nil {
+	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
@@ -36,7 +36,7 @@ func (r *Repository[T]) FindByIDIncludingDeleted(ctx context.Context, id bson.Ob
 // FindOne 根据条件查询单条记录。
 func (r *Repository[T]) FindOne(ctx context.Context, filter bson.M) (*T, error) {
 	var entity T
-	if err := r.Collection.FindOne(ctx, filter).Decode(&entity); err != nil {
+	if err := r.collection.FindOne(ctx, filter).Decode(&entity); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
@@ -47,7 +47,7 @@ func (r *Repository[T]) FindOne(ctx context.Context, filter bson.M) (*T, error) 
 
 // FindMany 根据条件查询多条记录。
 func (r *Repository[T]) FindMany(ctx context.Context, filter bson.M, opts ...options.Lister[options.FindOptions]) ([]T, error) {
-	cursor, err := r.Collection.Find(ctx, filter, opts...)
+	cursor, err := r.collection.Find(ctx, filter, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("find many: %w", err)
 	}

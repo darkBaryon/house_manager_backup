@@ -37,7 +37,7 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 		common.Version = 1
 	}
 
-	res, err := r.Collection.InsertOne(ctx, entity)
+	res, err := r.collection.InsertOne(ctx, entity)
 	if err != nil {
 		return fmt.Errorf("insert: %w", err)
 	}
@@ -63,7 +63,7 @@ func (r *Repository[T]) UpsertFields(ctx context.Context, filter bson.M, fields 
 	update := buildUpsertFieldsDoc(fields, now)
 
 	opts := options.UpdateOne().SetUpsert(true)
-	res, err := r.Collection.UpdateOne(ctx, filter, update, opts)
+	res, err := r.collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return false, fmt.Errorf("upsert fields: %w", err)
 	}
@@ -82,7 +82,7 @@ func (r *Repository[T]) UpdateFieldsByID(ctx context.Context, id bson.ObjectID, 
 	now := time.Now().Unix()
 	update := buildUpdateFieldsByIDDoc(fields, now)
 
-	res, err := r.Collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
+	res, err := r.collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
 	if err != nil {
 		return fmt.Errorf("update fields by id: %w", err)
 	}
@@ -107,7 +107,7 @@ func (r *Repository[T]) SoftDeleteByID(ctx context.Context, id bson.ObjectID) er
 		"$inc": bson.M{"version": 1},
 	}
 
-	res, err := r.Collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
+	res, err := r.collection.UpdateOne(ctx, notDeletedByIDFilter(id), update)
 	if err != nil {
 		return fmt.Errorf("soft delete by id: %w", err)
 	}
