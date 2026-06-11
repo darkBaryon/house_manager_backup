@@ -27,11 +27,20 @@ func (r *Repository[T]) FindUniqueBy(ctx context.Context, filter Filter) (*T, er
 
 // CompactObjectIDs removes zero ObjectIDs while preserving the original order.
 func CompactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
+	if len(ids) == 0 {
+		return nil
+	}
 	result := make([]bson.ObjectID, 0, len(ids))
+	seen := make(map[bson.ObjectID]struct{}, len(ids))
 	for _, id := range ids {
-		if !id.IsZero() {
-			result = append(result, id)
+		if id.IsZero() {
+			continue
 		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
 	}
 	return result
 }

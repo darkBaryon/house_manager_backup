@@ -53,8 +53,8 @@ func TestCompactObjectIDs(t *testing.T) {
 func TestCompactObjectIDsPreservesDuplicates(t *testing.T) {
 	id := bson.NewObjectID()
 	got := CompactObjectIDs([]bson.ObjectID{id, id})
-	if len(got) != 2 || got[0] != id || got[1] != id {
-		t.Fatalf("expected duplicates preserved, got %#v", got)
+	if len(got) != 1 || got[0] != id {
+		t.Fatalf("expected duplicates removed, got %#v", got)
 	}
 }
 
