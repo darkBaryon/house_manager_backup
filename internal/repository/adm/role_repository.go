@@ -49,7 +49,7 @@ func NewRoleRepository(client *dbmongo.Client) *RoleRepository {
 }
 
 func (r *RoleRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error) {
-	objectIDs := compactObjectIDs(ids)
+	objectIDs := common.CompactObjectIDs(ids)
 	if len(objectIDs) == 0 {
 		return []authmodel.AdmRole{}, nil
 	}

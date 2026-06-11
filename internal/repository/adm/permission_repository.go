@@ -30,7 +30,7 @@ func NewPermissionRepository(client *dbmongo.Client) *PermissionRepository {
 }
 
 func (r *PermissionRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error) {
-	objectIDs := compactObjectIDs(ids)
+	objectIDs := common.CompactObjectIDs(ids)
 	if len(objectIDs) == 0 {
 		return []authmodel.AdmPermission{}, nil
 	}

@@ -135,7 +135,7 @@ func (r *StaffRepository) List(ctx context.Context, input StaffListFilter) ([]au
 		filters = append(filters, common.Regex(staffFieldName, regexp.QuoteMeta(input.Keyword), "i"))
 	}
 	if input.StaffIDs != nil {
-		staffIDs := compactObjectIDs(input.StaffIDs)
+		staffIDs := common.CompactObjectIDs(input.StaffIDs)
 		if len(staffIDs) == 0 {
 			return []authmodel.AdmStaff{}, 0, nil
 		}
