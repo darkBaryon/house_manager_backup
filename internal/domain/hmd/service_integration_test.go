@@ -115,6 +115,37 @@ func TestServiceIntegrationCentralizedFlow(t *testing.T) {
 	})
 	assertErrCode(t, err, errcode.AlreadyExists.Code)
 
+	_, err = f.svc.UpdateRoomType(f.ctx, UpdateRoomTypeInput{
+		ID:           roomType.Entity.ID,
+		RoomTypeName: roomType.Entity.RoomTypeName,
+		Rent:         -1,
+	})
+	assertErrCode(t, err, errcode.InvalidParam.Code)
+
+	updatedRoomType, err := f.svc.UpdateRoomType(f.ctx, UpdateRoomTypeInput{
+		ID:              roomType.Entity.ID,
+		RoomTypeName:    f.prefix + "_room_type_a_updated",
+		RoomCount:       testIntPtr(1),
+		HallCount:       testIntPtr(1),
+		BathroomCount:   testIntPtr(1),
+		KitchenCount:    testIntPtr(1),
+		AreaSize:        38,
+		Orientation:     string(hmdmodel.OrientationSouth),
+		DecorationLevel: string(hmdmodel.DecorationLevelFine),
+		PaymentCycle:    string(hmdmodel.PaymentCycleMonthly),
+		Rent:            6100,
+		Deposit:         6100,
+		ServiceFee:      100,
+		AgencyFeeMode:   string(hmdmodel.AgencyFeeModeNone),
+		Images:          []TaggedImageInput{{URL: "https://example.com/room-type-updated.jpg", Tag: string(hmdmodel.ImageTagBedroom)}},
+		RoomFacilities:  []string{string(hmdmodel.RoomFacilityBed)},
+	})
+	requireNoError(t, err)
+	if updatedRoomType.Entity.RoomTypeName != f.prefix+"_room_type_a_updated" || updatedRoomType.Entity.Rent != 6100 {
+		t.Fatalf("expected updated room type fields, got %#v", updatedRoomType.Entity)
+	}
+	assertChange(t, updatedRoomType.Changes, HmdChangeUpdated, HmdEntityRoomTypeCentralized, HmdScopeRoomTypeCentralized)
+
 	otherProject := mustCreateCentralizedProject(t, f, f.prefix+"_project_b")
 	otherBuilding := mustCreateBuilding(t, f, otherProject.Entity.ID, f.prefix+"_building_b")
 	otherRoomType := mustCreateRoomType(t, f, otherProject.Entity.ID, otherBuilding.Entity.ID, f.prefix+"_room_type_b")
