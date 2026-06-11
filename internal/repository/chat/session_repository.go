@@ -36,21 +36,21 @@ func (r *SessionRepository) FindActiveByUserID(ctx context.Context, userID bson.
 		return nil, fmt.Errorf("find active chat session: userID is required")
 	}
 	filter := bson.M{
-		"user_id":        userID,
-		"session_status": chatmodel.SessionStatusActive,
-		"status":         commonmodel.StatusActive,
+		string(fieldUserID):        userID,
+		string(fieldSessionStatus): chatmodel.SessionStatusActive,
+		string(fieldStatus):        commonmodel.StatusActive,
 	}
 	if minLastActiveAt > 0 {
-		filter["last_active_at"] = bson.M{"$gte": minLastActiveAt}
+		filter[string(fieldLastActiveAt)] = bson.M{"$gte": minLastActiveAt}
 	}
-	var session chatmodel.Session
-	if err := r.Collection.FindOne(ctx, filter, options.FindOne().SetSort(bson.D{{Key: "last_active_at", Value: -1}})).Decode(&session); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
+	sessions, err := r.FindMany(ctx, filter, options.Find().SetSort(bson.D{{Key: string(fieldLastActiveAt), Value: -1}}).SetLimit(1))
+	if err != nil {
 		return nil, fmt.Errorf("find active chat session: %w", err)
 	}
-	return &session, nil
+	if len(sessions) == 0 {
+		return nil, nil
+	}
+	return &sessions[0], nil
 }
 
 func (r *SessionRepository) TouchActive(ctx context.Context, sessionID bson.ObjectID, lastActiveAt int64) error {
@@ -61,22 +61,19 @@ func (r *SessionRepository) TouchActive(ctx context.Context, sessionID bson.Obje
 		return fmt.Errorf("touch active chat session: lastActiveAt is required")
 	}
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": bson.M{
-			"last_active_at": lastActiveAt,
-			"updated_at":     now,
-		},
-		"$inc": bson.M{"version": 1},
-	}
-	res, err := r.Collection.UpdateOne(ctx, bson.M{
-		"_id":            sessionID,
-		"session_status": chatmodel.SessionStatusActive,
-		"status":         commonmodel.StatusActive,
-	}, update)
+	update := common.NewUpdateDoc().
+		Set(fieldLastActiveAt, lastActiveAt).
+		Set(fieldUpdatedAt, now).
+		Inc(fieldVersion, 1)
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(fieldID, sessionID),
+		common.Eq(fieldSessionStatus, chatmodel.SessionStatusActive),
+		common.Active(),
+	), update)
 	if err != nil {
 		return fmt.Errorf("touch active chat session: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil
@@ -90,22 +87,19 @@ func (r *SessionRepository) End(ctx context.Context, sessionID bson.ObjectID, en
 		return fmt.Errorf("end chat session: endedAt is required")
 	}
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": bson.M{
-			"session_status": chatmodel.SessionStatusEnded,
-			"ended_at":       endedAt,
-			"updated_at":     now,
-		},
-		"$inc": bson.M{"version": 1},
-	}
-	res, err := r.Collection.UpdateOne(ctx, bson.M{
-		"_id":    sessionID,
-		"status": commonmodel.StatusActive,
-	}, update)
+	update := common.NewUpdateDoc().
+		Set(fieldSessionStatus, chatmodel.SessionStatusEnded).
+		Set(fieldEndedAt, endedAt).
+		Set(fieldUpdatedAt, now).
+		Inc(fieldVersion, 1)
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(fieldID, sessionID),
+		common.Active(),
+	), update)
 	if err != nil {
 		return fmt.Errorf("end chat session: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil
@@ -116,26 +110,20 @@ func (r *SessionRepository) AllocateMessageSeq(ctx context.Context, sessionID bs
 		return 0, fmt.Errorf("allocate chat message seq: sessionID is required")
 	}
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": bson.M{
-			"updated_at": now,
-		},
-		"$inc": bson.M{
-			"last_seq": 1,
-			"version":  1,
-		},
-	}
-	var session chatmodel.Session
-	if err := r.Collection.FindOneAndUpdate(ctx,
-		bson.M{
-			"_id":            sessionID,
-			"session_status": chatmodel.SessionStatusActive,
-			"status":         commonmodel.StatusActive,
-		},
-		update,
-		options.FindOneAndUpdate().SetReturnDocument(options.After),
-	).Decode(&session); err != nil {
+	update := common.NewUpdateDoc().
+		Set(fieldUpdatedAt, now).
+		Inc(fieldLastSeq, 1).
+		Inc(fieldVersion, 1)
+	session, err := r.FindOneAndUpdateBy(ctx, common.And(
+		common.Eq(fieldID, sessionID),
+		common.Eq(fieldSessionStatus, chatmodel.SessionStatusActive),
+		common.Active(),
+	), update, common.ReturnAfter())
+	if err != nil {
 		return 0, fmt.Errorf("allocate chat message seq: %w", err)
+	}
+	if session == nil {
+		return 0, fmt.Errorf("allocate chat message seq: %w", mongo.ErrNoDocuments)
 	}
 	if session.LastSeq <= 0 {
 		return 0, fmt.Errorf("allocate chat message seq: invalid allocated seq %d", session.LastSeq)
@@ -144,17 +132,17 @@ func (r *SessionRepository) AllocateMessageSeq(ctx context.Context, sessionID bs
 }
 
 func (r *SessionRepository) EnsureIndexes(ctx context.Context) error {
-	models := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "session_status", Value: 1}, {Key: "last_active_at", Value: -1}},
-			Options: options.Index().SetName("user_id_1_session_status_1_last_active_at_-1"),
-		},
-		{
-			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "last_active_at", Value: -1}},
-			Options: options.Index().SetName("user_id_1_last_active_at_-1"),
-		},
-	}
-	if _, err := r.Collection.Indexes().CreateMany(ctx, models); err != nil {
+	if err := r.Repository.EnsureIndexes(ctx,
+		common.NewIndex("user_id_1_session_status_1_last_active_at_-1",
+			common.IndexKey(fieldUserID, common.SortAsc),
+			common.IndexKey(fieldSessionStatus, common.SortAsc),
+			common.IndexKey(fieldLastActiveAt, common.SortDesc),
+		),
+		common.NewIndex("user_id_1_last_active_at_-1",
+			common.IndexKey(fieldUserID, common.SortAsc),
+			common.IndexKey(fieldLastActiveAt, common.SortDesc),
+		),
+	); err != nil {
 		return fmt.Errorf("ensure chat session indexes: %w", err)
 	}
 	return nil

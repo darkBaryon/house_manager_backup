@@ -9,7 +9,6 @@ import (
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -49,17 +48,13 @@ func (r *MessageRepository) ListRecentBySessionID(ctx context.Context, sessionID
 }
 
 func (r *MessageRepository) EnsureIndexes(ctx context.Context) error {
-	models := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "session_id", Value: 1},
-				{Key: "seq", Value: 1},
-				{Key: "status", Value: 1},
-			},
-			Options: options.Index().SetName("session_id_1_seq_1_status_1_unique").SetUnique(true),
-		},
-	}
-	if _, err := r.Collection.Indexes().CreateMany(ctx, models); err != nil {
+	if err := r.Repository.EnsureIndexes(ctx,
+		common.NewIndex("session_id_1_seq_1_status_1_unique",
+			common.IndexKey(fieldSessionID, common.SortAsc),
+			common.IndexKey(fieldSeq, common.SortAsc),
+			common.IndexKey(fieldStatus, common.SortAsc),
+		).WithUnique(),
+	); err != nil {
 		return fmt.Errorf("ensure chat message indexes: %w", err)
 	}
 	return nil
