@@ -69,3 +69,93 @@ SRP 不是"越拆越碎越好"。判断标准始终是行为者：如果两段�
    还是复制一份逻辑？用 SRP 的行为者视角论证。
 3. `pkg/response`、`pkg/errcode` 被所有端共用，这违反 SRP 吗？（提示：想想它们的
    修改理由是谁提出的。）
+
+---
+
+## 讨论沉淀（2026-07）
+
+以下是围绕本章的对话讨论中沉淀下来的内容，超出初版笔记的部分。
+
+### Facade 模式与 `PublishService`
+
+SRP 把逻辑拆碎后有个副作用：调用方要认识一堆小类。补救手段是 **Facade（门面）模式**：
+拆归拆，对外再合成一个统一入口。`internal/service/publish/service.go` 用 Go 的
+struct embedding 无意中实现了它：
+
+```go
+type PublishService struct {
+    *centralizedProjectService
+    *buildingService
+    *roomTypeService
+    ...
+}
+```
+
+实现视角是六个各管一摊的小 service，调用方（handler）视角是一个大 service——
+六个子 service 的方法通过 embedding 全部"透出"到门面上。SRP 拆分 + Facade 合拢
+是配套动作。
+
+### `chat.Service.Send` 为什么不违反 SRP
+
+`Send` 是一个约 200 行的"事务脚本"：校验、session 生命周期、seq 分配、消息落库、
+runtime context、调 AI、日志计时全在里面。看似"做了七件事"，但用行为者标准检验：
+七件事全部服务于"小程序 chat 产品"一个行为者，需求一变整条链一起变——**按 SRP
+不违规**。真正的问题是方法级内聚差、难测试，那是 Clean Code 层面的事，不是架构病。
+
+对应的药也是方法级的：不拆包、不抽接口，把 200 行整理成"20 行目录 + 阶段私有方法"：
+
+```go
+func (s *Service) Send(ctx, input) (*SendResult, error) {
+    req, err  := s.parseSendInput(ctx, input)
+    sess, err := s.resolveActiveSession(ctx, req)
+    userMsg, err := s.appendUserMessage(ctx, sess, req)
+    aiOut, err := s.requestAIReply(ctx, sess, userMsg)
+    return s.persistReply(ctx, sess, aiOut)
+}
+```
+
+教训：**架构级的刀（拆包、抽接口）留给架构级的病**。用 SOLID 的名义做其实只是
+代码美容的重构，是常见的浪费。
+
+### errcode 事故推演（本章最重要的发现）
+
+现状的依赖链：
+
+- `pkg/errcode` 里 `AlreadyExists = New(10006, "资源已存在")`——10006 是前端联调
+  契约，"资源已存在"是用户可见文案；
+- `internal/domain/hmd/errors.go` import 并使用它：领域校验代码在**直接挑选**线上
+  JSON 响应里的数字和文案（`pkg/response.Err` 只透传）；
+- 全项目 `domain` 三个包 + `service` 下二十多个文件都是这个模式。
+
+事故剧本：前端提出"错误码规范化，10006 改成六位数"——一个纯展示层需求，波及面
+却覆盖 domain/service 层及其测试（`assertErrCode(t, err, errcode.AlreadyExists.Code)`
+这类断言全挂）。两拨行为者（前端/产品 vs 业务规则维护者）共用了一个包。
+
+解法（引信出现时再做，不必现在做）：**内层只命名错误，外层翻译码 + 文案**——
+
+```go
+// domain 层：只有名字
+var ErrDuplicateBuilding = errors.New("duplicate building")
+
+// 出口处：翻译表，可按端给不同文案/码
+var hmdErrorMap = map[error]*errcode.Error{
+    hmd.ErrDuplicateBuilding: errcode.AlreadyExists,
+}
+```
+
+这与 `listingprojection` 三端各配 mapper 是同一个直觉：那边投影**数据**，
+这边投影**错误**。实操细节：匹配用 `errors.Is`（错误会被 wrap）；翻译表要有兜底
+（漏登记统一落 `InternalError`，不能把内部细节漏给前端）。
+
+当前结论：一人项目、契约自己说了算，这个耦合实际成本≈0，**留着**；但要意识到
+自己签了"`pkg/errcode` 必须像标准库一样稳定"的合同。架构决策可以推迟，
+但不能是无意识的。
+
+### chat 独立成包的定位
+
+作者的理由："这是一整套 AI 控制流程，独立于本项目存在的功能模块"——这已经不是
+SRP 的语言（谁会来改它），而是**组件**的语言（能否独立复用），对应第 12 章 REP
+（复用发布等价原则）。诚实检验：把 `service/chat` + `repository/chat` +
+`integration/pythonchat` 拷进另一个项目能编译吗？差一点——`model/chat` 算它自己的，
+但 `pkg/errcode` 把它拴在本项目上。目前是"80% 独立"：边界画了，定位未兑现。
+两条路都成立：兑现（挪 `pkg/` 或独立 module）或改口（按 CCP"变化节奏不同"留在原地）。

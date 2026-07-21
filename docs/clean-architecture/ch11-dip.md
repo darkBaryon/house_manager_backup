@@ -56,12 +56,22 @@ README 的分层 `handler -> service -> domain -> repository` 单看像是"高�
 `domain/hmd` 里没有任何 handler、Gin、HTTP 的影子。业务规则处在依赖箭头的终点，
 这正是第 8 章 OCP 埋的伏笔在 DIP 这里收束：**保护谁，就让所有箭头指向谁。**
 
-**4. 一个诚实的取舍。**
-`service/chat` 直接依赖 `*repochat.SessionRepository` 具体类型，没有抽接口。
-按 DIP 原教旨这是"依赖了具体类"，但项目判断 Mongo repository 属于**相对稳定**
-的细节（不打算换存储），于是省掉一层间接。DIP 的成本意识：抽象层数是花出去的
-复杂度，要花在真正易变的轴上。这个取舍对不对可以争论，但它是自觉的——这比
-到处机械抽接口的"伪整洁"健康得多。
+**4. chat 模块三个方向全部完成了反转。**
+（更正：本节初版误写为"`service/chat` 直接依赖 `*repochat.SessionRepository`
+具体类型"，细读 `service.go` 后发现不实。）实际情况是 `service/chat` 在包内声明了
+**未导出**的消费侧窄接口：
+
+```go
+// internal/service/chat/service.go
+type sessionRepository interface { FindActiveByUserID(...); Create(...); ... }
+type messageRepository interface { Create(...); ListRecentBySessionID(...) }
+type runtimeContextStore interface { Get(...); Set(...) }
+```
+
+`Service` 持有的全是这些接口，具体的 `*repochat.SessionRepository` 只在 wire 注入时
+出现。所以 chat 对 AI（`AIResponder`）、对 Mongo、对 Redis 三个方向全部反转，接口
+全部住在消费侧且未导出（纯为自己声明）——Go 社区公认的最佳形态。测试能只靠假实现
+把 Send 全链路测完，就是这三次反转的直接红利。
 
 ## 一个容易犯的错
 
@@ -77,6 +87,49 @@ README 的分层 `handler -> service -> domain -> repository` 单看像是"高�
    有没有 `service/chat` 之外的用例代码？（有就说明某处 DIP 没守住。）
 3. `internal/config` 被几乎所有层 import。它算"稳定的具体类"还是该被反转的
    细节？如果 config 从 YAML 换成配置中心，波及面有多大？
+
+---
+
+## 讨论沉淀（2026-07）
+
+### 两张图讲法（解"反转"之惑）
+
+"`service/chat` 调用 `pythonchat`"和"`pythonchat` 实现 `service/chat` 的接口"
+不矛盾，因为是两张不同的图：
+
+```text
+调用图（运行时）：  service/chat ────────> pythonchat    （由业务决定，永远不变）
+依赖图（源码）：    service/chat <──────── pythonchat    （被接口掰反了）
+```
+
+天真写法里两图同向（要调谁就 import 谁）；在调用方自己包里声明接口后，调用照旧、
+import 反向。**"反转"反的就是源码依赖这一根箭头。**配套动作：new 具体实现的"脏话"
+全部赶进 `wire/`（Main 组件）——全项目搜 `pythonchat.NewClient` 只有一处。
+DIP 不是消灭对具体类的依赖，是把它圈禁到一个没有业务逻辑可污染的角落。
+
+豁免条款：依赖**稳定的**具体类型无害（标准库；以及第 7 章讨论过的 `pkg/errcode`
+合同——成立前提是它像标准库一样稳）。判断标准不是"是不是接口"，
+而是"会不会变、谁让它变"。
+
+### 自测题及答案：换成直连 Claude API，diff 落在哪
+
+会出现：`internal/integration/claudechat/`（纯新增）、`wire/providers_chat.go`
+（换一行 new）、`internal/config/`（加配置项）。
+保证不出现：`service/chat`、`handler/v1/miniapp/chat`、`repository/chat`、所有 domain 包。
+
+**凭什么敢保证：这些包到新实现之间不存在 import 边。**不是"小心点就不会改到"的
+软保证，是编译器层面的硬事实——没有依赖边，变更就没有传播路径。架构的本质是
+管理依赖边；边不存在，波及就不可能发生。
+
+残留的坑（接第 9 章）：签名照抄就能编译，LSP 行为契约得人守——超时返回 error
+而非挂起、失败不留半截状态、output 语义一致。换实现那天拿现有 `service_test.go`
+场景对新实现跑一遍（契约测试）才算真正可替换。
+
+### SOLID 五条串成一句话
+
+> **SRP（单一职责）告诉你在哪画边界，ISP（接口隔离）告诉你边界上的门开多窄，
+> DIP（依赖反转）告诉你门朝哪边开，LSP（里氏替换）保证走这扇门的人守规矩，
+> OCP（开闭）是这一切换来的回报——下次需求来时，老代码不动。**
 
 ---
 

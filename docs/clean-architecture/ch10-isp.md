@@ -53,9 +53,61 @@ tools。Go 明明还有几十个能力，但只按 Python 的实际需要开口�
 
 ## 思考题
 
-1. `service/chat` 依赖 `*repochat.SessionRepository` 具体类型而非接口。按 ISP
-   要不要抽？什么时机抽？（提示：现在有几个消费者、几个实现？）
+1. ~~`service/chat` 依赖 `*repochat.SessionRepository` 具体类型而非接口~~
+   （此题前提有误，见第 11 章更正：service.go 内已有消费侧窄接口。）
 2. 如果 Python 侧提出"还想要房东联系方式"，你是扩宽现有 internal tool 的返回，
    还是加新端点？用 ISP 分析两种做法各让谁背了什么。
 3. 数 `AIRespondInput` 的字段：有没有 Python 实际不消费的字段？多传的每个字段
    都是一条隐形依赖。
+
+---
+
+## 讨论沉淀（2026-07）
+
+### `publishaccess` 包是干什么的（讨论中补的背景）
+
+access = 访问权限。回答"当前登录的房东有权看到/操作哪些房源"，即发房端多房东
+之间的数据隔离。机制是一张根级归属关系表（`HpdRootScopeRelation`）：
+
+1. **写入归属**：房东创建根实体（集中式项目/分散式小区）时，
+   `UpsertRootScopeForPrincipal` 记录"这个 Principal（Redis session 里的结构化
+   登录身份）拥有这个根"；
+2. **查询过滤**：拉列表先 `ListAccessibleProjectIDs` 查名下项目 ID 再过滤；
+3. **操作校验**：改楼栋/房间前 `CanAccessProjectForPrincipal` 验"这楼是你的吗"
+   （即各子 service 开头的 `requireProjectAccess`）。
+
+设计亮点：**权限只挂根实体**，楼栋/房型/房间不单独记权限，顺着树找到根再验——
+权限表只有根级条目，量小且不随房间数膨胀。
+（注意：这是鉴权代码，炸了是"房东看到别人房源"级别的安全事故，属于必须亲自
+验收的承重墙。）
+
+### 五方法共享接口的裁决：轻微违例，不拆
+
+`publishAccessService`（5 方法）被六个子 service 共用；楼栋 service 只用得到
+project 系方法，却依赖了 community 系——按 ISP 严格标准是轻微违例。它的实际代价
+不在运行时，在**测试**：mock 这个接口要把五个方法都实现一遍。ISP 事故在 Go 里最
+常见的表现形式：**不是编译慢，是 mock 肥**。
+
+裁决不拆的理由：五个方法语义高度内聚（全是"根级权限"）、变化节奏一致，拆的收益
+只是每个 mock 少两三个空方法。同文件里 domain 接口按消费者拆成了十几个
+（三十多个方法不拆会爆炸）、access 共享（五个方法拆了嫌碎）——粒度按成本定，
+不一致不是毛病。若将来要拆，正确切法是按集中式/分散式两组
+（`projectAccess` / `communityAccess`），对齐消费者的真实需要。
+
+**拆分信号两条：mock 开始肥、或两组方法开始因不同理由变化。信号没亮，别拆。**
+这条规则适用于一切原则驱动的重构：原则告诉你往哪拆，成本信号告诉你何时拆。
+
+### lint 补课
+
+lint（静态检查）= 不运行代码、只"读"代码挑毛病的工具，管编译器不管的事。
+本项目 CI 已有 `go vet` / `gofmt -l`。社区标配 **golangci-lint**（聚合器），
+相关检查器：
+
+- `exhaustruct`：构造指定结构体漏填字段即报——治"mapper 忘抄新字段"
+  "refreshFuncs 漏填函数"这类编译放行、上线才炸的问题；
+- `depguard` / `go-arch-lint`：把 README 里"service/chat 不许 import pythonchat"
+  这类架构军规写成机器规则，谁违反（包括未来的 CC）CI 就挂。
+
+定位：测试验证"行为对不对"，lint 验证"写法有没有已知坑"，**架构约束也能 lint 化**。
+写在文档里的架构约束会腐烂，写进工具里的才能活下来——写代码的越来越多是 AI 时，
+机器可执行的约束比注释里的君子协定值钱得多。
