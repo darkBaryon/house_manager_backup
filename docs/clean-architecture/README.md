@@ -14,7 +14,7 @@ Software Structure and Design*）的中文导读笔记。每章不复述原文�
 | 章 | 文件 | 主题 |
 |---|---|---|
 | 7 | [ch07-srp.md](./ch07-srp.md) | SRP 单一职责原则 |
-| 8 | [ch08-ocp.md](./ch08-ocp.md) | OCP 开闭原则 |
+| 8 | [ch08-ocp.md](./ch08-ocp.md) | OCP 开闭原则（精读版：含财务报表案例全拆解与思考题解析） |
 | 9 | [ch09-lsp.md](./ch09-lsp.md) | LSP 里氏替换原则 |
 | 10 | [ch10-isp.md](./ch10-isp.md) | ISP 接口隔离原则 |
 | 11 | [ch11-dip.md](./ch11-dip.md) | DIP 依赖反转原则 |
