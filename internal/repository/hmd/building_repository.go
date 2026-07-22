@@ -53,16 +53,13 @@ func (r *BuildingRepository) ListByProjectID(ctx context.Context, projectID bson
 	return r.FindMany(ctx, activeFilter(bson.M{"project_id": projectID}), hmdListFindOptions())
 }
 
-func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *BuildingRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, update BuildingBaseInfoUpdate) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd building base info: id is required")
 	}
-	safeFields, err := pickAllowedFields(fields, buildingBaseInfoFields)
+	fields, err := buildingBaseInfoUpdateFields(update)
 	if err != nil {
 		return fmt.Errorf("update hmd building base info: %w", err)
 	}
-	if err := hmdmodel.ValidateHmdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hmd building base info: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, fields)
 }

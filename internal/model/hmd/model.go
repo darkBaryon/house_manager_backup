@@ -15,6 +15,8 @@ const (
 	CollectionHmdRoomDecentralized   = "hs_hmd_room_decentralized"
 )
 
+const UnknownLayoutCount = -1
+
 // GeoPoint 通用经纬度坐标。
 type GeoPoint struct {
 	Lng float64 `bson:"lng" json:"lng"`
@@ -100,6 +102,10 @@ type HmdRoomCentralized struct {
 	FloorNo           int               `bson:"floor_no" json:"floorNo"`
 	RentMode          RentMode          `bson:"rent_mode" json:"rentMode"`
 	LayoutText        string            `bson:"layout_text" json:"layoutText"`
+	RoomCount         int               `bson:"room_count" json:"roomCount"`
+	HallCount         int               `bson:"hall_count" json:"hallCount"`
+	BathroomCount     int               `bson:"bathroom_count" json:"bathroomCount"`
+	KitchenCount      int               `bson:"kitchen_count" json:"kitchenCount"`
 	AreaSize          int               `bson:"area_size" json:"areaSize"`
 	Orientation       Orientation       `bson:"orientation" json:"orientation"`
 	DecorationLevel   DecorationLevel   `bson:"decoration_level" json:"decorationLevel"`
@@ -126,6 +132,10 @@ type HmdRoomDecentralized struct {
 	FloorNo           int               `bson:"floor_no" json:"floorNo"`
 	RentMode          RentMode          `bson:"rent_mode" json:"rentMode"`
 	LayoutText        string            `bson:"layout_text" json:"layoutText"`
+	RoomCount         int               `bson:"room_count" json:"roomCount"`
+	HallCount         int               `bson:"hall_count" json:"hallCount"`
+	BathroomCount     int               `bson:"bathroom_count" json:"bathroomCount"`
+	KitchenCount      int               `bson:"kitchen_count" json:"kitchenCount"`
 	AreaSize          int               `bson:"area_size" json:"areaSize"`
 	Orientation       Orientation       `bson:"orientation" json:"orientation"`
 	DecorationLevel   DecorationLevel   `bson:"decoration_level" json:"decorationLevel"`

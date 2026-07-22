@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	authmodel "house-manager/internal/model/auth"
-	commonmodel "house-manager/internal/model/common"
 	"house-manager/internal/repository/common"
+	"house-manager/internal/repository/credentialcore"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -16,31 +15,39 @@ import (
 
 type StaffAuthRepository struct {
 	*common.Repository[authmodel.AdmStaffAuth]
+	core *credentialcore.Core[authmodel.AdmStaffAuth]
 }
 
+const (
+	staffAuthFieldStaffID  common.Field = "staff_id"
+	staffAuthFieldAuthType common.Field = "auth_type"
+	staffAuthFieldStatus   common.Field = "status"
+)
+
 func NewStaffAuthRepository(client *dbmongo.Client) *StaffAuthRepository {
+	repo := common.NewRepository[authmodel.AdmStaffAuth](client.Collection(authmodel.CollectionAdmStaffAuth))
 	return &StaffAuthRepository{
-		Repository: common.NewRepository[authmodel.AdmStaffAuth](client.Collection(authmodel.CollectionAdmStaffAuth)),
+		Repository: repo,
+		core: credentialcore.NewCore(repo, credentialcore.Config[authmodel.AdmStaffAuth]{
+			OwnerField: staffAuthFieldStaffID,
+			Normalize:  normalizeStaffAuth,
+			Validate:   (*authmodel.AdmStaffAuth).ValidateForCreate,
+		}),
 	}
 }
 
 func (r *StaffAuthRepository) CreatePasswordAuth(ctx context.Context, authRecord *authmodel.AdmStaffAuth) error {
-	normalizeStaffAuth(authRecord)
-	if err := authRecord.ValidateForCreate(); err != nil {
+	if err := r.core.Create(ctx, authRecord); err != nil {
 		return fmt.Errorf("create staff password auth: %w", err)
 	}
-	return r.Insert(ctx, authRecord)
+	return nil
 }
 
 func (r *StaffAuthRepository) FindActivePasswordByStaffID(ctx context.Context, staffID bson.ObjectID) (*authmodel.AdmStaffAuth, error) {
 	if staffID.IsZero() {
 		return nil, fmt.Errorf("find staff password auth: staffID is required")
 	}
-	authRecord, err := r.FindOne(ctx, bson.M{
-		"staff_id":  staffID,
-		"auth_type": authmodel.PasswordAuthTypePassword,
-		"status":    commonmodel.StatusActive,
-	})
+	authRecord, err := r.core.FindActivePasswordByOwner(ctx, staffID)
 	if err != nil {
 		return nil, fmt.Errorf("find staff password auth: %w", err)
 	}
@@ -48,15 +55,7 @@ func (r *StaffAuthRepository) FindActivePasswordByStaffID(ctx context.Context, s
 }
 
 func (r *StaffAuthRepository) FindActivePasswordByStaffIDs(ctx context.Context, staffIDs []bson.ObjectID) ([]authmodel.AdmStaffAuth, error) {
-	objectIDs := compactObjectIDs(staffIDs)
-	if len(objectIDs) == 0 {
-		return []authmodel.AdmStaffAuth{}, nil
-	}
-	items, err := r.FindMany(ctx, bson.M{
-		"staff_id":  bson.M{"$in": objectIDs},
-		"auth_type": authmodel.PasswordAuthTypePassword,
-		"status":    commonmodel.StatusActive,
-	})
+	items, err := r.core.FindActivePasswordByOwners(ctx, staffIDs)
 	if err != nil {
 		return nil, fmt.Errorf("find staff password auth by staff ids: %w", err)
 	}
@@ -67,17 +66,17 @@ func (r *StaffAuthRepository) TouchLastLogin(ctx context.Context, authID bson.Ob
 	if authID.IsZero() {
 		return fmt.Errorf("touch staff auth last login: authID is required")
 	}
-	return r.UpdateFieldsByID(ctx, authID, bson.M{
-		"last_login_at": time.Now().Unix(),
-		"last_login_ip": strings.TrimSpace(loginIP),
-	})
+	if err := r.core.TouchLastLogin(ctx, authID, strings.TrimSpace(loginIP)); err != nil {
+		return fmt.Errorf("touch staff auth last login: %w", err)
+	}
+	return nil
 }
 
 func (r *StaffAuthRepository) RollbackCreateByStaffID(ctx context.Context, staffID bson.ObjectID) error {
 	if staffID.IsZero() {
 		return fmt.Errorf("rollback staff auth create: staffID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"staff_id": staffID}); err != nil {
+	if err := r.core.RollbackCreateByOwner(ctx, staffID); err != nil {
 		return fmt.Errorf("rollback staff auth create: %w", err)
 	}
 	return nil

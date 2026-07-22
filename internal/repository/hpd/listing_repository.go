@@ -3,6 +3,7 @@ package hpd
 import (
 	"context"
 	"fmt"
+
 	commonmodel "house-manager/internal/model/common"
 	hpdmodel "house-manager/internal/model/hpd"
 	"house-manager/internal/repository/common"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type ListingRepository struct {
@@ -48,7 +48,7 @@ func (r *ListingRepository) FindBySource(ctx context.Context, sourceType hpdmode
 }
 
 func (r *ListingRepository) ListByIDs(ctx context.Context, ids []bson.ObjectID) ([]hpdmodel.HpdListing, error) {
-	ids = compactObjectIDs(ids)
+	ids = common.CompactObjectIDs(ids)
 	if len(ids) == 0 {
 		return []hpdmodel.HpdListing{}, nil
 	}
@@ -62,65 +62,23 @@ func (r *ListingRepository) UpsertBySource(ctx context.Context, entity *hpdmodel
 	if err := entity.ValidateForCreate(); err != nil {
 		return nil, fmt.Errorf("upsert hpd listing by source: %w", err)
 	}
-	filter := activeFilter(bson.M{"source_type": entity.SourceType, "source_id": entity.SourceID})
+	filter := common.And(
+		common.Eq(hpdFieldSourceType, entity.SourceType),
+		common.Eq(hpdFieldSourceID, entity.SourceID),
+		common.Active(),
+	)
 	fields := listingFields(entity)
 
 	now := time.Now().Unix()
 	fields["updated_at"] = now
-	update := bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-		"$setOnInsert": bson.M{
-			"created_at":     now,
-			"status":         commonmodel.StatusActive,
-			"listing_status": entity.ListingStatus,
-			"published_at":   entity.PublishedAt,
-			"offline_at":     entity.OfflineAt,
-		},
-	}
-	opts := options.UpdateOne().SetUpsert(true)
-	if _, err := r.Collection.UpdateOne(ctx, filter, update, opts); err != nil {
+	update := updateDocFromSetFields(fields).
+		SetOnInsert(hpdFieldCreatedAt, now).
+		SetOnInsert(hpdFieldStatus, commonmodel.StatusActive).
+		SetOnInsert(hpdFieldListingStatus, entity.ListingStatus).
+		SetOnInsert(common.Field("published_at"), entity.PublishedAt).
+		SetOnInsert(common.Field("offline_at"), entity.OfflineAt)
+	if _, err := r.UpsertOneBy(ctx, filter, update); err != nil {
 		return nil, fmt.Errorf("upsert hpd listing by source: %w", err)
 	}
 	return r.FindBySource(ctx, entity.SourceType, entity.SourceID)
-}
-
-func (r *ListingRepository) UpdateLifecycleFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
-	if id.IsZero() {
-		return fmt.Errorf("update hpd listing lifecycle fields: id is required")
-	}
-	safeFields, err := pickAllowedFields(fields, listingLifecycleFields)
-	if err != nil {
-		return fmt.Errorf("update hpd listing lifecycle fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd listing lifecycle fields: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
-}
-
-func (r *ListingRepository) UpdateStatus(ctx context.Context, id bson.ObjectID, listingStatus hpdmodel.HpdListingStatus) error {
-	if id.IsZero() {
-		return fmt.Errorf("update hpd listing status: id is required")
-	}
-	if listingStatus == hpdmodel.HpdListingStatusUnspecified || !listingStatus.Valid() {
-		return fmt.Errorf("update hpd listing status: listingStatus is invalid")
-	}
-	return r.UpdateFieldsByID(ctx, id, listingStatusUpdateFields(listingStatus))
-}
-
-func compactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
-	compacted := make([]bson.ObjectID, 0, len(ids))
-	seen := make(map[bson.ObjectID]struct{}, len(ids))
-	for _, id := range ids {
-		if id.IsZero() {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		compacted = append(compacted, id)
-	}
-	return compacted
 }

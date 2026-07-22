@@ -21,20 +21,8 @@ func TestActiveFilterOverridesIncomingStatus(t *testing.T) {
 	}
 }
 
-func TestListingUpdateLifecycleRejectsIdentityField(t *testing.T) {
-	repo := &ListingRepository{}
-	err := repo.UpdateLifecycleFields(context.Background(), bson.NewObjectID(), bson.M{"source_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "source_id") {
-		t.Fatalf("expected source_id to be rejected, got %v", err)
-	}
-}
-
-func TestListingUpdateStatusRejectsUnspecified(t *testing.T) {
-	repo := &ListingRepository{}
-	err := repo.UpdateStatus(context.Background(), bson.NewObjectID(), hpdmodel.HpdListingStatusUnspecified)
-	if err == nil || !strings.Contains(err.Error(), "listingStatus is invalid") {
-		t.Fatalf("expected invalid listingStatus error, got %v", err)
-	}
+func testIntPtr(value int) *int {
+	return &value
 }
 
 func TestListingFieldsDoNotIncludeLifecycleFields(t *testing.T) {
@@ -54,20 +42,16 @@ func TestListingFieldsDoNotIncludeLifecycleFields(t *testing.T) {
 	}
 }
 
-func TestMiniappUpdateProjectionRejectsIdentityField(t *testing.T) {
-	repo := &MiniappListingRepository{}
-	err := repo.UpdateProjectionFields(context.Background(), bson.NewObjectID(), bson.M{"listing_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "listing_id") {
-		t.Fatalf("expected listing_id to be rejected, got %v", err)
-	}
-}
-
 func TestMiniappSearchFilterBuildsOnlinePriceRange(t *testing.T) {
 	filter, err := miniappSearchFilter(MiniappListingSearchFilter{
-		City:     "深圳",
-		RentMode: hmdmodel.RentModeWhole,
-		PriceMin: 3000,
-		PriceMax: 6000,
+		City:          "深圳",
+		RentMode:      hmdmodel.RentModeWhole,
+		PriceMin:      3000,
+		PriceMax:      6000,
+		RoomCount:     testIntPtr(2),
+		HallCount:     testIntPtr(1),
+		BathroomCount: testIntPtr(1),
+		KitchenCount:  testIntPtr(0),
 	})
 	if err != nil {
 		t.Fatalf("expected search filter to build, got %v", err)
@@ -83,6 +67,18 @@ func TestMiniappSearchFilterBuildsOnlinePriceRange(t *testing.T) {
 	}
 	if got := filter["rent_mode"]; got != hmdmodel.RentModeWhole {
 		t.Fatalf("expected rent mode filter, got %v", got)
+	}
+	if got := filter["room_count"]; got != 2 {
+		t.Fatalf("expected room count filter, got %v", got)
+	}
+	if got := filter["hall_count"]; got != 1 {
+		t.Fatalf("expected hall count filter, got %v", got)
+	}
+	if got := filter["bathroom_count"]; got != 1 {
+		t.Fatalf("expected bathroom count filter, got %v", got)
+	}
+	if got := filter["kitchen_count"]; got != 0 {
+		t.Fatalf("expected kitchen count filter, got %v", got)
 	}
 
 	price, ok := filter["price"].(bson.M)
@@ -213,6 +209,8 @@ func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
 		RootType:             hpdmodel.HpdRootScopeTypeCentralizedProject,
 		RootID:               rootID,
 		RoomNo:               "1201",
+		RoomCount:            2,
+		HallCount:            1,
 		ListingStatus:        hpdmodel.HpdListingStatusDraft,
 	})
 
@@ -227,6 +225,12 @@ func TestPublisherListingFieldsIncludeRootAndRoomFields(t *testing.T) {
 	}
 	if got := fields["room_no"]; got != "1201" {
 		t.Fatalf("expected room no, got %v", got)
+	}
+	if got := fields["room_count"]; got != 2 {
+		t.Fatalf("expected room count, got %v", got)
+	}
+	if got := fields["hall_count"]; got != 1 {
+		t.Fatalf("expected hall count, got %v", got)
 	}
 	if got := fields["owner_phone_snapshot"]; got != "13800000000" {
 		t.Fatalf("expected owner phone snapshot, got %v", got)
@@ -260,13 +264,5 @@ func TestAdminListingFieldsIncludeAuditAndOwnerFields(t *testing.T) {
 	}
 	if got := fields["owner_phone_snapshot"]; got != "13800000000" {
 		t.Fatalf("expected owner phone snapshot, got %v", got)
-	}
-}
-
-func TestAdminUpdateProjectionRejectsIdentityField(t *testing.T) {
-	repo := &AdminListingRepository{}
-	err := repo.UpdateProjectionFields(context.Background(), bson.NewObjectID(), bson.M{"listing_id": bson.NewObjectID()})
-	if err == nil || !strings.Contains(err.Error(), "listing_id") {
-		t.Fatalf("expected listing_id to be rejected, got %v", err)
 	}
 }

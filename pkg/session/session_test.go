@@ -3,8 +3,11 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
+
+	"house-manager/pkg/cache"
 )
 
 func TestStoreCreatePrincipalStoresJSON(t *testing.T) {
@@ -91,6 +94,8 @@ func TestPrincipalContextRoundTrip(t *testing.T) {
 type fakeCache struct {
 	values map[string]string
 	ttls   map[string]time.Duration
+	getErr error
+	setErr error
 }
 
 func newFakeCache() *fakeCache {
@@ -98,10 +103,20 @@ func newFakeCache() *fakeCache {
 }
 
 func (f *fakeCache) Get(ctx context.Context, key string) (string, error) {
-	return f.values[key], nil
+	if f.getErr != nil {
+		return "", f.getErr
+	}
+	value, ok := f.values[key]
+	if !ok {
+		return "", cache.ErrNil
+	}
+	return value, nil
 }
 
 func (f *fakeCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	if f.setErr != nil {
+		return f.setErr
+	}
 	f.values[key] = value
 	f.ttls[key] = ttl
 	return nil
@@ -144,6 +159,31 @@ func TestStoreGetPrincipalRefreshesTTL(t *testing.T) {
 	}
 	if got := cache.ttls[key]; got != 2*time.Hour {
 		t.Fatalf("ttl not refreshed, got %v", got)
+	}
+}
+
+func TestStoreGetPrincipalReturnsNilForMissingToken(t *testing.T) {
+	store := NewStore(newFakeCache(), time.Minute)
+
+	principal, err := store.GetPrincipal(context.Background(), "missing-token")
+	if err != nil {
+		t.Fatalf("expected missing token without error, got %v", err)
+	}
+	if principal != nil {
+		t.Fatalf("expected nil principal, got %#v", principal)
+	}
+}
+
+func TestStoreGetPrincipalReturnsCacheError(t *testing.T) {
+	expectedErr := errors.New("redis timeout")
+	store := NewStore(&fakeCache{getErr: expectedErr}, time.Minute)
+
+	principal, err := store.GetPrincipal(context.Background(), "token")
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected cache error, principal=%#v err=%v", principal, err)
+	}
+	if principal != nil {
+		t.Fatalf("expected nil principal, got %#v", principal)
 	}
 }
 

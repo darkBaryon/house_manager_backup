@@ -17,6 +17,12 @@ type PermissionRepository struct {
 	*common.Repository[authmodel.AdmPermission]
 }
 
+const (
+	permissionFieldPermissionCode common.Field = "permission_code"
+	permissionFieldModule         common.Field = "module"
+	permissionFieldStatus         common.Field = "status"
+)
+
 func NewPermissionRepository(client *dbmongo.Client) *PermissionRepository {
 	return &PermissionRepository{
 		Repository: common.NewRepository[authmodel.AdmPermission](client.Collection(authmodel.CollectionAdmPermission)),
@@ -24,7 +30,7 @@ func NewPermissionRepository(client *dbmongo.Client) *PermissionRepository {
 }
 
 func (r *PermissionRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmPermission, error) {
-	objectIDs := compactObjectIDs(ids)
+	objectIDs := common.CompactObjectIDs(ids)
 	if len(objectIDs) == 0 {
 		return []authmodel.AdmPermission{}, nil
 	}

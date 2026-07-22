@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Repository struct {
@@ -36,19 +34,14 @@ func (r *Repository) Upsert(ctx context.Context, userID, listingID bson.ObjectID
 		return fmt.Errorf("upsert favorite: userID and listingID are required")
 	}
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": bson.M{
-			"user_id":    userID,
-			"listing_id": listingID,
-			"status":     commonmodel.StatusActive,
-			"updated_at": now,
-		},
-		"$inc": bson.M{"version": 1},
-		"$setOnInsert": bson.M{
-			"created_at": now,
-		},
-	}
-	if _, err := r.Collection.UpdateOne(ctx, userListingFilter(userID, listingID), update, options.UpdateOne().SetUpsert(true)); err != nil {
+	update := common.NewUpdateDoc().
+		Set(fieldUserID, userID).
+		Set(fieldListingID, listingID).
+		Set(fieldStatus, commonmodel.StatusActive).
+		Set(fieldUpdatedAt, now).
+		Inc(fieldVersion, 1).
+		SetOnInsert(fieldCreatedAt, now)
+	if _, err := r.UpsertOneBy(ctx, userListingFilter(userID, listingID), update); err != nil {
 		return fmt.Errorf("upsert favorite: %w", err)
 	}
 	return nil
@@ -59,14 +52,11 @@ func (r *Repository) SoftRemove(ctx context.Context, userID, listingID bson.Obje
 		return fmt.Errorf("soft remove favorite: userID and listingID are required")
 	}
 	now := time.Now().Unix()
-	update := bson.M{
-		"$set": bson.M{
-			"status":     commonmodel.StatusDeleted,
-			"updated_at": now,
-		},
-		"$inc": bson.M{"version": 1},
-	}
-	if _, err := r.Collection.UpdateOne(ctx, userListingFilter(userID, listingID), update); err != nil {
+	update := common.NewUpdateDoc().
+		Set(fieldStatus, commonmodel.StatusDeleted).
+		Set(fieldUpdatedAt, now).
+		Inc(fieldVersion, 1)
+	if _, err := r.UpdateOneBy(ctx, userListingFilter(userID, listingID), update); err != nil {
 		return fmt.Errorf("soft remove favorite: %w", err)
 	}
 	return nil
@@ -76,36 +66,42 @@ func (r *Repository) Exists(ctx context.Context, userID, listingID bson.ObjectID
 	if userID.IsZero() || listingID.IsZero() {
 		return false, fmt.Errorf("favorite exists: userID and listingID are required")
 	}
-	total, err := r.Collection.CountDocuments(ctx, bson.M{
-		"user_id":    userID,
-		"listing_id": listingID,
-		"status":     commonmodel.StatusActive,
-	})
+	exists, err := r.ExistsBy(ctx, common.And(
+		common.Eq(fieldUserID, userID),
+		common.Eq(fieldListingID, listingID),
+		common.Active(),
+	))
 	if err != nil {
 		return false, fmt.Errorf("favorite exists: %w", err)
 	}
-	return total > 0, nil
+	return exists, nil
 }
 
 func (r *Repository) List(ctx context.Context, userID bson.ObjectID, skip, limit int64) ([]useractivitymodel.Favorite, error) {
 	if userID.IsZero() {
 		return nil, fmt.Errorf("list favorites: userID is required")
 	}
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
+	opts := []common.QueryOption{common.SortBy(fieldUpdatedAt, common.SortDesc)}
 	if skip > 0 {
-		opts.SetSkip(skip)
+		opts = append(opts, common.Skip(skip))
 	}
 	if limit > 0 {
-		opts.SetLimit(limit)
+		opts = append(opts, common.Limit(limit))
 	}
-	return r.FindMany(ctx, bson.M{"user_id": userID, "status": commonmodel.StatusActive}, opts)
+	return r.FindManyBy(ctx, common.And(
+		common.Eq(fieldUserID, userID),
+		common.Active(),
+	), opts...)
 }
 
 func (r *Repository) Count(ctx context.Context, userID bson.ObjectID) (int64, error) {
 	if userID.IsZero() {
 		return 0, fmt.Errorf("count favorites: userID is required")
 	}
-	total, err := r.Collection.CountDocuments(ctx, bson.M{"user_id": userID, "status": commonmodel.StatusActive})
+	total, err := r.CountBy(ctx, common.And(
+		common.Eq(fieldUserID, userID),
+		common.Active(),
+	))
 	if err != nil {
 		return 0, fmt.Errorf("count favorites: %w", err)
 	}
@@ -113,22 +109,25 @@ func (r *Repository) Count(ctx context.Context, userID bson.ObjectID) (int64, er
 }
 
 func (r *Repository) EnsureIndexes(ctx context.Context) error {
-	models := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "listing_id", Value: 1}},
-			Options: options.Index().SetName("user_id_1_listing_id_1").SetUnique(true),
-		},
-		{
-			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "status", Value: 1}, {Key: "updated_at", Value: -1}},
-			Options: options.Index().SetName("user_id_1_status_1_updated_at_-1"),
-		},
-	}
-	if _, err := r.Collection.Indexes().CreateMany(ctx, models); err != nil {
+	if err := r.Repository.EnsureIndexes(ctx,
+		common.NewIndex("user_id_1_listing_id_1",
+			common.IndexKey(fieldUserID, common.SortAsc),
+			common.IndexKey(fieldListingID, common.SortAsc),
+		).WithUnique(),
+		common.NewIndex("user_id_1_status_1_updated_at_-1",
+			common.IndexKey(fieldUserID, common.SortAsc),
+			common.IndexKey(fieldStatus, common.SortAsc),
+			common.IndexKey(fieldUpdatedAt, common.SortDesc),
+		),
+	); err != nil {
 		return fmt.Errorf("ensure favorite indexes: %w", err)
 	}
 	return nil
 }
 
-func userListingFilter(userID, listingID bson.ObjectID) bson.M {
-	return bson.M{"user_id": userID, "listing_id": listingID}
+func userListingFilter(userID, listingID bson.ObjectID) common.Filter {
+	return common.And(
+		common.Eq(fieldUserID, userID),
+		common.Eq(fieldListingID, listingID),
+	)
 }

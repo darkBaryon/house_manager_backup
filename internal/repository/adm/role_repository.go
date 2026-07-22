@@ -14,17 +14,32 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type RoleRepository struct {
 	*common.Repository[authmodel.AdmRole]
 }
 
+const (
+	roleFieldID          common.Field = "_id"
+	roleFieldRoleName    common.Field = "role_name"
+	roleFieldRoleCode    common.Field = "role_code"
+	roleFieldDescription common.Field = "description"
+	roleFieldStatus      common.Field = "status"
+	roleFieldCreatedAt   common.Field = "created_at"
+	roleFieldUpdatedAt   common.Field = "updated_at"
+	roleFieldVersion     common.Field = "version"
+)
+
 type RoleListFilter struct {
 	Keyword string
 	Skip    int64
 	Limit   int64
+}
+
+type RoleUpdate struct {
+	RoleName    *string
+	Description *string
 }
 
 func NewRoleRepository(client *dbmongo.Client) *RoleRepository {
@@ -34,14 +49,14 @@ func NewRoleRepository(client *dbmongo.Client) *RoleRepository {
 }
 
 func (r *RoleRepository) FindActiveByIDs(ctx context.Context, ids []bson.ObjectID) ([]authmodel.AdmRole, error) {
-	objectIDs := compactObjectIDs(ids)
+	objectIDs := common.CompactObjectIDs(ids)
 	if len(objectIDs) == 0 {
 		return []authmodel.AdmRole{}, nil
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"_id":    bson.M{"$in": objectIDs},
-		"status": commonmodel.StatusActive,
-	})
+	items, err := r.FindManyBy(ctx, common.And(
+		common.In(roleFieldID, objectIDs),
+		common.Eq(roleFieldStatus, commonmodel.StatusActive),
+	))
 	if err != nil {
 		return nil, fmt.Errorf("find roles by ids: %w", err)
 	}
@@ -60,10 +75,10 @@ func (r *RoleRepository) FindActiveByID(ctx context.Context, id bson.ObjectID) (
 	if id.IsZero() {
 		return nil, fmt.Errorf("find role by id: id is required")
 	}
-	role, err := r.FindOne(ctx, bson.M{
-		"_id":    id,
-		"status": commonmodel.StatusActive,
-	})
+	role, err := r.FindOneBy(ctx, common.And(
+		common.Eq(roleFieldID, id),
+		common.Eq(roleFieldStatus, commonmodel.StatusActive),
+	))
 	if err != nil {
 		return nil, fmt.Errorf("find role by id: %w", err)
 	}
@@ -75,7 +90,7 @@ func (r *RoleRepository) FindByCode(ctx context.Context, roleCode string) (*auth
 	if roleCode == "" {
 		return nil, fmt.Errorf("find role by code: roleCode is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{"role_code": roleCode}, options.Find().SetLimit(2))
+	items, err := r.FindManyBy(ctx, common.Eq(roleFieldRoleCode, roleCode), common.Limit(2))
 	if err != nil {
 		return nil, fmt.Errorf("find role by code: %w", err)
 	}
@@ -89,49 +104,59 @@ func (r *RoleRepository) FindByCode(ctx context.Context, roleCode string) (*auth
 }
 
 func (r *RoleRepository) List(ctx context.Context, input RoleListFilter) ([]authmodel.AdmRole, int64, error) {
-	filter := bson.M{"status": commonmodel.StatusActive}
+	filter := common.Eq(roleFieldStatus, commonmodel.StatusActive)
 	if input.Keyword = strings.TrimSpace(input.Keyword); input.Keyword != "" {
 		pattern := regexp.QuoteMeta(input.Keyword)
-		filter["$or"] = []bson.M{
-			{"role_name": bson.Regex{Pattern: pattern, Options: "i"}},
-			{"role_code": bson.Regex{Pattern: pattern, Options: "i"}},
-		}
+		filter = common.And(filter, common.Or(
+			common.Regex(roleFieldRoleName, pattern, "i"),
+			common.Regex(roleFieldRoleCode, pattern, "i"),
+		))
 	}
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	total, err := r.CountBy(ctx, filter)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count role list: %w", err)
 	}
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
+	opts := []common.QueryOption{
+		common.SortBy(roleFieldCreatedAt, common.SortDesc),
+		common.SortBy(roleFieldID, common.SortDesc),
+	}
 	if input.Skip > 0 {
-		opts.SetSkip(input.Skip)
+		opts = append(opts, common.Skip(input.Skip))
 	}
 	if input.Limit > 0 {
-		opts.SetLimit(input.Limit)
+		opts = append(opts, common.Limit(input.Limit))
 	}
-	items, err := r.FindMany(ctx, filter, opts)
+	items, err := r.FindManyBy(ctx, filter, opts...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list roles: %w", err)
 	}
 	return items, total, nil
 }
 
-func (r *RoleRepository) UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *RoleRepository) Update(ctx context.Context, id bson.ObjectID, input RoleUpdate) error {
 	if id.IsZero() {
-		return fmt.Errorf("update role fields: id is required")
+		return fmt.Errorf("update role: id is required")
 	}
-	if len(fields) == 0 {
-		return fmt.Errorf("update role fields: fields is required")
+	if input.RoleName == nil && input.Description == nil {
+		return fmt.Errorf("update role: fields is required")
 	}
-	fields = cloneBsonM(fields)
-	fields["updated_at"] = time.Now().Unix()
-	res, err := r.Collection.UpdateOne(ctx, bson.M{"_id": id, "status": commonmodel.StatusActive}, bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-	})
+	update := common.NewUpdateDoc().
+		Set(roleFieldUpdatedAt, time.Now().Unix()).
+		Inc(roleFieldVersion, 1)
+	if input.RoleName != nil {
+		update = update.Set(roleFieldRoleName, *input.RoleName)
+	}
+	if input.Description != nil {
+		update = update.Set(roleFieldDescription, *input.Description)
+	}
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(roleFieldID, id),
+		common.Eq(roleFieldStatus, commonmodel.StatusActive),
+	), update)
 	if err != nil {
-		return fmt.Errorf("update role fields: %w", err)
+		return fmt.Errorf("update role: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil
@@ -141,7 +166,7 @@ func (r *RoleRepository) RollbackCreate(ctx context.Context, id bson.ObjectID) e
 	if id.IsZero() {
 		return fmt.Errorf("rollback role create: id is required")
 	}
-	if _, err := r.Collection.DeleteOne(ctx, bson.M{"_id": id}); err != nil {
+	if err := r.DeleteOneBy(ctx, common.Eq(roleFieldID, id)); err != nil {
 		return fmt.Errorf("rollback role create: %w", err)
 	}
 	return nil

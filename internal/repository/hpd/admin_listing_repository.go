@@ -8,10 +8,8 @@ import (
 	"house-manager/internal/repository/common"
 	dbmongo "house-manager/pkg/database/mongo"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -72,7 +70,7 @@ func (r *AdminListingRepository) ListAdmin(ctx context.Context, input AdminListi
 	if err != nil {
 		return nil, 0, fmt.Errorf("list hpd admin listings: %w", err)
 	}
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	total, err := r.CountBy(ctx, common.FilterFromBSON(filter))
 	if err != nil {
 		return nil, 0, fmt.Errorf("count hpd admin listings: %w", err)
 	}
@@ -99,34 +97,6 @@ func (r *AdminListingRepository) UpsertByListingID(ctx context.Context, entity *
 		return nil, fmt.Errorf("upsert hpd admin listing by listingID: %w", err)
 	}
 	return r.FindByListingID(ctx, entity.ListingID)
-}
-
-func (r *AdminListingRepository) UpdateProjectionFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
-	if listingID.IsZero() {
-		return fmt.Errorf("update hpd admin listing projection fields: listingID is required")
-	}
-	safeFields, err := pickAllowedFields(fields, adminProjectionFields)
-	if err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-
-	setFields := cloneBsonM(safeFields)
-	setFields["updated_at"] = time.Now().Unix()
-	update := bson.M{
-		"$set": setFields,
-		"$inc": bson.M{"version": 1},
-	}
-	res, err := r.Collection.UpdateOne(ctx, activeFilter(bson.M{"listing_id": listingID}), update)
-	if err != nil {
-		return fmt.Errorf("update hpd admin listing projection fields: %w", err)
-	}
-	if res.MatchedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-	return nil
 }
 
 func adminListingListFilter(input AdminListingListFilter) (bson.M, error) {

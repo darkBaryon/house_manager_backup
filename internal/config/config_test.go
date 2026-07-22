@@ -129,6 +129,58 @@ log:
 	}
 }
 
+func TestLoadIgnoresUnboundEnvironmentVariables(t *testing.T) {
+	withWorkingDir(t, t.TempDir())
+	configPath := writeConfigFile(t, `
+server:
+  port: 8080
+  mode: debug
+mongodb:
+  addrs:
+    - "127.0.0.1:27018"
+  database: "rent-house"
+  auth_source: "admin"
+  username: "yaml-user"
+  password: "yaml-pass"
+  pool_size: 100
+  min_pool_size: 10
+  connect_timeout: "10s"
+  socket_timeout: "30s"
+  server_selection_timeout: "10s"
+  retry_reads: true
+  retry_writes: true
+  replica_set: ""
+redis:
+  addrs:
+    - "127.0.0.1:6380"
+  password: "yaml-redis-pass"
+  db: 0
+  pool_size: 100
+  min_idle_conns: 10
+  conn_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  max_retries: 3
+  cluster_mode: false
+log:
+  level: "info"
+  format: "text"
+  add_source: false
+  service: ""
+  env: ""
+`)
+
+	t.Setenv("LOG_FORMAT", "json")
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Log.Format != "text" {
+		t.Fatalf("expected yaml log format, got %q", cfg.Log.Format)
+	}
+}
+
 func TestLoadDotEnvForLocalDevelopment(t *testing.T) {
 	dir := t.TempDir()
 	withWorkingDir(t, dir)
@@ -203,6 +255,9 @@ func TestDurationParsing(t *testing.T) {
 			ReadTimeout:  "3s",
 			WriteTimeout: "4s",
 		},
+		Auth: AuthConfig{
+			SessionTTL: "168h",
+		},
 	}
 
 	got, err := cfg.MongoDB.ConnectTimeoutDuration()
@@ -217,6 +272,10 @@ func TestDurationParsing(t *testing.T) {
 	assertDuration(t, got, err, 3*time.Second)
 	got, err = cfg.Redis.WriteTimeoutDuration()
 	assertDuration(t, got, err, 4*time.Second)
+	got, err = cfg.Auth.SessionTTLDuration()
+	assertDuration(t, got, err, 168*time.Hour)
+	got, err = AuthConfig{}.SessionTTLDuration()
+	assertDuration(t, got, err, 168*time.Hour)
 }
 
 func writeConfigFile(t *testing.T, content string) string {

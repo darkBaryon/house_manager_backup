@@ -8,10 +8,7 @@ import (
 )
 
 type hpdListingRepository interface {
-	FindByID(ctx context.Context, id bson.ObjectID) (*hpdmodel.HpdListing, error)
 	UpsertBySource(ctx context.Context, entity *hpdmodel.HpdListing) (*hpdmodel.HpdListing, error)
-	UpdateLifecycleFields(ctx context.Context, id bson.ObjectID, fields bson.M) error
-	UpdateStatus(ctx context.Context, id bson.ObjectID, listingStatus hpdmodel.HpdListingStatus) error
 }
 
 type hpdMiniappListingRepository interface {

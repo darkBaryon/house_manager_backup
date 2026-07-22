@@ -25,6 +25,47 @@ func TestCloneBsonMNil(t *testing.T) {
 	}
 }
 
+func TestCloneBSONMap(t *testing.T) {
+	src := bson.M{"name": "alpha", "count": 1}
+	cloned := CloneBSONMap(src)
+	cloned["name"] = "beta"
+
+	if src["name"] != "alpha" {
+		t.Fatalf("expected source map to remain unchanged, got %v", src["name"])
+	}
+}
+
+func TestCloneBSONMapNil(t *testing.T) {
+	if CloneBSONMap(nil) != nil {
+		t.Fatal("expected nil clone for nil source")
+	}
+}
+
+func TestCompactObjectIDs(t *testing.T) {
+	first := bson.NewObjectID()
+	second := bson.NewObjectID()
+	got := CompactObjectIDs([]bson.ObjectID{bson.NilObjectID, first, bson.NilObjectID, second})
+	if len(got) != 2 || got[0] != first || got[1] != second {
+		t.Fatalf("unexpected compacted ids: %#v", got)
+	}
+}
+
+func TestCompactObjectIDsPreservesDuplicates(t *testing.T) {
+	id := bson.NewObjectID()
+	got := CompactObjectIDs([]bson.ObjectID{id, id})
+	if len(got) != 1 || got[0] != id {
+		t.Fatalf("expected duplicates removed, got %#v", got)
+	}
+}
+
+func TestFindUniqueByRejectsEmptyFilter(t *testing.T) {
+	repo := &Repository[authmodel.User]{}
+	_, err := repo.FindUniqueBy(context.Background(), EmptyFilter())
+	if err == nil || !strings.Contains(err.Error(), "filter is required") {
+		t.Fatalf("expected empty filter error, got %v", err)
+	}
+}
+
 func TestNotDeletedByIDFilter(t *testing.T) {
 	id := bson.NewObjectID()
 	filter := notDeletedByIDFilter(id)

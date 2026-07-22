@@ -3,17 +3,21 @@ package house
 import "house-manager/internal/service/miniapp/listingview"
 
 type SearchInput struct {
-	City         string
-	District     string
-	BizArea      string
-	RentMode     string
-	AssetMode    string
-	MinPrice     int
-	MaxPrice     int
-	Keyword      string
-	FeatureFlags []string
-	Page         int
-	PageSize     int
+	City          string
+	District      string
+	BizArea       string
+	RentMode      string
+	AssetMode     string
+	MinPrice      int
+	MaxPrice      int
+	RoomCount     *int
+	HallCount     *int
+	BathroomCount *int
+	KitchenCount  *int
+	Keyword       string
+	FeatureFlags  []string
+	Page          int
+	PageSize      int
 }
 
 type SearchResult struct {

@@ -34,7 +34,7 @@ type roleRepository interface {
 	FindActiveByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmRole, error)
 	FindByCode(ctx context.Context, roleCode string) (*authmodel.AdmRole, error)
 	List(ctx context.Context, input admrepo.RoleListFilter) ([]authmodel.AdmRole, int64, error)
-	UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M) error
+	Update(ctx context.Context, id bson.ObjectID, input admrepo.RoleUpdate) error
 	RollbackCreate(ctx context.Context, id bson.ObjectID) error
 }
 
@@ -205,9 +205,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (*UpdateResult,
 			return nil, err
 		}
 	}
-	fields := updateFields(normalized)
-	if len(fields) > 0 {
-		if err := s.roleRepo.UpdateFields(ctx, roleID, fields); err != nil {
+	roleUpdate := toRoleUpdate(normalized)
+	if roleUpdate.RoleName != nil || roleUpdate.Description != nil {
+		if err := s.roleRepo.Update(ctx, roleID, roleUpdate); err != nil {
 			if err == mongo.ErrNoDocuments {
 				return nil, errcode.NotFound.WithError(fmt.Errorf("角色不存在或已停用"))
 			}
@@ -403,15 +403,15 @@ func parseOperatorID(value string) (bson.ObjectID, error) {
 	return id, nil
 }
 
-func updateFields(input UpdateInput) bson.M {
-	fields := bson.M{}
+func toRoleUpdate(input UpdateInput) admrepo.RoleUpdate {
+	update := admrepo.RoleUpdate{}
 	if input.RoleName != nil {
-		fields["role_name"] = *input.RoleName
+		update.RoleName = input.RoleName
 	}
 	if input.Description != nil {
-		fields["description"] = *input.Description
+		update.Description = input.Description
 	}
-	return fields
+	return update
 }
 
 func toRoleDetail(role *authmodel.AdmRole, permissions []authmodel.AdmPermission) RoleDetail {

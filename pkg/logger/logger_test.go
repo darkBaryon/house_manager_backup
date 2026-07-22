@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"strings"
@@ -142,14 +143,19 @@ func TestNew_TextOutput(t *testing.T) {
 	mustContain := []string{
 		"DEBUG",
 		"hello",
-		"service=user-api",
-		"env=test",
 		"user_id=123",
 	}
 
 	for _, s := range mustContain {
 		if !strings.Contains(out, s) {
 			t.Fatalf("output %q does not contain %q", out, s)
+		}
+	}
+
+	// 进程级常量字段在本地 text 模式不渲染（展示层约定，JSON 模式仍输出）
+	for _, s := range []string{"service=", "env="} {
+		if strings.Contains(out, s) {
+			t.Fatalf("output %q should not contain process-level constant %q", out, s)
 		}
 	}
 }
@@ -201,6 +207,52 @@ func TestNew_InvalidFormat(t *testing.T) {
 
 	if err == nil {
 		t.Fatalf("expected error, got nil")
+	}
+}
+
+// stampHandler 是测试用的通用装饰器，验证 wraps 机制本身；
+// 真实的 applog.ContextHandler 在 pkg/applog 内自测，这里不引入该依赖。
+type stampHandler struct{ slog.Handler }
+
+func (h stampHandler) Handle(ctx context.Context, r slog.Record) error {
+	r.AddAttrs(slog.String("stamp", "wrapped"))
+	return h.Handler.Handle(ctx, r)
+}
+
+// WithAttrs/WithGroup 必须返回包装后的自身，否则 logger.With(...) 会剥掉装饰层
+// （applog.ContextHandler 同理，见其实现注释）。
+func (h stampHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return stampHandler{h.Handler.WithAttrs(attrs)}
+}
+
+func (h stampHandler) WithGroup(name string) slog.Handler {
+	return stampHandler{h.Handler.WithGroup(name)}
+}
+
+func TestNew_WithHandlerWraps(t *testing.T) {
+	var buf bytes.Buffer
+
+	l, err := New(Config{
+		Level:   "info",
+		Format:  "json",
+		Service: "user-api",
+	}, &buf, func(h slog.Handler) slog.Handler { return stampHandler{h} })
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	l.Info("hello")
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(buf.String())), &m); err != nil {
+		t.Fatalf("failed to parse json log: %v", err)
+	}
+	if m["stamp"] != "wrapped" {
+		t.Fatalf("stamp = %v, want %q (wrap not applied)", m["stamp"], "wrapped")
+	}
+	// wrap 与 With(service/env) 叠加后两者都应生效
+	if m["service"] != "user-api" {
+		t.Fatalf("service = %v, want %q", m["service"], "user-api")
 	}
 }
 

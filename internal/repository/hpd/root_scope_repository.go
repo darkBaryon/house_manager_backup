@@ -112,7 +112,7 @@ func (r *RootScopeRepository) CanAccessRoot(ctx context.Context, rootType hpdmod
 	if err != nil {
 		return false, fmt.Errorf("can access hpd root scope: %w", err)
 	}
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	total, err := r.CountBy(ctx, common.FilterFromBSON(filter))
 	if err != nil {
 		return false, fmt.Errorf("can access hpd root scope: %w", err)
 	}

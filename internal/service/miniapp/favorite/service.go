@@ -5,7 +5,6 @@ import (
 	hpdmodel "house-manager/internal/model/hpd"
 	useractivitymodel "house-manager/internal/model/useractivity"
 	"house-manager/internal/service/miniapp/listingview"
-	miniapplog "house-manager/internal/service/miniapp/logging"
 	"house-manager/internal/service/miniapp/paging"
 	"house-manager/pkg/errcode"
 	"log/slog"
@@ -36,99 +35,87 @@ func NewService(favorites favoriteRepository, miniappListings miniappListingRepo
 }
 
 func (s *Service) Add(ctx context.Context, input AddInput) (*MutationResult, error) {
-	slog.InfoContext(ctx, "miniapp.favorite.add.start", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.add.start", "user_id", input.UserID.Hex(),
 		"listing_id", input.ListingID.Hex(),
-	)...)
+	)
 	if err := validateUserListing(input.UserID, input.ListingID); err != nil {
-		slog.WarnContext(ctx, "miniapp.favorite.add.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.WarnContext(ctx, "miniapp.favorite.add.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"error", err,
-		)...)
+		)
 		return nil, err
 	}
 	if err := s.requireOnlineListing(ctx, input.ListingID); err != nil {
-		slog.WarnContext(ctx, "miniapp.favorite.add.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.WarnContext(ctx, "miniapp.favorite.add.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"step", "require_online_listing",
 			"error", err,
-		)...)
+		)
 		return nil, err
 	}
 	if err := s.favorites.Upsert(ctx, input.UserID, input.ListingID); err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("add favorite: %w", err)
-		slog.ErrorContext(ctx, "miniapp.favorite.add.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.favorite.add.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"step", "upsert_favorite",
 			"error", wrapped,
-		)...)
+		)
 		return nil, wrapped
 	}
 	result := &MutationResult{ListingID: input.ListingID.Hex(), IsFavorited: true}
-	slog.InfoContext(ctx, "miniapp.favorite.add.success", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.add.success", "user_id", input.UserID.Hex(),
 		"listing_id", input.ListingID.Hex(),
-	)...)
+	)
 	return result, nil
 }
 
 func (s *Service) Remove(ctx context.Context, input RemoveInput) (*MutationResult, error) {
-	slog.InfoContext(ctx, "miniapp.favorite.remove.start", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.remove.start", "user_id", input.UserID.Hex(),
 		"listing_id", input.ListingID.Hex(),
-	)...)
+	)
 	if err := validateUserListing(input.UserID, input.ListingID); err != nil {
-		slog.WarnContext(ctx, "miniapp.favorite.remove.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.WarnContext(ctx, "miniapp.favorite.remove.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"error", err,
-		)...)
+		)
 		return nil, err
 	}
 	if err := s.favorites.SoftRemove(ctx, input.UserID, input.ListingID); err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("remove favorite: %w", err)
-		slog.ErrorContext(ctx, "miniapp.favorite.remove.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.favorite.remove.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"error", wrapped,
-		)...)
+		)
 		return nil, wrapped
 	}
 	result := &MutationResult{ListingID: input.ListingID.Hex(), IsFavorited: false}
-	slog.InfoContext(ctx, "miniapp.favorite.remove.success", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.remove.success", "user_id", input.UserID.Hex(),
 		"listing_id", input.ListingID.Hex(),
-	)...)
+	)
 	return result, nil
 }
 
 func (s *Service) Exists(ctx context.Context, input ExistsInput) (bool, error) {
 	if err := validateUserListing(input.UserID, input.ListingID); err != nil {
-		slog.WarnContext(ctx, "miniapp.favorite.exists.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.WarnContext(ctx, "miniapp.favorite.exists.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"error", err,
-		)...)
+		)
 		return false, err
 	}
 	exists, err := s.favorites.Exists(ctx, input.UserID, input.ListingID)
 	if err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("favorite exists: %w", err)
-		slog.ErrorContext(ctx, "miniapp.favorite.exists.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.favorite.exists.failed", "user_id", input.UserID.Hex(),
 			"listing_id", input.ListingID.Hex(),
 			"error", wrapped,
-		)...)
+		)
 		return false, wrapped
 	}
-	slog.InfoContext(ctx, "miniapp.favorite.exists.success", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.exists.success", "user_id", input.UserID.Hex(),
 		"listing_id", input.ListingID.Hex(),
 		"is_favorited", exists,
-	)...)
+	)
 	return exists, nil
 }
 
@@ -137,16 +124,13 @@ func (s *Service) IsFavorited(ctx context.Context, userID, listingID bson.Object
 }
 
 func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error) {
-	slog.InfoContext(ctx, "miniapp.favorite.list.start", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.list.start", "user_id", input.UserID.Hex(),
 		"page", input.Page,
 		"page_size", input.PageSize,
-	)...)
+	)
 	if input.UserID.IsZero() {
 		err := errcode.InvalidParam.WithErrorf("user_id is required")
-		slog.WarnContext(ctx, "miniapp.favorite.list.failed", miniapplog.Attrs(ctx,
-			"error", err,
-		)...)
+		slog.WarnContext(ctx, "miniapp.favorite.list.failed", "error", err)
 		return nil, err
 	}
 	page, pageSize := paging.NormalizePage(input.Page, input.PageSize)
@@ -155,22 +139,20 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 	favorites, err := s.favorites.List(ctx, input.UserID, 0, 0)
 	if err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("list favorites: %w", err)
-		slog.ErrorContext(ctx, "miniapp.favorite.list.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.favorite.list.failed", "user_id", input.UserID.Hex(),
 			"step", "list_favorites",
 			"error", wrapped,
-		)...)
+		)
 		return nil, wrapped
 	}
 	listings, err := s.miniappListings.FindOnlineByListingIDs(ctx, favoriteListingIDs(favorites))
 	if err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("list favorite listings: %w", err)
-		slog.ErrorContext(ctx, "miniapp.favorite.list.failed", miniapplog.Attrs(ctx,
-			"user_id", input.UserID.Hex(),
+		slog.ErrorContext(ctx, "miniapp.favorite.list.failed", "user_id", input.UserID.Hex(),
 			"step", "list_online_listings",
 			"favorite_count", len(favorites),
 			"error", wrapped,
-		)...)
+		)
 		return nil, wrapped
 	}
 	items := orderListingItems(favoriteListingIDs(favorites), listings)
@@ -181,13 +163,12 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 		PageSize: pageSize,
 		Total:    total,
 	}
-	slog.InfoContext(ctx, "miniapp.favorite.list.success", miniapplog.Attrs(ctx,
-		"user_id", input.UserID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.list.success", "user_id", input.UserID.Hex(),
 		"page", page,
 		"page_size", pageSize,
 		"returned_count", len(result.List),
 		"total", total,
-	)...)
+	)
 	return result, nil
 }
 
@@ -209,25 +190,21 @@ func pageListingItems(items []listingview.Item, page, pageSize int) []listingvie
 func (s *Service) Count(ctx context.Context, userID bson.ObjectID) (int64, error) {
 	if userID.IsZero() {
 		err := errcode.InvalidParam.WithErrorf("user_id is required")
-		slog.WarnContext(ctx, "miniapp.favorite.count.failed", miniapplog.Attrs(ctx,
-			"error", err,
-		)...)
+		slog.WarnContext(ctx, "miniapp.favorite.count.failed", "error", err)
 		return 0, err
 	}
 	// Keep dashboard and list total semantics aligned: only online-visible listings count.
 	result, err := s.List(ctx, ListInput{UserID: userID, Page: 1, PageSize: 1})
 	if err != nil {
 		wrapped := errcode.DatabaseError.WithErrorf("count favorites: %w", err)
-		slog.WarnContext(ctx, "miniapp.favorite.count.failed", miniapplog.Attrs(ctx,
-			"user_id", userID.Hex(),
+		slog.WarnContext(ctx, "miniapp.favorite.count.failed", "user_id", userID.Hex(),
 			"error", wrapped,
-		)...)
+		)
 		return 0, wrapped
 	}
-	slog.InfoContext(ctx, "miniapp.favorite.count.success", miniapplog.Attrs(ctx,
-		"user_id", userID.Hex(),
+	slog.InfoContext(ctx, "miniapp.favorite.count.success", "user_id", userID.Hex(),
 		"total", result.Total,
-	)...)
+	)
 	return result.Total, nil
 }
 

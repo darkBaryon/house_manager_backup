@@ -10,6 +10,10 @@ type CreateCentralizedRoomInput struct {
 	FloorNo           int
 	RentMode          string
 	LayoutText        string
+	RoomCount         *int
+	HallCount         *int
+	BathroomCount     *int
+	KitchenCount      *int
 	AreaSize          int
 	Orientation       string
 	DecorationLevel   string
@@ -33,6 +37,10 @@ type UpdateCentralizedRoomInput struct {
 	FloorNo           int
 	RentMode          string
 	LayoutText        string
+	RoomCount         *int
+	HallCount         *int
+	BathroomCount     *int
+	KitchenCount      *int
 	AreaSize          int
 	Orientation       string
 	DecorationLevel   string
@@ -60,6 +68,10 @@ type CreateDecentralizedRoomInput struct {
 	FloorNo           int
 	RentMode          string
 	LayoutText        string
+	RoomCount         *int
+	HallCount         *int
+	BathroomCount     *int
+	KitchenCount      *int
 	AreaSize          int
 	Orientation       string
 	DecorationLevel   string
@@ -82,6 +94,10 @@ type UpdateDecentralizedRoomInput struct {
 	FloorNo           int
 	RentMode          string
 	LayoutText        string
+	RoomCount         *int
+	HallCount         *int
+	BathroomCount     *int
+	KitchenCount      *int
 	AreaSize          int
 	Orientation       string
 	DecorationLevel   string

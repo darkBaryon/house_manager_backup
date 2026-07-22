@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	authmodel "house-manager/internal/model/auth"
-	commonmodel "house-manager/internal/model/common"
 	"house-manager/internal/repository/common"
+	"house-manager/internal/repository/credentialcore"
 	dbmongo "house-manager/pkg/database/mongo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -16,31 +15,39 @@ import (
 
 type LandlordAuthRepository struct {
 	*common.Repository[authmodel.LandlordAuth]
+	core *credentialcore.Core[authmodel.LandlordAuth]
 }
 
+const (
+	landlordAuthFieldLandlordID common.Field = "landlord_id"
+	landlordAuthFieldAuthType   common.Field = "auth_type"
+	landlordAuthFieldStatus     common.Field = "status"
+)
+
 func NewLandlordAuthRepository(client *dbmongo.Client) *LandlordAuthRepository {
+	repo := common.NewRepository[authmodel.LandlordAuth](client.Collection(authmodel.CollectionLandlordAuth))
 	return &LandlordAuthRepository{
-		Repository: common.NewRepository[authmodel.LandlordAuth](client.Collection(authmodel.CollectionLandlordAuth)),
+		Repository: repo,
+		core: credentialcore.NewCore(repo, credentialcore.Config[authmodel.LandlordAuth]{
+			OwnerField: landlordAuthFieldLandlordID,
+			Normalize:  normalizeLandlordAuth,
+			Validate:   (*authmodel.LandlordAuth).ValidateForCreate,
+		}),
 	}
 }
 
 func (r *LandlordAuthRepository) Create(ctx context.Context, auth *authmodel.LandlordAuth) error {
-	normalizeLandlordAuth(auth)
-	if err := auth.ValidateForCreate(); err != nil {
+	if err := r.core.Create(ctx, auth); err != nil {
 		return fmt.Errorf("create landlord auth: %w", err)
 	}
-	return r.Insert(ctx, auth)
+	return nil
 }
 
 func (r *LandlordAuthRepository) FindActivePasswordByLandlordID(ctx context.Context, landlordID bson.ObjectID) (*authmodel.LandlordAuth, error) {
 	if landlordID.IsZero() {
 		return nil, fmt.Errorf("find landlord password auth: landlordID is required")
 	}
-	auth, err := r.FindOne(ctx, bson.M{
-		"landlord_id": landlordID,
-		"auth_type":   authmodel.PasswordAuthTypePassword,
-		"status":      commonmodel.StatusActive,
-	})
+	auth, err := r.core.FindActivePasswordByOwner(ctx, landlordID)
 	if err != nil {
 		return nil, fmt.Errorf("find landlord password auth: %w", err)
 	}
@@ -48,15 +55,7 @@ func (r *LandlordAuthRepository) FindActivePasswordByLandlordID(ctx context.Cont
 }
 
 func (r *LandlordAuthRepository) FindActivePasswordByLandlordIDs(ctx context.Context, landlordIDs []bson.ObjectID) ([]authmodel.LandlordAuth, error) {
-	objectIDs := compactObjectIDs(landlordIDs)
-	if len(objectIDs) == 0 {
-		return []authmodel.LandlordAuth{}, nil
-	}
-	items, err := r.FindMany(ctx, bson.M{
-		"landlord_id": bson.M{"$in": objectIDs},
-		"auth_type":   authmodel.PasswordAuthTypePassword,
-		"status":      commonmodel.StatusActive,
-	})
+	items, err := r.core.FindActivePasswordByOwners(ctx, landlordIDs)
 	if err != nil {
 		return nil, fmt.Errorf("find landlord password auth by landlord ids: %w", err)
 	}
@@ -67,17 +66,17 @@ func (r *LandlordAuthRepository) TouchLastLogin(ctx context.Context, authID bson
 	if authID.IsZero() {
 		return fmt.Errorf("touch landlord auth last login: authID is required")
 	}
-	return r.UpdateFieldsByID(ctx, authID, bson.M{
-		"last_login_at": time.Now().Unix(),
-		"last_login_ip": strings.TrimSpace(loginIP),
-	})
+	if err := r.core.TouchLastLogin(ctx, authID, strings.TrimSpace(loginIP)); err != nil {
+		return fmt.Errorf("touch landlord auth last login: %w", err)
+	}
+	return nil
 }
 
 func (r *LandlordAuthRepository) RollbackCreateByLandlordID(ctx context.Context, landlordID bson.ObjectID) error {
 	if landlordID.IsZero() {
 		return fmt.Errorf("rollback landlord auth create: landlordID is required")
 	}
-	if _, err := r.Collection.DeleteMany(ctx, bson.M{"landlord_id": landlordID}); err != nil {
+	if err := r.core.RollbackCreateByOwner(ctx, landlordID); err != nil {
 		return fmt.Errorf("rollback landlord auth create: %w", err)
 	}
 	return nil
@@ -92,23 +91,4 @@ func normalizeLandlordAuth(auth *authmodel.LandlordAuth) {
 	}
 	auth.PasswordHash = strings.TrimSpace(auth.PasswordHash)
 	auth.LastLoginIP = strings.TrimSpace(auth.LastLoginIP)
-}
-
-func compactObjectIDs(ids []bson.ObjectID) []bson.ObjectID {
-	if len(ids) == 0 {
-		return nil
-	}
-	result := make([]bson.ObjectID, 0, len(ids))
-	seen := make(map[bson.ObjectID]struct{}, len(ids))
-	for _, id := range ids {
-		if id.IsZero() {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		result = append(result, id)
-	}
-	return result
 }

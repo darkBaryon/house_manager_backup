@@ -177,16 +177,16 @@ func (f *fakeRoleRepository) List(ctx context.Context, input admrepo.RoleListFil
 	return f.listItems, f.listTotal, nil
 }
 
-func (f *fakeRoleRepository) UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (f *fakeRoleRepository) Update(ctx context.Context, id bson.ObjectID, input admrepo.RoleUpdate) error {
 	if f.err != nil {
 		return f.err
 	}
 	if f.detail != nil {
-		if value, ok := fields["role_name"].(string); ok {
-			f.detail.RoleName = value
+		if input.RoleName != nil {
+			f.detail.RoleName = *input.RoleName
 		}
-		if value, ok := fields["description"].(string); ok {
-			f.detail.Description = value
+		if input.Description != nil {
+			f.detail.Description = *input.Description
 		}
 	}
 	return nil

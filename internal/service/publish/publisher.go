@@ -3,6 +3,8 @@ package publish
 import (
 	"context"
 	"fmt"
+	"house-manager/pkg/applog"
+	"log/slog"
 
 	hmddomain "house-manager/internal/domain/hmd"
 	"house-manager/pkg/errcode"
@@ -16,7 +18,7 @@ func (p mutationPublisher) Apply(ctx context.Context, changes []hmddomain.HmdCha
 	if p.listingProjection == nil {
 		return errcode.InternalError.WithError(fmt.Errorf("房源投影服务未初始化"))
 	}
-	logPublishInfo(ctx, "publish.projection.apply.start", "change_count", len(changes))
+	slog.InfoContext(ctx, "publish.projection.apply.start", "change_count", len(changes))
 	return p.listingProjection.Apply(ctx, changes)
 }
 
@@ -28,9 +30,9 @@ func resolveHmdMutation[T any](ctx context.Context, publisher mutationPublisher,
 		return nil, nil
 	}
 	if err := publisher.Apply(ctx, result.Changes); err != nil {
-		logPublishResult(ctx, "publish.projection.apply.success", "publish.projection.apply.failed", err, "change_count", len(result.Changes))
+		applog.Result(ctx, "publish.projection.apply.success", "publish.projection.apply.failed", err, "change_count", len(result.Changes))
 		return nil, err
 	}
-	logPublishInfo(ctx, "publish.projection.apply.success", "change_count", len(result.Changes))
+	slog.InfoContext(ctx, "publish.projection.apply.success", "change_count", len(result.Changes))
 	return result.Entity, nil
 }

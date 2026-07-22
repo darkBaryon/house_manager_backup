@@ -50,7 +50,9 @@ func ParseFormat(format string) (Format, error) {
 	}
 }
 
-func New(cfg Config, w io.Writer) (*slog.Logger, error) {
+// New 构造 logger。wraps 为可选的通用 handler 装饰器，按序包裹基础 handler
+// （由 main.go 组装点传入，例如 applog.ContextHandler；本包不依赖具体实现）。
+func New(cfg Config, w io.Writer, wraps ...func(slog.Handler) slog.Handler) (*slog.Logger, error) {
 	level, err := ParseLevel(cfg.Level)
 	if err != nil {
 		return nil, err
@@ -80,6 +82,12 @@ func New(cfg Config, w io.Writer) (*slog.Logger, error) {
 		return nil, fmt.Errorf("unsupported log format: %q", format)
 	}
 
+	for _, wrap := range wraps {
+		if wrap != nil {
+			handler = wrap(handler)
+		}
+	}
+
 	logger := slog.New(handler)
 
 	attrs := make([]any, 0, len(cfg.Fields)+2)
@@ -99,16 +107,16 @@ func New(cfg Config, w io.Writer) (*slog.Logger, error) {
 	return logger, nil
 }
 
-func MustNew(cfg Config, w io.Writer) *slog.Logger {
-	l, err := New(cfg, w)
+func MustNew(cfg Config, w io.Writer, wraps ...func(slog.Handler) slog.Handler) *slog.Logger {
+	l, err := New(cfg, w, wraps...)
 	if err != nil {
 		panic(err)
 	}
 	return l
 }
 
-func Init(cfg Config, w io.Writer) error {
-	l, err := New(cfg, w)
+func Init(cfg Config, w io.Writer, wraps ...func(slog.Handler) slog.Handler) error {
+	l, err := New(cfg, w, wraps...)
 	if err != nil {
 		return err
 	}
@@ -116,8 +124,8 @@ func Init(cfg Config, w io.Writer) error {
 	return nil
 }
 
-func MustInit(cfg Config, w io.Writer) {
-	if err := Init(cfg, w); err != nil {
+func MustInit(cfg Config, w io.Writer, wraps ...func(slog.Handler) slog.Handler) {
+	if err := Init(cfg, w, wraps...); err != nil {
 		panic(err)
 	}
 }

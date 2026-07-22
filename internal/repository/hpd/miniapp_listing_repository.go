@@ -9,25 +9,27 @@ import (
 	dbmongo "house-manager/pkg/database/mongo"
 	"regexp"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type MiniappListingSearchFilter struct {
-	City         string
-	District     string
-	BizArea      string
-	RentMode     hmdmodel.RentMode
-	AssetMode    hpdmodel.HpdAssetMode
-	Keyword      string
-	FeatureFlags []string
-	PriceMin     int
-	PriceMax     int
-	Skip         int64
-	Limit        int64
+	City          string
+	District      string
+	BizArea       string
+	RentMode      hmdmodel.RentMode
+	AssetMode     hpdmodel.HpdAssetMode
+	Keyword       string
+	FeatureFlags  []string
+	PriceMin      int
+	PriceMax      int
+	RoomCount     *int
+	HallCount     *int
+	BathroomCount *int
+	KitchenCount  *int
+	Skip          int64
+	Limit         int64
 }
 
 type MiniappListingRepository struct {
@@ -108,34 +110,6 @@ func (r *MiniappListingRepository) UpsertByListingID(ctx context.Context, entity
 	return r.FindByListingID(ctx, entity.ListingID)
 }
 
-func (r *MiniappListingRepository) UpdateProjectionFields(ctx context.Context, listingID bson.ObjectID, fields bson.M) error {
-	if listingID.IsZero() {
-		return fmt.Errorf("update hpd miniapp listing projection fields: listingID is required")
-	}
-	safeFields, err := pickAllowedFields(fields, miniappProjectionFields)
-	if err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-	if err := hpdmodel.ValidateHpdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-
-	setFields := cloneBsonM(safeFields)
-	setFields["updated_at"] = time.Now().Unix()
-	update := bson.M{
-		"$set": setFields,
-		"$inc": bson.M{"version": 1},
-	}
-	res, err := r.Collection.UpdateOne(ctx, activeFilter(bson.M{"listing_id": listingID}), update)
-	if err != nil {
-		return fmt.Errorf("update hpd miniapp listing projection fields: %w", err)
-	}
-	if res.MatchedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-	return nil
-}
-
 func (r *MiniappListingRepository) SearchMiniapp(ctx context.Context, search MiniappListingSearchFilter) ([]hpdmodel.HpdMiniappListing, error) {
 	filter, err := miniappSearchFilter(search)
 	if err != nil {
@@ -161,7 +135,7 @@ func (r *MiniappListingRepository) CountMiniapp(ctx context.Context, search Mini
 		return 0, fmt.Errorf("count hpd miniapp listings: %w", err)
 	}
 
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	total, err := r.CountBy(ctx, common.FilterFromBSON(filter))
 	if err != nil {
 		return 0, fmt.Errorf("count hpd miniapp listings: %w", err)
 	}
@@ -174,6 +148,10 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	}
 	if search.PriceMax > 0 && search.PriceMin > search.PriceMax {
 		return nil, fmt.Errorf("priceMin must be less than or equal to priceMax")
+	}
+	if searchCountValueInvalid(search.RoomCount) || searchCountValueInvalid(search.HallCount) ||
+		searchCountValueInvalid(search.BathroomCount) || searchCountValueInvalid(search.KitchenCount) {
+		return nil, fmt.Errorf("layout counts must be non-negative")
 	}
 	if search.RentMode != "" && !search.RentMode.Valid() {
 		return nil, fmt.Errorf("rentMode is invalid")
@@ -197,6 +175,18 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 	}
 	if search.AssetMode != "" {
 		fields["asset_mode"] = search.AssetMode
+	}
+	if search.RoomCount != nil {
+		fields["room_count"] = *search.RoomCount
+	}
+	if search.HallCount != nil {
+		fields["hall_count"] = *search.HallCount
+	}
+	if search.BathroomCount != nil {
+		fields["bathroom_count"] = *search.BathroomCount
+	}
+	if search.KitchenCount != nil {
+		fields["kitchen_count"] = *search.KitchenCount
 	}
 	if len(search.FeatureFlags) > 0 {
 		flags := make([]string, 0, len(search.FeatureFlags))
@@ -231,4 +221,8 @@ func miniappSearchFilter(search MiniappListingSearchFilter) (bson.M, error) {
 		fields["price"] = priceFilter
 	}
 	return activeFilter(fields), nil
+}
+
+func searchCountValueInvalid(value *int) bool {
+	return value != nil && *value < 0
 }

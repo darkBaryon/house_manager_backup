@@ -4,6 +4,8 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	hmdmodel "house-manager/internal/model/hmd"
+	"house-manager/pkg/applog"
+	"log/slog"
 )
 
 type roomTypeService struct {
@@ -18,110 +20,110 @@ func newRoomTypeService(hmd roomTypeScopeDomain, publisher mutationPublisher, ac
 }
 
 func (s *roomTypeService) CreateRoomType(ctx context.Context, input CreateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error) {
-	logPublishInfo(ctx, "publish.room_type.create.start", "project_id", input.ProjectID.Hex(), "building_id", input.BuildingID.Hex(), "room_type_name", input.RoomTypeName)
+	slog.InfoContext(ctx, "publish.room_type.create.start", "project_id", input.ProjectID.Hex(), "building_id", input.BuildingID.Hex(), "room_type_name", input.RoomTypeName)
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.create.success", "publish.room_type.create.failed", err)
+		applog.Result(ctx, "publish.room_type.create.success", "publish.room_type.create.failed", err)
 		return nil, err
 	}
 	if err := s.requireRoomTypeParentAccess(ctx, scope, input.ProjectID, input.BuildingID, "create room type"); err != nil {
-		logPublishWarn(ctx, "publish.room_type.create.denied", "project_id", input.ProjectID.Hex(), "building_id", input.BuildingID.Hex(), "error", err)
+		slog.WarnContext(ctx, "publish.room_type.create.denied", "project_id", input.ProjectID.Hex(), "building_id", input.BuildingID.Hex(), "error", err)
 		return nil, err
 	}
 	result, err := s.hmd.CreateRoomType(ctx, input)
 	entity, err := resolveHmdMutation(ctx, s.publisher, result, err)
-	logPublishResult(ctx, "publish.room_type.create.success", "publish.room_type.create.failed", err)
+	applog.Result(ctx, "publish.room_type.create.success", "publish.room_type.create.failed", err)
 	return entity, err
 }
 
 func (s *roomTypeService) GetRoomType(ctx context.Context, id bson.ObjectID) (*hmdmodel.HmdRoomTypeCentralized, error) {
-	logPublishInfo(ctx, "publish.room_type.detail.start", "room_type_id", id.Hex())
+	slog.InfoContext(ctx, "publish.room_type.detail.start", "room_type_id", id.Hex())
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.detail.success", "publish.room_type.detail.failed", err, "room_type_id", id.Hex())
+		applog.Result(ctx, "publish.room_type.detail.success", "publish.room_type.detail.failed", err, "room_type_id", id.Hex())
 		return nil, err
 	}
 	roomType, err := s.hmd.GetRoomType(ctx, id)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.detail.success", "publish.room_type.detail.failed", err, "room_type_id", id.Hex())
+		applog.Result(ctx, "publish.room_type.detail.success", "publish.room_type.detail.failed", err, "room_type_id", id.Hex())
 		return nil, err
 	}
 	if roomType != nil {
 		if err := s.requireRoomTypeAccess(ctx, scope, roomType, "get room type"); err != nil {
-			logPublishWarn(ctx, "publish.room_type.detail.denied", "room_type_id", id.Hex(), "error", err)
+			slog.WarnContext(ctx, "publish.room_type.detail.denied", "room_type_id", id.Hex(), "error", err)
 			return nil, err
 		}
 	}
-	logPublishInfo(ctx, "publish.room_type.detail.success", "room_type_id", id.Hex(), "found", roomType != nil)
+	slog.InfoContext(ctx, "publish.room_type.detail.success", "room_type_id", id.Hex(), "found", roomType != nil)
 	return roomType, nil
 }
 
 func (s *roomTypeService) ListRoomTypesByProject(ctx context.Context, projectID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
-	logPublishInfo(ctx, "publish.room_type.list_by_project.start", "project_id", projectID.Hex())
+	slog.InfoContext(ctx, "publish.room_type.list_by_project.start", "project_id", projectID.Hex())
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex())
+		applog.Result(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex())
 		return nil, err
 	}
 	allowed, err := s.canAccessProject(ctx, scope, projectID)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex())
+		applog.Result(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex())
 		return nil, err
 	}
 	if !allowed {
-		logPublishWarn(ctx, "publish.room_type.list_by_project.denied", "project_id", projectID.Hex())
+		slog.WarnContext(ctx, "publish.room_type.list_by_project.denied", "project_id", projectID.Hex())
 		return []hmdmodel.HmdRoomTypeCentralized{}, nil
 	}
 	roomTypes, err := s.hmd.ListRoomTypesByProject(ctx, projectID)
-	logPublishResult(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex(), "result_count", len(roomTypes))
+	applog.Result(ctx, "publish.room_type.list_by_project.success", "publish.room_type.list_by_project.failed", err, "project_id", projectID.Hex(), "result_count", len(roomTypes))
 	return roomTypes, err
 }
 
 func (s *roomTypeService) ListRoomTypesByBuilding(ctx context.Context, buildingID bson.ObjectID) ([]hmdmodel.HmdRoomTypeCentralized, error) {
-	logPublishInfo(ctx, "publish.room_type.list_by_building.start", "building_id", buildingID.Hex())
+	slog.InfoContext(ctx, "publish.room_type.list_by_building.start", "building_id", buildingID.Hex())
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex())
+		applog.Result(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex())
 		return nil, err
 	}
 	allowed, err := s.canAccessBuilding(ctx, scope, buildingID)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex())
+		applog.Result(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex())
 		return nil, err
 	}
 	if !allowed {
-		logPublishWarn(ctx, "publish.room_type.list_by_building.denied", "building_id", buildingID.Hex())
+		slog.WarnContext(ctx, "publish.room_type.list_by_building.denied", "building_id", buildingID.Hex())
 		return []hmdmodel.HmdRoomTypeCentralized{}, nil
 	}
 	roomTypes, err := s.hmd.ListRoomTypesByBuilding(ctx, buildingID)
-	logPublishResult(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex(), "result_count", len(roomTypes))
+	applog.Result(ctx, "publish.room_type.list_by_building.success", "publish.room_type.list_by_building.failed", err, "building_id", buildingID.Hex(), "result_count", len(roomTypes))
 	return roomTypes, err
 }
 
 func (s *roomTypeService) UpdateRoomType(ctx context.Context, input UpdateRoomTypeInput) (*hmdmodel.HmdRoomTypeCentralized, error) {
-	logPublishInfo(ctx, "publish.room_type.update.start", "room_type_id", input.ID.Hex())
+	slog.InfoContext(ctx, "publish.room_type.update.start", "room_type_id", input.ID.Hex())
 	scope, err := newPublishScope(ctx, s.access)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
+		applog.Result(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
 		return nil, err
 	}
 	roomType, err := s.hmd.GetRoomType(ctx, input.ID)
 	if err != nil {
-		logPublishResult(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
+		applog.Result(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
 		return nil, err
 	}
 	if roomType == nil {
 		err := scopeNotFound("update room type")
-		logPublishWarn(ctx, "publish.room_type.update.denied", "room_type_id", input.ID.Hex(), "error", err)
+		slog.WarnContext(ctx, "publish.room_type.update.denied", "room_type_id", input.ID.Hex(), "error", err)
 		return nil, err
 	}
 	if err := s.requireRoomTypeAccess(ctx, scope, roomType, "update room type"); err != nil {
-		logPublishWarn(ctx, "publish.room_type.update.denied", "room_type_id", input.ID.Hex(), "error", err)
+		slog.WarnContext(ctx, "publish.room_type.update.denied", "room_type_id", input.ID.Hex(), "error", err)
 		return nil, err
 	}
 	result, err := s.hmd.UpdateRoomType(ctx, input)
 	entity, err := resolveHmdMutation(ctx, s.publisher, result, err)
-	logPublishResult(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
+	applog.Result(ctx, "publish.room_type.update.success", "publish.room_type.update.failed", err, "room_type_id", input.ID.Hex())
 	return entity, err
 }
 

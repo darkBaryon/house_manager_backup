@@ -26,6 +26,10 @@ func TestMapCentralizedPublisherListingBuildsProjectScopedSnapshot(t *testing.T)
 		RoomNo:            "1201",
 		FloorNo:           12,
 		RentMode:          hmdmodel.RentModeWhole,
+		RoomCount:         hmdmodel.UnknownLayoutCount,
+		HallCount:         hmdmodel.UnknownLayoutCount,
+		BathroomCount:     hmdmodel.UnknownLayoutCount,
+		KitchenCount:      hmdmodel.UnknownLayoutCount,
 		Rent:              5800,
 		RoomStatus:        hmdmodel.RoomStatusAvailable,
 		RoomFacilities:    []hmdmodel.RoomFacility{hmdmodel.RoomFacilityBed},
@@ -44,6 +48,8 @@ func TestMapCentralizedPublisherListingBuildsProjectScopedSnapshot(t *testing.T)
 	roomType := &hmdmodel.HmdRoomTypeCentralized{
 		CommonFields: commonmodel.CommonFields{ID: room.RoomTypeID},
 		RoomTypeName: "一居室",
+		RoomCount:    1,
+		HallCount:    1,
 	}
 	owner := &hpdmodel.HpdRootScopeRelation{
 		OwnerLandlordID: bson.NewObjectID(),
@@ -63,6 +69,9 @@ func TestMapCentralizedPublisherListingBuildsProjectScopedSnapshot(t *testing.T)
 	if got.ListingStatus != listing.ListingStatus || got.RoomStatus != room.RoomStatus {
 		t.Fatalf("unexpected status mapping: %#v", got)
 	}
+	if got.RoomCount != 1 || got.HallCount != 1 {
+		t.Fatalf("expected room shape fallback from room type, got %#v", got)
+	}
 }
 
 func TestMapDecentralizedPublisherListingBuildsCommunityScopedSnapshot(t *testing.T) {
@@ -77,6 +86,7 @@ func TestMapDecentralizedPublisherListingBuildsCommunityScopedSnapshot(t *testin
 		CommonFields: commonmodel.CommonFields{ID: listing.SourceID},
 		RoomNo:       "801",
 		RentMode:     hmdmodel.RentModeShared,
+		RoomCount:    1,
 		Rent:         3200,
 		RoomStatus:   hmdmodel.RoomStatusOccupied,
 	}
@@ -103,5 +113,8 @@ func TestMapDecentralizedPublisherListingBuildsCommunityScopedSnapshot(t *testin
 	}
 	if got.ListingStatus != listing.ListingStatus || got.RoomStatus != room.RoomStatus {
 		t.Fatalf("unexpected status mapping: %#v", got)
+	}
+	if got.RoomCount != 1 {
+		t.Fatalf("expected room shape copied from decentralized room, got %#v", got)
 	}
 }

@@ -14,12 +14,21 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type StaffRepository struct {
 	*common.Repository[authmodel.AdmStaff]
 }
+
+const (
+	staffFieldID        common.Field = "_id"
+	staffFieldPhone     common.Field = "phone"
+	staffFieldName      common.Field = "name"
+	staffFieldStatus    common.Field = "status"
+	staffFieldCreatedAt common.Field = "created_at"
+	staffFieldUpdatedAt common.Field = "updated_at"
+	staffFieldVersion   common.Field = "version"
+)
 
 type StaffListFilter struct {
 	Keyword  string
@@ -49,19 +58,14 @@ func (r *StaffRepository) FindByPhone(ctx context.Context, phone string) (*authm
 	if phone == "" {
 		return nil, fmt.Errorf("find staff by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"phone": phone,
-	}, options.Find().SetLimit(2))
+	staff, err := r.FindUniqueBy(ctx, common.Eq(staffFieldPhone, phone))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find staff by phone: multiple staff records found")
+		}
 		return nil, fmt.Errorf("find staff by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find staff by phone: multiple staff records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return staff, nil
 }
 
 func (r *StaffRepository) FindActiveByPhone(ctx context.Context, phone string) (*authmodel.AdmStaff, error) {
@@ -69,20 +73,17 @@ func (r *StaffRepository) FindActiveByPhone(ctx context.Context, phone string) (
 	if phone == "" {
 		return nil, fmt.Errorf("find staff by phone: phone is required")
 	}
-	items, err := r.FindMany(ctx, bson.M{
-		"phone":  phone,
-		"status": commonmodel.StatusActive,
-	}, options.Find().SetLimit(2))
+	staff, err := r.FindUniqueBy(ctx, common.And(
+		common.Eq(staffFieldPhone, phone),
+		common.Eq(staffFieldStatus, commonmodel.StatusActive),
+	))
 	if err != nil {
+		if strings.Contains(err.Error(), "multiple documents found") {
+			return nil, fmt.Errorf("find staff by phone: multiple active staff records found")
+		}
 		return nil, fmt.Errorf("find staff by phone: %w", err)
 	}
-	if len(items) > 1 {
-		return nil, fmt.Errorf("find staff by phone: multiple active staff records found")
-	}
-	if len(items) == 0 {
-		return nil, nil
-	}
-	return &items[0], nil
+	return staff, nil
 }
 
 func (r *StaffRepository) FindActiveByID(ctx context.Context, id bson.ObjectID) (*authmodel.AdmStaff, error) {
@@ -117,34 +118,38 @@ func (r *StaffRepository) FindByID(ctx context.Context, id bson.ObjectID) (*auth
 }
 
 func (r *StaffRepository) List(ctx context.Context, input StaffListFilter) ([]authmodel.AdmStaff, int64, error) {
-	filter := bson.M{"status": input.Status}
+	filters := []common.Filter{common.Eq(staffFieldStatus, input.Status)}
 	if input.Phone = strings.TrimSpace(input.Phone); input.Phone != "" {
-		filter["phone"] = input.Phone
+		filters = append(filters, common.Eq(staffFieldPhone, input.Phone))
 	}
 	if input.Keyword = strings.TrimSpace(input.Keyword); input.Keyword != "" {
-		filter["name"] = bson.Regex{Pattern: regexp.QuoteMeta(input.Keyword), Options: "i"}
+		filters = append(filters, common.Regex(staffFieldName, regexp.QuoteMeta(input.Keyword), "i"))
 	}
 	if input.StaffIDs != nil {
-		staffIDs := compactObjectIDs(input.StaffIDs)
+		staffIDs := common.CompactObjectIDs(input.StaffIDs)
 		if len(staffIDs) == 0 {
 			return []authmodel.AdmStaff{}, 0, nil
 		}
-		filter["_id"] = bson.M{"$in": staffIDs}
+		filters = append(filters, common.In(staffFieldID, staffIDs))
 	}
 
-	total, err := r.Collection.CountDocuments(ctx, filter)
+	filter := common.And(filters...)
+	total, err := r.CountBy(ctx, filter)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count staff list: %w", err)
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
+	opts := []common.QueryOption{
+		common.SortBy(staffFieldCreatedAt, common.SortDesc),
+		common.SortBy(staffFieldID, common.SortDesc),
+	}
 	if input.Skip > 0 {
-		opts.SetSkip(input.Skip)
+		opts = append(opts, common.Skip(input.Skip))
 	}
 	if input.Limit > 0 {
-		opts.SetLimit(input.Limit)
+		opts = append(opts, common.Limit(input.Limit))
 	}
-	items, err := r.FindMany(ctx, filter, opts)
+	items, err := r.FindManyBy(ctx, filter, opts...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list staff: %w", err)
 	}
@@ -159,22 +164,23 @@ func (r *StaffRepository) UpdateFields(ctx context.Context, id bson.ObjectID, fi
 		return fmt.Errorf("update staff fields: fields is required")
 	}
 
-	fields = cloneBsonM(fields)
+	fields = common.CloneBSONMap(fields)
 	fields["updated_at"] = time.Now().Unix()
-	res, err := r.Collection.UpdateOne(ctx, bson.M{
-		"_id": id,
-		"status": bson.M{"$in": []int{
+	update := common.NewUpdateDoc().Inc(staffFieldVersion, 1)
+	for key, value := range fields {
+		update = update.Set(common.Field(key), value)
+	}
+	matched, err := r.UpdateOneBy(ctx, common.And(
+		common.Eq(staffFieldID, id),
+		common.In(staffFieldStatus, []int{
 			commonmodel.StatusActive,
 			commonmodel.StatusDeleted,
-		}},
-	}, bson.M{
-		"$set": fields,
-		"$inc": bson.M{"version": 1},
-	})
+		}),
+	), update)
 	if err != nil {
 		return fmt.Errorf("update staff fields: %w", err)
 	}
-	if res.MatchedCount == 0 {
+	if !matched {
 		return mongo.ErrNoDocuments
 	}
 	return nil
@@ -184,7 +190,7 @@ func (r *StaffRepository) RollbackCreate(ctx context.Context, id bson.ObjectID) 
 	if id.IsZero() {
 		return fmt.Errorf("rollback staff create: id is required")
 	}
-	if _, err := r.Collection.DeleteOne(ctx, bson.M{"_id": id}); err != nil {
+	if err := r.DeleteOneBy(ctx, common.Eq(staffFieldID, id)); err != nil {
 		return fmt.Errorf("rollback staff create: %w", err)
 	}
 	return nil
@@ -200,15 +206,4 @@ func normalizeStaff(staff *authmodel.AdmStaff) {
 	staff.Department = strings.TrimSpace(staff.Department)
 	staff.JobTitle = strings.TrimSpace(staff.JobTitle)
 	staff.ContactQRCode = strings.TrimSpace(staff.ContactQRCode)
-}
-
-func cloneBsonM(src bson.M) bson.M {
-	if src == nil {
-		return nil
-	}
-	dst := make(bson.M, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
-	return dst
 }

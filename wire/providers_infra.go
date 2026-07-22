@@ -87,8 +87,12 @@ func newCache(rc *dbredis.Client) *cache.Cache {
 	return cache.New(rc)
 }
 
-func newSessionStore(rc *dbredis.Client) *session.Store {
-	return session.NewStore(rc, 2*time.Hour)
+func newSessionStore(cfg *config.Config, rc *dbredis.Client) (*session.Store, error) {
+	ttl, err := cfg.Auth.SessionTTLDuration()
+	if err != nil {
+		return nil, err
+	}
+	return session.NewStore(rc, ttl), nil
 }
 
 func newContext() context.Context {

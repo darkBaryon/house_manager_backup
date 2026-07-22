@@ -2,141 +2,38 @@ package hpd
 
 import (
 	"fmt"
-	"go.mongodb.org/mongo-driver/v2/bson"
 	commonmodel "house-manager/internal/model/common"
 	hpdmodel "house-manager/internal/model/hpd"
+	"house-manager/internal/repository/common"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var (
-	listingLifecycleFields = allowedFields(
-		"listing_status",
-		"published_at",
-		"offline_at",
-	)
-
-	miniappProjectionFields = allowedFields(
-		"rent_mode",
-		"city",
-		"district",
-		"biz_area",
-		"community_name",
-		"building_or_community_name",
-		"subway_station",
-		"subway_distance_m",
-		"address_text",
-		"geo",
-		"title",
-		"subtitle",
-		"price",
-		"price_text",
-		"layout_text",
-		"area_size",
-		"orientation",
-		"floor_text",
-		"payment_cycle",
-		"feature_flags",
-		"listing_facilities",
-		"platform_tags",
-		"start_rent_rule",
-		"cost_items",
-		"description",
-		"risk_notice",
-		"contact_phone",
-		"images",
-		"weight_score",
-		"is_online",
-	)
-
-	publisherProjectionFields = allowedFields(
-		"owner_landlord_id",
-		"owner_phone_snapshot",
-		"landlord_name_snapshot",
-		"root_type",
-		"root_id",
-		"project_id",
-		"project_name",
-		"building_id",
-		"building_name",
-		"room_type_id",
-		"room_type_name",
-		"decentralized_id",
-		"community_name",
-		"rent_mode",
-		"city",
-		"district",
-		"biz_area",
-		"subway_station",
-		"address_text",
-		"geo",
-		"room_no",
-		"floor_no",
-		"title",
-		"subtitle",
-		"price",
-		"price_text",
-		"layout_text",
-		"area_size",
-		"orientation",
-		"decoration_level",
-		"payment_cycle",
-		"deposit",
-		"service_fee",
-		"agency_fee_mode",
-		"agency_fee_value",
-		"room_status",
-		"listing_status",
-		"viewing_time_rule",
-		"start_rent_rule",
-		"feature_flags",
-		"listing_facilities",
-		"room_facilities",
-		"images",
-		"is_online",
-	)
-
-	adminProjectionFields = allowedFields(
-		"owner_landlord_id",
-		"owner_phone_snapshot",
-		"landlord_name_snapshot",
-		"root_type",
-		"root_id",
-		"project_id",
-		"project_name",
-		"building_id",
-		"building_name",
-		"room_type_id",
-		"room_type_name",
-		"decentralized_id",
-		"community_name",
-		"rent_mode",
-		"city",
-		"district",
-		"biz_area",
-		"address_text",
-		"room_no",
-		"title",
-		"price",
-		"price_text",
-		"layout_text",
-		"area_size",
-		"room_status",
-		"listing_status",
-		"audit_status",
-		"is_online",
-		"latest_audit_task_id",
-		"latest_submitted_at",
-		"latest_reviewed_at",
-		"reviewer_staff_id",
-	)
+const (
+	hpdFieldID              common.Field = "_id"
+	hpdFieldStatus          common.Field = "status"
+	hpdFieldCreatedAt       common.Field = "created_at"
+	hpdFieldUpdatedAt       common.Field = "updated_at"
+	hpdFieldVersion         common.Field = "version"
+	hpdFieldListingID       common.Field = "listing_id"
+	hpdFieldSourceType      common.Field = "source_type"
+	hpdFieldSourceID        common.Field = "source_id"
+	hpdFieldOwnerLandlordID common.Field = "owner_landlord_id"
+	hpdFieldRootType        common.Field = "root_type"
+	hpdFieldRootID          common.Field = "root_id"
+	hpdFieldRelationStatus  common.Field = "relation_status"
+	hpdFieldProjectID       common.Field = "project_id"
+	hpdFieldBuildingID      common.Field = "building_id"
+	hpdFieldDecentralizedID common.Field = "decentralized_id"
+	hpdFieldRoomStatus      common.Field = "room_status"
+	hpdFieldListingStatus   common.Field = "listing_status"
+	hpdFieldAuditStatus     common.Field = "audit_status"
+	hpdFieldAssetMode       common.Field = "asset_mode"
+	hpdFieldCity            common.Field = "city"
+	hpdFieldDistrict        common.Field = "district"
+	hpdFieldIsOnline        common.Field = "is_online"
+	hpdFieldWeightScore     common.Field = "weight_score"
 )
-
-func allowedFields(fields ...string) map[string]struct{} {
-	allowed := make(map[string]struct{}, len(fields))
-	for _, field := range fields {
-		allowed[field] = struct{}{}
-	}
-	return allowed
-}
 
 func activeFilter(fields bson.M) bson.M {
 	filter := make(bson.M, len(fields)+1)
@@ -150,30 +47,12 @@ func activeFilter(fields bson.M) bson.M {
 	return filter
 }
 
-func pickAllowedFields(fields bson.M, allowed map[string]struct{}) (bson.M, error) {
-	if len(fields) == 0 {
-		return nil, fmt.Errorf("fields are required")
+func updateDocFromSetFields(fields bson.M) common.UpdateDoc {
+	update := common.NewUpdateDoc().Inc(hpdFieldVersion, 1)
+	for key, value := range fields {
+		update = update.Set(common.Field(key), value)
 	}
-
-	picked := make(bson.M, len(fields))
-	for k, v := range fields {
-		if _, ok := allowed[k]; !ok {
-			return nil, fmt.Errorf("field %q is not allowed to update", k)
-		}
-		picked[k] = v
-	}
-	return picked, nil
-}
-
-func cloneBsonM(src bson.M) bson.M {
-	if src == nil {
-		return nil
-	}
-	cloned := make(bson.M, len(src))
-	for k, v := range src {
-		cloned[k] = v
-	}
-	return cloned
+	return update
 }
 
 func listingFields(entity *hpdmodel.HpdListing) bson.M {
@@ -205,6 +84,10 @@ func miniappListingFields(entity *hpdmodel.HpdMiniappListing) bson.M {
 		"price":                      entity.Price,
 		"price_text":                 entity.PriceText,
 		"layout_text":                entity.LayoutText,
+		"room_count":                 entity.RoomCount,
+		"hall_count":                 entity.HallCount,
+		"bathroom_count":             entity.BathroomCount,
+		"kitchen_count":              entity.KitchenCount,
 		"area_size":                  entity.AreaSize,
 		"orientation":                entity.Orientation,
 		"floor_text":                 entity.FloorText,
@@ -256,6 +139,10 @@ func publisherListingFields(entity *hpdmodel.HpdPublisherListing) bson.M {
 		"price":                  entity.Price,
 		"price_text":             entity.PriceText,
 		"layout_text":            entity.LayoutText,
+		"room_count":             entity.RoomCount,
+		"hall_count":             entity.HallCount,
+		"bathroom_count":         entity.BathroomCount,
+		"kitchen_count":          entity.KitchenCount,
 		"area_size":              entity.AreaSize,
 		"orientation":            entity.Orientation,
 		"decoration_level":       entity.DecorationLevel,
@@ -305,6 +192,10 @@ func adminListingFields(entity *hpdmodel.HpdAdminListing) bson.M {
 		"price":                  entity.Price,
 		"price_text":             entity.PriceText,
 		"layout_text":            entity.LayoutText,
+		"room_count":             entity.RoomCount,
+		"hall_count":             entity.HallCount,
+		"bathroom_count":         entity.BathroomCount,
+		"kitchen_count":          entity.KitchenCount,
 		"area_size":              entity.AreaSize,
 		"room_status":            entity.RoomStatus,
 		"listing_status":         entity.ListingStatus,
@@ -315,10 +206,6 @@ func adminListingFields(entity *hpdmodel.HpdAdminListing) bson.M {
 		"latest_reviewed_at":     entity.LatestReviewedAt,
 		"reviewer_staff_id":      entity.ReviewerStaffID,
 	}
-}
-
-func listingStatusUpdateFields(listingStatus hpdmodel.HpdListingStatus) bson.M {
-	return bson.M{"listing_status": listingStatus}
 }
 
 func rootScopeRelationFields(entity *hpdmodel.HpdRootScopeRelation) bson.M {

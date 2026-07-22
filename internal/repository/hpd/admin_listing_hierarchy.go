@@ -3,11 +3,13 @@ package hpd
 import (
 	"context"
 	"fmt"
+
 	hmdmodel "house-manager/internal/model/hmd"
 	hpdmodel "house-manager/internal/model/hpd"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type AdminRootListFilter struct {
@@ -192,14 +194,17 @@ func facetStages(skip, limit int64) bson.D {
 }
 
 func aggregateAdminList[T any](ctx context.Context, r *AdminListingRepository, pipeline bson.A) (*aggregateListResult[T], error) {
-	cursor, err := r.Collection.Aggregate(ctx, pipeline)
-	if err != nil {
-		return nil, err
+	mongoPipeline := make(mongo.Pipeline, 0, len(pipeline))
+	for _, stage := range pipeline {
+		doc, ok := stage.(bson.D)
+		if !ok {
+			return nil, fmt.Errorf("aggregate stage must be bson.D, got %T", stage)
+		}
+		mongoPipeline = append(mongoPipeline, doc)
 	}
-	defer cursor.Close(ctx)
 
 	var results []aggregateListResult[T]
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := r.Aggregate(ctx, mongoPipeline, &results); err != nil {
 		return nil, err
 	}
 	if len(results) == 0 {

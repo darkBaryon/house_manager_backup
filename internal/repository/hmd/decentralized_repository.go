@@ -89,16 +89,13 @@ func (r *DecentralizedRepository) ListByDistrict(ctx context.Context, city, dist
 	return r.List(ctx, city, district)
 }
 
-func (r *DecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, fields bson.M) error {
+func (r *DecentralizedRepository) UpdateBaseInfo(ctx context.Context, id bson.ObjectID, update DecentralizedBaseInfoUpdate) error {
 	if id.IsZero() {
 		return fmt.Errorf("update hmd decentralized base info: id is required")
 	}
-	safeFields, err := pickAllowedFields(fields, decentralizedBaseInfoFields)
+	fields, err := decentralizedBaseInfoUpdateFields(update)
 	if err != nil {
 		return fmt.Errorf("update hmd decentralized base info: %w", err)
 	}
-	if err := hmdmodel.ValidateHmdUpdateFields(safeFields); err != nil {
-		return fmt.Errorf("update hmd decentralized base info: %w", err)
-	}
-	return r.UpdateFieldsByID(ctx, id, safeFields)
+	return r.UpdateFieldsByID(ctx, id, fields)
 }

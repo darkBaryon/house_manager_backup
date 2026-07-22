@@ -36,9 +36,21 @@ wechat:
   secret: ""
   api_base: "https://api.weixin.qq.com"
 
+auth:
+  session_ttl: "168h"
+
+ai_chat:
+  python_base_url: ""
+  internal_token: ""
+  respond_timeout: "120s"
+  tool_timeout: "5s"
+  session_idle_timeout: "30m"
+  recent_message_limit: 20
+  runtime_context_ttl: "24h"
+
 log:
   level: "info"
   format: "json"
-  add_source: false
+  add_source: true
   service: "house-manager"
   env: "prod"

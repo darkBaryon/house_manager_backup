@@ -32,6 +32,18 @@ const (
 	HmdScopeDecentralizedRoom      HmdProjectionScope = "decentralized_room"
 )
 
+// AllProjectionScopes 是投影 scope 的唯一枚举源。
+// 新增 scope 常量时必须同步在此登记；listingprojection 各 projector 的
+// dispatch 穷举测试遍历本切片，漏登记会导致对应 scope 不被投影。
+var AllProjectionScopes = []HmdProjectionScope{
+	HmdScopeCentralizedProject,
+	HmdScopeBuilding,
+	HmdScopeRoomTypeCentralized,
+	HmdScopeCentralizedRoom,
+	HmdScopeDecentralizedCommunity,
+	HmdScopeDecentralizedRoom,
+}
+
 type HmdChange struct {
 	Action          HmdChangeAction    `json:"action"`
 	EntityType      HmdEntityType      `json:"entityType"`

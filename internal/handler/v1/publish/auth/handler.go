@@ -6,6 +6,7 @@ import (
 	"house-manager/internal/handler"
 	"house-manager/internal/middleware"
 	authsvc "house-manager/internal/service/publish/auth"
+	"house-manager/pkg/applog"
 	"house-manager/pkg/errcode"
 	"house-manager/pkg/requestlog"
 	"house-manager/pkg/response"
@@ -55,7 +56,7 @@ func (h *PublicHandler) Login(c *gin.Context) {
 		response.Err(c, errcode.InvalidParam.WithError(err))
 		return
 	}
-	requestlog.AddField(c, "phone", maskPhone(req.Phone))
+	requestlog.AddField(c, "phone", applog.MaskPhone(req.Phone))
 	result, err := h.service.Login(c.Request.Context(), authsvc.LoginInput{
 		Phone:     req.Phone,
 		Password:  req.Password,
@@ -110,10 +111,3 @@ func principalFromContext(c *gin.Context) (session.Principal, bool) {
 var _ handler.RouteRegistrar = (*Handler)(nil)
 var _ handler.RouteRegistrar = (*PublicHandler)(nil)
 var _ Service = (*authsvc.Service)(nil)
-
-func maskPhone(phone string) string {
-	if len(phone) < 7 {
-		return phone
-	}
-	return phone[:3] + "****" + phone[len(phone)-4:]
-}
